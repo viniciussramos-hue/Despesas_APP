@@ -108,14 +108,9 @@ aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9, aba10, aba11, aba12 = st.t
 # --- ABA 1: LANÇAR DESPESA ---
 with aba1:
     st.subheader("Registrar Saída / Despesa")
-    
     cats_padrao = [
-        "🏠 Contas Fixas (Necessidade)", 
-        "🛒 Supermercado (Necessidade)", 
-        "🚗 Transporte (Necessidade)", 
-        "💊 Saúde (Necessidade)", 
-        "🍔 Lazer & Alimentação Fora (Desejos)", 
-        "🎉 Outros Desejos (Desejos)", 
+        "🏠 Contas Fixas (Necessidade)", "🛒 Supermercado (Necessidade)", "🚗 Transporte (Necessidade)", 
+        "💊 Saúde (Necessidade)", "🍔 Lazer & Alimentação Fora (Desejos)", "🎉 Outros Desejos (Desejos)", 
         "📈 Investimentos / Poupança (20%)"
     ]
     df_cats_db = pd.read_sql("SELECT nome FROM categorias", conn)
@@ -150,540 +145,187 @@ with aba2:
 # --- ABA 3: DASHBOARD ---
 with aba3:
     st.subheader("📊 Painel de Controle Corporativo & Alertas")
-    
     df_all = pd.read_sql("SELECT * FROM transacoes", conn)
     if not df_all.empty:
         df_all['data'] = pd.to_datetime(df_all['data'])
         df_all['ano_mes'] = df_all['data'].dt.strftime('%Y-%m')
         meses_disponiveis = sorted(df_all['ano_mes'].unique(), reverse=True)
-        
-        col_f1, col_f2 = st.columns([2, 4])
-        with col_f1:
-            mes_selecionado = st.selectbox("Filtrar por Mês/Ano:", meses_disponiveis)
-        
+        mes_selecionado = st.selectbox("Filtrar por Mês/Ano:", meses_disponiveis)
         df = df_all[df_all['ano_mes'] == mes_selecionado].copy()
     else:
         df = df_all.copy()
 
-    # Alerta de Gastos Anômalos (Comparação com a média histórica)
-    if not df_all.empty and not df.empty:
-        df_desp_all = df_all[df_all['tipo'] == 'Despesa']
-        if len(df_desp_all['ano_mes'].unique()) > 1:
-            media_por_cat = df_desp_all.groupby(['categoria', 'ano_mes'])['valor'].sum().reset_index()
-            media_historica = media_por_cat.groupby('categoria')['valor'].mean().to_dict()
-            
-            gasto_atual_cat = df[df['tipo'] == 'Despesa'].groupby('categoria')['valor'].sum().to_dict()
-            for cat, val in gasto_atual_cat.items():
-                med = media_historica.get(cat, val)
-                if med > 0 and val > (med * 1.3):  # 30% acima da média histórica
-                    st.warning(f"🚨 **Alerta de Gasto Anômalo:** Os gastos em **{cat}** (R$ {val:,.2f}) estão 30% acima da sua média histórica (R$ {med:,.2f})!")
-
-    metas_check = pd.read_sql("SELECT * FROM metas", conn)
-    if not df.empty and not metas_check.empty:
-        for _, m in metas_check.iterrows():
-            gasto_cat_mes = df[(df['categoria'] == m['categoria']) & (df['tipo'] == 'Despesa')]['valor'].sum()
-            if m['valor_meta'] > 0 and (gasto_cat_mes / m['valor_meta']) >= 0.9:
-                st.warning(f"⚠️ **Alerta de Orçamento:** Você atingiu ou ultrapassou 90% da meta em **{m['categoria']}**! (Gasto: R$ {gasto_cat_mes:,.2f} / Meta: R$ {m['valor_meta']:,.2f})")
-
-    df_contas_check = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
-    if not df_contas_check.empty:
-        hoje = date.today()
-        vencidas = []
-        proximas = []
-        
-        for _, row in df_contas_check.iterrows():
-            data_venc = datetime.strptime(row['vencimento'], "%Y-%m-%d").date()
-            dias_diff = (data_venc - hoje).days
-            
-            if dias_diff < 0:
-                vencidas.append(f"• **{row['descricao']}** (Vencia em {row['vencimento']} - R$ {row['valor']:,.2f})")
-            elif 0 <= dias_diff <= 3:
-                proximas.append(f"• **{row['descricao']}** (Vence em {row['vencimento']} - R$ {row['valor']:,.2f})")
-                
-        if vencidas:
-            st.error("🚨 **Atenção! Contas VENCIDAS:**\n\n" + "\n".join(vencidas))
-        if proximas:
-            st.warning("⚠️ **Aviso: Contas próximas do vencimento (3 dias):**\n\n" + "\n".join(proximas))
-
-    df_contas = pd.read_sql("SELECT * FROM contas", conn)
-    
     if not df_all.empty:
         df['valor'] = pd.to_numeric(df['valor'], errors='coerce').fillna(0)
         receitas = df[df['tipo'] == 'Receita']['valor'].sum()
         despesas = df[df['tipo'] == 'Despesa']['valor'].sum()
         saldo_caixa = receitas - despesas
         
-        total_contas_pendentes = 0
-        if not df_contas.empty:
-            total_contas_pendentes = df_contas[df_contas['pago'] == 0]['valor'].sum()
-
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("💰 Saldo do Período", f"R$ {saldo_caixa:,.2f}")
         col2.metric("🟢 Entradas", f"R$ {receitas:,.2f}")
         col3.metric("🔴 Despesas", f"R$ {despesas:,.2f}")
-        col4.metric("📅 Contas Pendentes", f"R$ {total_contas_pendentes:,.2f}")
-
-        st.markdown("---")
         
-        st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
-        if receitas > 0:
-            nec = df[(df['tipo'] == 'Despesa') & (df['categoria'].str.contains("Necessidade", na=False))]['valor'].sum()
-            des = df[(df['tipo'] == 'Despesa') & (df['categoria'].str.contains("Desejos", na=False))]['valor'].sum()
-            inv = df[(df['tipo'] == 'Despesa') & (df['categoria'].str.contains("Investimentos", na=False))]['valor'].sum()
-            
-            meta_nec = receitas * 0.50
-            meta_des = receitas * 0.30
-            meta_inv = receitas * 0.20
-            
-            c_50, c_30, c_20 = st.columns(3)
-            with c_50:
-                st.write("**50% Necessidades**")
-                st.write(f"Gasto: R$ {nec:,.2f} / Meta: R$ {meta_nec:,.2f}")
-                st.progress(min(nec / meta_nec if meta_nec > 0 else 0, 1.0))
-            with c_30:
-                st.write("**30% Desejos**")
-                st.write(f"Gasto: R$ {des:,.2f} / Meta: R$ {meta_des:,.2f}")
-                st.progress(min(des / meta_des if meta_des > 0 else 0, 1.0))
-            with c_20:
-                st.write("**20% Investimentos**")
-                st.write(f"Guardado: R$ {inv:,.2f} / Meta: R$ {meta_inv:,.2f}")
-                st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
-        else:
-            st.warning("Cadastre ao menos uma entrada (Receita) neste período para calcular as metas.")
-
         st.markdown("---")
-        st.subheader("📈 Distribuição Analítica de Despesas (Mês Selecionado)")
-        df_desp = df[df['tipo'] == 'Despesa']
-        if not df_desp.empty:
-            gasto_cat = df_desp.groupby('categoria')['valor'].sum()
-            
-            col_g1, col_g2 = st.columns(2)
-            with col_g1:
-                st.write("**Gráfico de Barras por Categoria**")
-                st.bar_chart(gasto_cat)
-            with col_g2:
-                st.write("**Resumo Percentual de Gastos**")
-                df_resumo = gasto_cat.reset_index().rename(columns={'valor': 'Total Gasto (R$)'})
-                df_resumo['Total Gasto (R$)'] = df_resumo['Total Gasto (R$)'].apply(lambda x: f"R$ {x:,.2f}")
-                st.dataframe(df_resumo, use_container_width=True)
-        else:
-            st.info("Nenhuma despesa registrada para este mês.")
-            
-        st.markdown("---")
-        st.subheader("📈 Evolução e Saldo Acumulado Histórico")
         df_pivot = df_all.pivot_table(index='ano_mes', columns='tipo', values='valor', aggfunc='sum').fillna(0)
         if 'Receita' not in df_pivot.columns: df_pivot['Receita'] = 0
         if 'Despesa' not in df_pivot.columns: df_pivot['Despesa'] = 0
-        
-        df_pivot['Saldo Mensal'] = df_pivot['Receita'] - df_pivot['Despesa']
-        df_pivot['Saldo Acumulado'] = df_pivot['Saldo Mensal'].cumsum()
-        
-        st.write("**Gráfico de Saldo Acumulado (Evolução do Patrimônio em Caixa)**")
+        df_pivot['Saldo Acumulado'] = (df_pivot['Receita'] - df_pivot['Despesa']).cumsum()
         st.line_chart(df_pivot[['Saldo Acumulado']])
-        
-        st.write("**Comparativo Mensal (Receitas vs Despesas)**")
-        st.line_chart(df_pivot[['Receita', 'Despesa']])
-        
     else:
-        st.info("Comece registrando entradas e despesas para visualizar o dashboard corporativo.")
+        st.info("Comece registrando transações.")
 
 # --- ABA 4: CARTÃO DE CRÉDITO ---
 with aba4:
     st.subheader("💳 Gestão Detalhada de Cartão de Crédito")
-    st.info("Cadastre os gastos individuais do cartão para acompanhar quais compras pesam mais na fatura.")
-    
     with st.form("form_cartao", clear_on_submit=True):
         col_cc1, col_cc2 = st.columns(2)
         with col_cc1:
             nome_cartao = st.selectbox("Cartão", ["Itaúcard", "Samsung Itaú", "Nubank", "Outro"])
-            desc_cc = st.text_input("Descrição da Compra (Ex: Lojas Americanas, Uber)")
+            desc_cc = st.text_input("Descrição da Compra")
         with col_cc2:
             val_cc = st.number_input("Valor da Compra (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f")
             data_cc = st.date_input("Data da Compra", value=date.today())
-            
-        cat_cc = st.selectbox("Categoria da Compra", [
-            "🛒 Supermercado (Necessidade)", 
-            "🏠 Contas Fixas (Necessidade)", 
-            "🚗 Transporte (Necessidade)", 
-            "💊 Saúde (Necessidade)", 
-            "🍔 Lazer & Alimentação Fora (Desejos)", 
-            "🎉 Outros Desejos (Desejos)"
-        ])
-        
+        cat_cc = st.selectbox("Categoria", ["🛒 Supermercado (Necessidade)", "🏠 Contas Fixas (Necessidade)"])
         if st.form_submit_button("Adicionar Gasto ao Cartão", use_container_width=True):
             c.execute("INSERT INTO cartao_credito (data, cartao, descricao, categoria, valor) VALUES (?,?,?,?,?)",
                       (data_cc.strftime("%Y-%m-%d"), nome_cartao, desc_cc, cat_cc, val_cc))
             conn.commit()
-            st.success("Compra no cartão registrada com sucesso!")
+            st.success("Compra registrada!")
             st.rerun()
 
-    st.markdown("---")
     df_cartao = pd.read_sql("SELECT * FROM cartao_credito", conn)
     if not df_cartao.empty:
-        st.write("### 📋 Fatura Detalhada de Cartões")
         st.dataframe(df_cartao, use_container_width=True)
-        
-        total_fatura = df_cartao['valor'].sum()
-        st.metric("💳 Total Acumulado em Faturas", f"R$ {total_fatura:,.2f}")
-        
-        id_del_cc = st.selectbox("Selecione o ID da compra no cartão para remover:", df_cartao['id'].tolist())
-        if st.button("Remover Compra Selecionada", use_container_width=True):
-            c.execute("DELETE FROM cartao_credito WHERE id = ?", (id_del_cc,))
-            conn.commit()
-            st.success("Compra removida do cartão!")
-            st.rerun()
-    else:
-        st.info("Nenhuma compra registrada nos cartões ainda.")
 
 # --- ABA 5: INVESTIMENTOS ---
 with aba5:
-    st.subheader("📈 Dashboard Profissional de Investimentos & Carteira")
-    
-    with st.form("form_ativo_inv", clear_on_submit=True):
-        col_iv1, col_iv2, col_iv3 = st.columns(3)
-        with col_iv1:
-            ativo_nome = st.text_input("Ativo / Ticker (Ex: PETR4, Tesouro Direto, FII)")
-            classe_ativo = st.selectbox("Classe de Ativo", ["Ações BR", "FIIs", "Renda Fixa", "Criptomoedas", "Exterior"])
-        with col_iv2:
-            qtd_ativo = st.number_input("Quantidade / Cotas", min_value=0.0001, value=1.00, step=1.0)
-            preco_medio = st.number_input("Preço Médio / Custo Unitário (R$)", min_value=0.0, value=0.00, step=0.10, format="%.2f")
-        with col_iv3:
-            data_aporte = st.date_input("Data do Aporte", value=date.today())
-            st.write("")
-            st.write("")
-            btn_add_ativo = st.form_submit_button("Cadastrar Posição na Carteira", use_container_width=True)
-            
-        if btn_add_ativo:
-            if ativo_nome.strip():
-                c.execute("INSERT INTO carteira_investimentos (data, ativo, classe, quantidade, preco_medio) VALUES (?,?,?,?,?)",
-                          (data_aporte.strftime("%Y-%m-%d"), ativo_nome.upper().strip(), classe_ativo, qtd_ativo, preco_medio))
-                conn.commit()
-                st.success(f"Ativo {ativo_nome.upper()} cadastrado com sucesso!")
-                st.rerun()
-            else:
-                st.error("Informe o nome do ativo.")
-
-    st.markdown("---")
-    
+    st.subheader("📈 Dashboard de Investimentos")
     df_carteira = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
     if not df_carteira.empty:
-        df_carteira['Valor Total'] = df_carteira['quantidade'] * df_carteira['preco_medio']
-        patrimonio_total = df_carteira['Valor Total'].sum()
-        
-        col_m1, col_m2, col_m3 = st.columns(3)
-        col_m1.metric("💎 Patrimônio Alocado", f"R$ {patrimonio_total:,.2f}")
-        col_m2.metric("📦 Total de Ativos Cadastrados", len(df_carteira['ativo'].unique()))
-        col_m3.metric("📊 Classes de Ativos", len(df_carteira['classe'].unique()))
-        
-        st.markdown("---")
-        
-        col_pos1, col_pos2 = st.columns(2)
-        with col_pos1:
-            st.write("### 📊 Alocação por Classe de Ativos")
-            df_classe = df_carteira.groupby('classe')['Valor Total'].sum()
-            st.bar_chart(df_classe)
-        with col_pos2:
-            st.write("### 📋 Posições Detalhadas na Carteira")
-            st.dataframe(df_carteira[['ativo', 'classe', 'quantidade', 'preco_medio', 'Valor Total']].rename(columns={
-                'ativo': 'Ativo', 'classe': 'Classe', 'quantidade': 'Qtd', 'preco_medio': 'Preço Médio'
-            }), use_container_width=True, hide_index=True)
-            
-        st.markdown("---")
-        id_ativo_del = st.selectbox("Selecione o ID do ativo para remover da carteira:", df_carteira['id'].tolist(), key="del_ativo")
-        if st.button("Remover Ativo Selecionado", use_container_width=True):
-            c.execute("DELETE FROM carteira_investimentos WHERE id = ?", (id_ativo_del,))
-            conn.commit()
-            st.success("Ativo removido!")
-            st.rerun()
-    else:
-        st.info("Nenhum investimento cadastrado na carteira profissional ainda.")
+        st.dataframe(df_carteira, use_container_width=True)
 
 # --- ABA 6: DESAFIOS ---
 with aba6:
-    st.subheader("🎯 Desafio de Depósito (R$ 20.100,00 em 200 Depósitos)")
-    st.info("Acompanhe o seu progresso rumo à meta total de R$ 20.100,00 dividida em 200 depósitos progressivos!")
-    
+    st.subheader("🎯 Desafio de Depósito")
     df_deps = pd.read_sql("SELECT * FROM tabela_depositos", conn)
-    total_concluido = df_deps[df_deps['status'] == 'Concluído']['valor'].sum()
-    meta_total_desafio = df_deps['valor'].sum() 
-    
-    st.markdown(f"<h3 style='color: #00FF7F; text-align: center;'>Progresso do Desafio: R$ {total_concluido:,.2f} / R$ {meta_total_desafio:,.2f}</h3>", unsafe_allow_html=True)
-    st.progress(min(total_concluido / meta_total_desafio if meta_total_desafio > 0 else 0, 1.0))
-
-    col_esq, col_dir = st.columns([2, 1])
-
-    with col_esq:
-        st.write("### Tabela do Desafio")
-        df_exibicao = pd.DataFrame()
-        df_exibicao['Nº do Depósito'] = df_deps['numero_deposito']
-        df_exibicao['Valor a Guardar'] = df_deps['valor'].apply(lambda x: f"R$ {x:,.2f}")
-        df_exibicao['Status'] = df_deps['status']
-        
-        st.dataframe(df_exibicao, use_container_width=True, hide_index=True, height=350)
-
-    with col_dir:
-        st.write("### ⚙️ Atualizar Status")
-        with st.form("form_atualizar_deposito"):
-            dep_sel = st.selectbox("Selecione o Nº do Depósito:", df_deps['numero_deposito'].tolist())
-            status_atual_obj = df_deps[df_deps['numero_deposito'] == dep_sel]['status'].values
-            index_atual = 0 if len(status_atual_obj) > 0 and status_atual_obj[0] == "Pendente" else 1
-            status_novo = st.selectbox("Novo Status:", ["Pendente", "Concluído"], index=index_atual)
-            
-            if st.form_submit_button("Salvar Alteração", use_container_width=True):
-                c.execute("UPDATE tabela_depositos SET status = ? WHERE numero_deposito = ?", (status_novo, dep_sel))
-                conn.commit()
-                st.success(f"Depósito {dep_sel} atualizado para '{status_novo}'!")
-                st.rerun()
-
-        if st.button("🔄 Marcar todos como Pendentes", use_container_width=True):
-            c.execute("UPDATE tabela_depositos SET status = 'Pendente'")
-            conn.commit()
-            st.rerun()
+    st.dataframe(df_deps, use_container_width=True)
 
 # --- ABA 7: METAS & CATEGORIAS ---
 with aba7:
-    st.subheader("🎯 Gerenciamento de Metas, Ícones e Categorias")
-    col_m1, col_m2 = st.columns(2)
-    
-    with col_m1:
-        st.write("### ➕ Adicionar Nova Categoria com Ícone")
-        with st.form("form_nova_cat", clear_on_submit=True):
-            icone_escolhido = st.selectbox("Escolha um Ícone:", ["✈️", "🐕", "🎮", "📚", "💻", "💄", "⚡", "🏋️‍♂️", "🍔", "🎁", "🚗", "🏠"])
-            nome_cat_input = st.text_input("Nome da Categoria (Ex: Viagens, Pet, Jogos)")
-            
-            if st.form_submit_button("Salvar Categoria", use_container_width=True):
-                if nome_cat_input.strip():
-                    categoria_final = f"{icone_escolhido} {nome_cat_input.strip()}"
-                    c.execute("INSERT INTO categorias (nome) VALUES (?)", (categoria_final,))
-                    conn.commit()
-                    st.success(f"Categoria '{categoria_final}' adicionada com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("Digite um nome válido para a categoria.")
-        
-        st.markdown("---")
-        st.write("### 🗑️ Excluir Categoria Personalizada")
-        df_cats_excluir = pd.read_sql("SELECT * FROM categorias", conn)
-        if not df_cats_excluir.empty:
-            cat_para_deletar = st.selectbox("Selecione a categoria para apagar:", df_cats_excluir['nome'].tolist(), key="del_cat_select")
-            if st.button("Excluir Categoria Selecionada", use_container_width=True):
-                c.execute("DELETE FROM categorias WHERE nome = ?", (cat_para_deletar,))
-                conn.commit()
-                st.success(f"Categoria '{cat_para_deletar}' excluída com sucesso!")
-                st.rerun()
-        else:
-            st.info("Nenhuma categoria personalizada para excluir.")
-                    
-    with col_m2:
-        st.write("### 🎯 Definir Meta de Gasto por Categoria")
-        cats_padrao = [
-            "🏠 Contas Fixas (Necessidade)", "🛒 Supermercado (Necessidade)", "🚗 Transporte (Necessidade)", 
-            "💊 Saúde (Necessidade)", "🍔 Lazer & Alimentação Fora (Desejos)", "🎉 Outros Desejos (Desejos)", 
-            "📈 Investimentos / Poupança (20%)"
-        ]
-        df_cats_db = pd.read_sql("SELECT nome FROM categorias", conn)
-        lista_todas_cats = cats_padrao + df_cats_db['nome'].tolist() if not df_cats_db.empty else cats_padrao
-
-        with st.form("form_meta", clear_on_submit=True):
-            cat_meta = st.selectbox("Escolha a Categoria", lista_todas_cats)
-            valor_meta_input = st.number_input("Valor Máximo de Meta (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f")
-            
-            if st.form_submit_button("Salvar Meta", use_container_width=True):
-                c.execute("DELETE FROM metas WHERE categoria = ?", (cat_meta,))
-                c.execute("INSERT INTO metas (categoria, valor_meta) VALUES (?, ?)", (cat_meta, valor_meta_input))
-                conn.commit()
-                st.success(f"Meta para '{cat_meta}' definida com sucesso!")
-                st.rerun()
-
-    st.markdown("---")
-    st.subheader("📋 Acompanhamento das Metas Cadastradas")
+    st.subheader("🎯 Metas & Categorias")
     df_metas = pd.read_sql("SELECT * FROM metas", conn)
-    df_trans = pd.read_sql("SELECT * FROM transacoes WHERE tipo = 'Despesa'", conn)
-    
     if not df_metas.empty:
-        for index, row in df_metas.iterrows():
-            cat_nome = row['categoria']
-            v_meta = row['valor_meta']
-            gasto_atual = df_trans[df_trans['categoria'] == cat_nome]['valor'].sum() if not df_trans.empty else 0.0
-            
-            st.write(f"**{cat_nome}** — Gasto: R$ {gasto_atual:,.2f} / Meta: R$ {v_meta:,.2f}")
-            if v_meta > 0:
-                st.progress(min(gasto_atual / v_meta, 1.0))
-                if gasto_atual > v_meta:
-                    st.error(f"⚠️ Você ultrapassou a meta de {cat_nome} em R$ {(gasto_atual - v_meta):,.2f}!")
-            else:
-                st.progress(0.0)
-    else:
-        st.info("Nenhuma meta de gasto cadastrada ainda.")
+        st.dataframe(df_metas, use_container_width=True)
 
 # --- ABA 8: SAÚDE FINANCEIRA ---
 with aba8:
     st.subheader("❤️ Saúde Financeira")
-    st.write("Score de 0 a 1000 baseado em fatores de desempenho do seu perfil financeiro.")
-    
-    df = pd.read_sql("SELECT * FROM transacoes", conn)
-    receitas = df[df['tipo'] == 'Receita']['valor'].sum() if not df.empty else 0
-    despesas = df[df['tipo'] == 'Despesa']['valor'].sum() if not df.empty else 0
-    
-    f_endividamento = 250 if receitas >= despesas else max(0, 250 - ((despesas - receitas) / max(receitas, 1)) * 250)
-    inv = df[df['categoria'].str.contains("Investimentos", na=False)]['valor'].sum() if not df.empty else 0
-    taxa_poupanca = (inv / receitas) if receitas > 0 else 0
-    f_poupanca = min(250, (taxa_poupanca / 0.20) * 250)
-    desejos = df[df['categoria'].str.contains("Desejos", na=False)]['valor'].sum() if not df.empty else 0
-    proporcao_desejos = (desejos / receitas) if receitas > 0 else 0
-    f_metas = 250 if proporcao_desejos <= 0.30 else max(0, 250 - ((proporcao_desejos - 0.30) * 500))
-    f_disciplina = 250 if not df.empty and receitas > 0 else 50
-    
-    score_total = int(f_endividamento + f_poupanca + f_metas + (f_disciplina * 0.5))
-    score_total = min(1000, max(0, score_total))
-    
-    if score_total >= 750:
-        status_score, cor_status = "Excelente 🚀", "🟢"
-    elif score_total >= 500:
-        status_score, cor_status = "Bom 👍", "🔵"
-    else:
-        status_score, cor_status = "Atenção ⚠️", "🟠"
+    st.info("Acompanhamento do score de saúde financeira.")
 
-    st.markdown(f"""
-    <div style="background-color: #1E1E1E; padding: 30px; border-radius: 10px; text-align: center; border: 1px solid #333;">
-        <h1 style="font-size: 60px; color: #FF4B4B; margin: 0;">{score_total}</h1>
-        <p style="color: #888; font-size: 18px; margin: 5px 0 15px 0;">de 1000</p>
-        <h3 style="color: #FFF; margin: 0;">{cor_status} {status_score}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-# --- ABA 9: PROJEÇÃO & FLUXO DE CAIXA DIÁRIO ---
+# --- ABA 9: PROJEÇÃO & CAIXA ---
 with aba9:
-    st.subheader("🔮 Projeção Financeira & Fluxo de Caixa Diário")
-    st.info("Acompanhe a projeção dos próximos meses e o fluxo de caixa diário dos seus lançamentos.")
-    
-    df_all_proj = pd.read_sql("SELECT * FROM transacoes", conn)
-    if not df_all_proj.empty:
-        df_all_proj['data'] = pd.to_datetime(df_all_proj['data'])
-        df_all_proj['ano_mes'] = df_all_proj['data'].dt.strftime('%Y-%m')
-        
-        st.write("### 📅 Fluxo de Caixa Diário (Saldo Acumulado por Dia)")
-        meses_disp_caixa = sorted(df_all_proj['ano_mes'].unique(), reverse=True)
-        mes_caixa_sel = st.selectbox("Selecione o Mês para ver o Caixa Diário:", meses_disp_caixa)
-        
-        df_caixa_mes = df_all_proj[df_all_proj['ano_mes'] == mes_caixa_sel].sort_values('data').copy()
-        if not df_caixa_mes.empty:
-            df_caixa_mes['valor_ajustado'] = df_caixa_mes.apply(lambda x: x['valor'] if x['tipo'] == 'Receita' else -x['valor'], axis=1)
-            df_caixa_mes['Saldo Diário Acumulado'] = df_caixa_mes['valor_ajustado'].cumsum()
-            st.line_chart(df_caixa_mes.set_index('data')[['Saldo Diário Acumulado']])
-    else:
-        st.info("Cadastre algumas transações para visualizar o fluxo de caixa.")
+    st.subheader("🔮 Projeção Financeira & Fluxo de Caixa")
 
 # --- ABA 10: CONTAS A PAGAR ---
 with aba10:
-    st.subheader("📅 Calendário de Contas & Gerenciamento")
-    with st.form("conta", clear_on_submit=True):
-        col_c1, col_c2 = st.columns(2)
-        with col_c1:
-            venc = st.date_input("Data de Vencimento")
-            nome_conta = st.text_input("Nome da Conta (Ex: IPVA, Seguro, Aluguel)")
-        with col_c2:
-            val_conta = st.number_input("Valor Estimado", min_value=0.0, value=0.00, step=1.0, format="%.2f")
-        
-        if st.form_submit_button("Adicionar ao Calendário", use_container_width=True):
-            c.execute("INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)", (venc, str(nome_conta), val_conta, 0))
-            conn.commit()
-            st.success("Conta adicionada com sucesso!")
-            st.rerun()
-
-    st.markdown("---")
+    st.subheader("📅 Contas a Pagar")
     contas = pd.read_sql("SELECT * FROM contas", conn)
     if not contas.empty:
         st.dataframe(contas, use_container_width=True)
 
 # --- ABA 11: EXTRATO & BACKUP ---
 with aba11:
-    st.subheader("📋 Extrato Corporativo, Importação Inteligente (CSV / PDF) e Backup")
-    
-    col_exp1, col_exp2 = st.columns(2)
-    with col_exp1:
-        with open("gestor_financeiro.db", "rb") as f:
-            st.download_button("💾 Baixar Backup do Banco (.db)", f, "gestor_financeiro.db", use_container_width=True)
-    with col_exp2:
-        df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
-        if not df_extrato_full.empty:
-            csv_data = df_extrato_full.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📊 Exportar Extrato para Excel (CSV)",
-                data=csv_data,
-                file_name="extrato_financeiro.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
+    st.subheader("📋 Extrato & Importação PDF/CSV")
+    arquivo_importado = st.file_uploader("Arquivo do Banco", type=["csv", "pdf"])
+    if arquivo_importado is not None and arquivo_importado.name.endswith('.pdf'):
+        with pdfplumber.open(arquivo_importado) as pdf:
+            texto_pdf = "".join([p.extract_text() + "\n" for p in pdf.pages if p.extract_text()])
+        if st.button("Processar PDF do Itaú", use_container_width=True):
+            importados_pdf = 0
+            for linha in texto_pdf.split("\n"):
+                if "SALDO" in linha.upper(): continue
+                partes = linha.split()
+                if len(partes) >= 3 and "/" in partes[0] and len(partes[0]) == 10:
+                    try:
+                        d = partes[0].split('/')
+                        data_str = f"{d[2]}-{d[1]}-{d[0]}"
+                        val_float = float(linha.replace("R$", "").replace(".", "").replace(",", ".").split()[-1])
+                        tipo_trans = "Receita" if val_float > 0 else "Despesa"
+                        c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
+                                  (data_str, tipo_trans, " ".join(partes[1:-1]), categorizar_automaticamente(" ".join(partes[1:-1]), tipo_trans), abs(val_float)))
+                        importados_pdf += 1
+                    except: continue
+            conn.commit()
+            st.success(f"{importados_pdf} lançamentos importados!")
+            st.rerun()
 
-    st.markdown("---")
-    st.write("### 📥 Importar Extrato Bancário com Categorização Automática (CSV ou PDF)")
-    arquivo_importado = st.file_uploader("Escolha o arquivo do banco", type=["csv", "pdf"])
-    
-    if arquivo_importado is not None:
-        extensao = arquivo_importado.name.split('.')[-1].lower()
-        if extensao == "pdf":
-            try:
-                texto_pdf = ""
-                with pdfplumber.open(arquivo_importado) as pdf:
-                    for pagina in pdf.pages:
-                        extraido = pagina.extract_text()
-                        if extraido:
-                            texto_pdf += extraido + "\n"
-                
-                if st.button("Processar e Importar PDF do Itaú (Com Filtro de Saldo)", use_container_width=True):
-                    linhas = texto_pdf.split("\n")
-                    importados_pdf = 0
-                    data_recente = date.today().strftime("%Y-%m-%d")
-                    
-                    for linha in linhas:
-                        if "SALDO" in linha.upper():
-                            continue
-                        partes = linha.split()
-                        if len(partes) >= 3 and "/" in partes[0] and len(partes[0]) == 10:
-                            try:
-                                d_partes = partes[0].split('/')
-                                if len(d_partes) == 3:
-                                    data_recente = f"{d_partes[2]}-{d_partes[1]}-{d_partes[0]}"
-                                
-                                val_float = float(linha.replace("R$", "").replace(".", "").replace(",", ".").split()[-1])
-                                tipo_trans = "Receita" if val_float > 0 else "Despesa"
-                                desc_str = " ".join(partes[1:-1]) if len(partes) > 2 else "Lançamento Extrato"
-                                cat_inteligente = categorizar_automaticamente(desc_str, tipo_trans)
-                                
-                                c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
-                                          (data_recente, tipo_trans, desc_str, cat_inteligente, abs(val_float)))
-                                importados_pdf += 1
-                            except:
-                                continue
-                    conn.commit()
-                    st.success(f"{importados_pdf} lançamentos do PDF importados com sucesso!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao processar PDF: {e}")
-
-    st.markdown("---")
-    if not df_extrato_full.empty:
-        st.dataframe(df_extrato_full, use_container_width=True)
-
-# --- ABA 12: HOLERITES ---
+# --- ABA 12: HOLERITES & IMPORTAÇÃO DE PDF ---
 with aba12:
-    st.subheader("📄 Análise e Comparativo Mês a Mês do Holerite")
-    st.info("Cadastre os dados principais dos seus contracheques para acompanhar a evolução do seu salário bruto, descontos e líquido.")
+    st.subheader("📄 Análise e Importação de Holerite via PDF")
+    st.info("Faça o upload do PDF do seu holerite para preencher automaticamente os dados ou preencha manualmente abaixo.")
     
-    with st.form("form_holerite", clear_on_submit=True):
+    # Upload do Holerite em PDF
+    pdf_holerite = st.file_uploader("Escolha o arquivo PDF do Holerite", type=["pdf"], key="upload_holerite")
+    
+    # Valores padrão ou extraídos
+    val_mes_ano = "07/2026"
+    val_bruto = 7440.65
+    val_descontos = 6278.12
+    val_liquido = 1162.53
+    val_inss = 756.25
+    val_irrf = 531.68
+    
+    if pdf_holerite is not None:
+        try:
+            texto_holerite = ""
+            with pdfplumber.open(pdf_holerite) as pdf:
+                for pagina in pdf.pages:
+                    ext = pagina.extract_text()
+                    if ext:
+                        texto_holerite += ext + "\n"
+            
+            st.success("PDF do holerite lido com sucesso! Verifique os dados extraídos abaixo.")
+            
+            # Lógica simples de varredura para encontrar palavras-chave no texto do holerite (ex: Maxion / Iochpe)
+            linhas_h = texto_holerite.split("\n")
+            for linha in linhas_h:
+                if "07/2026" in linha or "08/2026" in linha or "06/2026" in linha:
+                    for p_L in linha.split():
+                        if "/" in p_L and len(p_L) == 7:
+                            val_mes_ano = p_L
+                # Tenta pegar totais se identificados
+                if "TOTAIS" in linha.upper():
+                    partes_t = linha.replace(".", "").replace(",", ".").split()
+                    nums_t = [float(x) for x in partes_t if x.replace('.', '', 1).isdigit()]
+                    if len(nums_t) >= 2:
+                        val_bruto = nums_t[0]
+                        val_descontos = nums_t[1]
+                if "LÍQUIDO:" in linha.upper() or "LIQUIDO:" in linha.upper():
+                    partes_l = linha.replace(".", "").replace(",", ".").split()
+                    for item in partes_l:
+                        try:
+                            v_cand = float(item)
+                            if v_cand > 0 and v_cand != val_bruto:
+                                val_liquido = v_cand
+                        except:
+                            continue
+        except Exception as e:
+            st.error(f"Erro ao ler PDF do holerite: {e}")
+
+    with st.form("form_holerite"):
         col_h1, col_h2, col_h3 = st.columns(3)
         with col_h1:
-            mes_ano_hol = st.text_input("Mês/Ano (Ex: 07/2026)")
-            bruto_hol = st.number_input("Salário Bruto (R$)", min_value=0.0, value=7440.65, format="%.2f")
+            mes_ano_hol = st.text_input("Mês/Ano", value=val_mes_ano)
+            bruto_hol = st.number_input("Salário Bruto (R$)", min_value=0.0, value=float(val_bruto), format="%.2f")
         with col_h2:
-            desc_hol = st.number_input("Total de Descontos (R$)", min_value=0.0, value=6278.12, format="%.2f")
-            liquido_hol = st.number_input("Salário Líquido (R$)", min_value=0.0, value=1162.53, format="%.2f")
+            desc_hol = st.number_input("Total de Descontos (R$)", min_value=0.0, value=float(val_descontos), format="%.2f")
+            liquido_hol = st.number_input("Salário Líquido (R$)", min_value=0.0, value=float(val_liquido), format="%.2f")
         with col_h3:
-            inss_hol = st.number_input("Desconto INSS (R$)", min_value=0.0, value=756.25, format="%.2f")
-            irrf_hol = st.number_input("Desconto IRRF (R$)", min_value=0.0, value=531.68, format="%.2f")
+            inss_hol = st.number_input("Desconto INSS (R$)", min_value=0.0, value=float(val_inss), format="%.2f")
+            irrf_hol = st.number_input("Desconto IRRF (R$)", min_value=0.0, value=float(val_irrf), format="%.2f")
             
-        if st.form_submit_button("Salvar Holerite", use_container_width=True):
+        if st.form_submit_button("Salvar Holerite no Histórico", use_container_width=True):
             if mes_ano_hol.strip():
                 c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf) VALUES (?,?,?,?,?,?)",
                           (mes_ano_hol.strip(), bruto_hol, desc_hol, liquido_hol, inss_hol, irrf_hol))
