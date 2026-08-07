@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 import pdfplumber
 import difflib
 import re
@@ -809,7 +809,6 @@ elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
     df_trans_proj = pd.read_sql("SELECT * FROM transacoes", conn)
     df_inv_proj = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
     
-    # Calcular patrimônio inicial real baseado na tabela de investimentos cadastrados
     patrimonio_inicial = 0.0
     if not df_inv_proj.empty:
         df_inv_proj['Total'] = df_inv_proj['quantidade'] * df_inv_proj['preco_medio']
@@ -874,7 +873,6 @@ elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
         </div>
         """.format((proj_receita_base * 0.85) - (proj_despesa_base * 1.15)), unsafe_allow_html=True)
 
-    # Geração dos próximos 6 meses com cálculo real de Juros Compostos aplicados à taxa escolhida
     meses_futuros = []
     patrimonio_serie = []
     
@@ -888,7 +886,6 @@ elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
         nome_m = data_fut.strftime('%m/%Y')
         meses_futuros.append(nome_m)
         
-        # Aplica o rendimento do mês sobre o patrimônio anterior + adiciona a sobra do mês
         patrimonio_atual_sim = (patrimonio_atual_sim * (1 + taxa_mensal)) + caixa_mensal_proj
         patrimonio_serie.append(patrimonio_atual_sim)
 
@@ -1116,6 +1113,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             if importados_automaticos > 0:
                 st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) com sucesso!")
 
+    # Carrega do banco de dados a lista de holerites salvos (garantindo que mesmo sem upload os dados antigos apareçam)
     df_holerites = pd.read_sql("SELECT * FROM holerites ORDER BY mes_ano DESC", conn)
 
     if pdfs_holerites:
