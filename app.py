@@ -36,9 +36,12 @@ c.execute('''CREATE TABLE IF NOT EXISTS metas
              (id INTEGER PRIMARY KEY, categoria TEXT, valor_meta REAL)''')
 c.execute('''CREATE TABLE IF NOT EXISTS tabela_depositos 
              (id INTEGER PRIMARY KEY, numero_deposito INTEGER, valor REAL, status TEXT)''')
+# Nova tabela para o Dashboard profissional de Investimentos (Aportes/Ativos)
+c.execute('''CREATE TABLE IF NOT EXISTS carteira_investimentos 
+             (id INTEGER PRIMARY KEY, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)''')
 conn.commit()
 
-# Inicializa tabela de depósitos (Cofrinho / 52 semanas) se estiver vazia
+# Inicializa tabela de depósitos (Desafios) se estiver vazia
 if pd.read_sql("SELECT count(*) FROM tabela_depositos", conn).iloc[0,0] == 0:
     for i in range(1, 32):
         c.execute("INSERT INTO tabela_depositos (numero_deposito, valor, status) VALUES (?, ?, ?)", (i, float(i), "Pendente"))
@@ -53,12 +56,13 @@ with st.sidebar:
         st.session_state.autenticado = False
         st.rerun()
 
-# --- DEFINIÇÃO DAS ABAS ---
-aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8 = st.tabs([
+# --- DEFINIÇÃO DAS ABAS (Total: 9 com a nova aba de Desafios) ---
+aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9 = st.tabs([
     "🔴 Lançar Despesa", 
     "🟢 Entradas & Salários", 
     "📊 Dashboard", 
     "📈 Investimentos", 
+    "🎯 Desafios", 
     "🎯 Metas & Categorias", 
     "❤️ Saúde Financeira", 
     "📅 Contas a Pagar", 
@@ -228,21 +232,88 @@ with aba3:
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard corporativo.")
 
-# --- ABA 4: INVESTIMENTOS (TABELA DE DEPÓSITOS & PROGRESSO R$ 200 - MELHORADA) ---
+# --- ABA 4: DASHBOARD PROFISSIONAL DE INVESTIMENTOS ---
 with aba4:
-    st.subheader("📈 Meta de Depósitos & Cofrinho")
+    st.subheader("📈 Dashboard Profissional de Investimentos & Carteira")
+    
+    with st.form("form_ativo_inv", clear_on_submit=True):
+        col_iv1, col_iv2, col_iv3 = st.columns(3)
+        with col_iv1:
+            ativo_nome = st.text_input("Ativo / Ticker (Ex: PETR4, Tesouro Direto, FII)")
+            classe_ativo = st.selectbox("Classe de Ativo", ["Ações BR", "FIIs", "Renda Fixa", "Criptomoedas", "Exterior"])
+        with col_iv2:
+            qtd_ativo = st.number_input("Quantidade / Cotas", min_value=0.0001, value=1.00, step=1.0)
+            preco_medio = st.number_input("Preço Médio / Custo Unitário (R$)", min_value=0.0, value=0.00, step=0.10, format="%.2f")
+        with col_iv3:
+            data_aporte = st.date_input("Data do Aporte", value=date.today())
+            st.write("")
+            st.write("")
+            btn_add_ativo = st.form_submit_button("Cadastrar Posição na Carteira", use_container_width=True)
+            
+        if btn_add_ativo:
+            if ativo_nome.strip():
+                c.execute("INSERT INTO carteira_investimentos (data, ativo, classe, quantidade, preco_medio) VALUES (?,?,?,?,?)",
+                          (data_aporte.strftime("%Y-%m-%d"), ativo_nome.upper().strip(), classe_ativo, qtd_ativo, preco_medio))
+                conn.commit()
+                st.success(f"Ativo {ativo_nome.upper()} cadastrado com sucesso!")
+                st.rerun()
+            else:
+                st.error("Informe o nome do ativo.")
+
+    st.markdown("---")
+    
+    # Leitura da carteira para o Dashboard Profissional
+    df_carteira = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
+    if not df_carteira.empty:
+        df_carteira['Valor Total'] = df_carteira['quantidade'] * df_carteira['preco_medio']
+        patrimonio_total = df_carteira['Valor Total'].sum()
+        
+        # Métricas de topo do dashboard de investimentos
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric("💎 Patrimônio Alocado", f"R$ {patrimonio_total:,.2f}")
+        col_m2.metric("📦 Total de Ativos Cadastrados", len(df_carteira['ativo'].unique()))
+        col_m3.metric("📊 Classes de Ativos", len(df_carteira['classe'].unique()))
+        
+        st.markdown("---")
+        
+        col_pos1, col_pos2 = st.columns(2)
+        with col_pos1:
+            st.write("### 📊 Alocação por Classe de Ativos")
+            df_classe = df_carteira.groupby('classe')['Valor Total'].sum()
+            st.bar_chart(df_classe)
+        with col_pos2:
+            st.write("### 📋 Posições Detalhadas na Carteira")
+            st.dataframe(df_carteira[['ativo', 'classe', 'quantidade', 'preco_medio', 'Valor Total']].rename(columns={
+                'ativo': 'Ativo', 'classe': 'Classe', 'quantidade': 'Qtd', 'preco_medio': 'Preço Médio'
+            }), use_container_width=True, hide_index=True)
+            
+        # Opção para excluir ativo da carteira
+        st.markdown("---")
+        id_ativo_del = st.selectbox("Selecione o ID do ativo para remover da carteira:", df_carteira['id'].tolist(), key="del_ativo")
+        if st.button("Remover Ativo Selecionado", use_container_width=True):
+            c.execute("DELETE FROM carteira_investimentos WHERE id = ?", (id_ativo_del,))
+            conn.commit()
+            st.success("Ativo removido!")
+            st.rerun()
+    else:
+        st.info("Nenhum investimento cadastrado na carteira profissional ainda. Adicione acima para ver o dashboard avançado.")
+
+# --- ABA 5: DESAFIOS (EX-INVESTIMENTOS/COFRINHO) ---
+with aba5:
+    st.subheader("🎯 Desafios de Depósito & Cofrinho")
+    st.info("Acompanhe o seu desafio de micro-poupança e metas progressivas de depósito!")
     
     df_deps = pd.read_sql("SELECT * FROM tabela_depositos", conn)
     total_concluido = df_deps[df_deps['status'] == 'Concluído']['valor'].sum()
     meta_fixa = 200.00
     
-    st.markdown(f"<h3 style='color: #00FF7F; text-align: center;'>Progresso: R$ {total_concluido:,.2f} / R$ {meta_fixa:,.2f}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color: #00FF7F; text-align: center;'>Progresso do Desafio: R$ {total_concluido:,.2f} / R$ {meta_fixa:,.2f}</h3>", unsafe_allow_html=True)
     st.progress(min(total_concluido / meta_fixa, 1.0))
 
     col_esq, col_dir = st.columns([2, 1])
 
     with col_esq:
-        st.write("### Lista de Depósitos")
+        st.write("### Tabela do Desafio")
         df_exibicao = pd.DataFrame()
         df_exibicao['Nº do Depósito'] = df_deps['numero_deposito']
         df_exibicao['Valor a Guardar'] = df_deps['valor'].apply(lambda x: f"R$ {x:,.2f}")
@@ -271,8 +342,8 @@ with aba4:
             conn.commit()
             st.rerun()
 
-# --- ABA 5: METAS & CATEGORIAS ---
-with aba5:
+# --- ABA 6: METAS & CATEGORIAS ---
+with aba6:
     st.subheader("🎯 Gerenciamento de Metas, Ícones e Categorias")
     
     col_m1, col_m2 = st.columns(2)
@@ -353,8 +424,8 @@ with aba5:
     else:
         st.info("Nenhuma meta de gasto cadastrada ainda.")
 
-# --- ABA 6: SAÚDE FINANCEIRA ---
-with aba6:
+# --- ABA 7: SAÚDE FINANCEIRA ---
+with aba7:
     st.subheader("❤️ Saúde Financeira")
     st.write("Score de 0 a 1000 baseado em fatores de desempenho do seu perfil financeiro.")
     
@@ -408,8 +479,8 @@ with aba6:
     st.write(f"📅 **Disciplina de Registros:** {int(f_disciplina * 0.5)} / 250 pts")
     st.progress(min((f_disciplina * 0.5) / 250, 1.0))
 
-# --- ABA 7: CONTAS A PAGAR ---
-with aba7:
+# --- ABA 8: CONTAS A PAGAR ---
+with aba8:
     st.subheader("📅 Calendário de Contas & Gerenciamento")
     
     with st.form("conta", clear_on_submit=True):
@@ -470,8 +541,8 @@ with aba7:
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 8: EXTRATO, IMPORTAÇÃO, EXPORTAÇÃO & BACKUP ---
-with aba8:
+# --- ABA 9: EXTRATO, IMPORTAÇÃO, EXPORTAÇÃO & BACKUP ---
+with aba9:
     st.subheader("📋 Extrato Corporativo, Importação e Backup")
     
     col_exp1, col_exp2 = st.columns(2)
@@ -515,7 +586,7 @@ with aba8:
                         desc_str = str(row[col_desc])
                         val_float = float(row[col_val])
                         
-                        tipo_trans = "Receita" if val_float > 0 else "Despesa"
+                        tipo_trans = "Receita" if val_float > 0 else "Despesa"px
                         val_absoluto = abs(val_float)
                         cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
                         
