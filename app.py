@@ -36,17 +36,15 @@ c.execute('''CREATE TABLE IF NOT EXISTS metas
              (id INTEGER PRIMARY KEY, categoria TEXT, valor_meta REAL)''')
 c.execute('''CREATE TABLE IF NOT EXISTS carteira_investimentos 
              (id INTEGER PRIMARY KEY, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)''')
+c.execute('''CREATE TABLE IF NOT EXISTS tabela_depositos 
+             (id INTEGER PRIMARY KEY, numero_deposito INTEGER, valor REAL, status TEXT)''')
 conn.commit()
 
-# Força a recriação da tabela de depósitos para garantir os 200 depósitos exatos (Soma = R$ 20.100,00)
-c.execute('''DROP TABLE IF EXISTS tabela_depositos''')
-c.execute('''CREATE TABLE tabela_depositos (id INTEGER PRIMARY KEY, numero_deposito INTEGER, valor REAL, status TEXT)''')
-conn.commit()
-
-# Insere os 200 depósitos (Depósito 1 = R$ 1,00 até Depósito 200 = R$ 200,00 -> Total = 20.100,00)
-for i in range(1, 201):
-    c.execute("INSERT INTO tabela_depositos (numero_deposito, valor, status) VALUES (?, ?, ?)", (i, float(i), "Pendente"))
-conn.commit()
+# Inicializa a tabela de 200 depósitos apenas se estiver vazia (preserva os dados salvos)
+if pd.read_sql("SELECT count(*) FROM tabela_depositos", conn).iloc[0,0] == 0:
+    for i in range(1, 201):
+        c.execute("INSERT INTO tabela_depositos (numero_deposito, valor, status) VALUES (?, ?, ?)", (i, float(i), "Pendente"))
+    conn.commit()
 
 # --- TÍTULO ---
 st.title("💸 Gestor Financeiro Profissional")
@@ -334,7 +332,7 @@ with aba5:
             if st.form_submit_button("Salvar Alteração", use_container_width=True):
                 c.execute("UPDATE tabela_depositos SET status = ? WHERE numero_deposito = ?", (status_novo, dep_sel))
                 conn.commit()
-                st.success(f"Depósito {dep_sel} atualizado!")
+                st.success(f"Depósito {dep_sel} atualizado para '{status_novo}'!")
                 st.rerun()
 
         if st.button("🔄 Marcar todos como Pendentes", use_container_width=True):
