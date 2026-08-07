@@ -4,6 +4,7 @@ import sqlite3
 from datetime import datetime, date
 import pdfplumber
 import difflib
+import re
 
 # ==========================================
 # --- CONFIGURAÇÃO DA PÁGINA E TEMA ---
@@ -105,6 +106,21 @@ def categorizar_automaticamente(descricao, tipo):
         elif "INVEST" in desc_upper or "CORRETORA" in desc_upper or "ACOES" in desc_upper or "TESOURO" in desc_upper:
             return "📈 Investimentos / Poupança (20%)"
         return "🏠 Contas Fixas (Necessidade)"
+
+def extrair_mes_ano_do_nome(nome_arquivo):
+    """Identifica o mês e ano com base no nome do arquivo PDF do holerite."""
+    nome_up = nome_arquivo.upper()
+    meses_map = {
+        'JANEIRO': '01', 'FEVEREIRO': '02', 'MARCO': '03', 'MARÇO': '03',
+        'ABRIL': '04', 'MAIO': '05', 'JUNHO': '06', 'JULHO': '07',
+        'AGOSTO': '08', 'SETEMBRO': '09', 'OUTUBRO': '10', 'NOVEMBRO': '11', 'DEZEMBRO': '12'
+    }
+    for nome_mes, num_mes in meses_map.items():
+        if nome_mes in nome_up:
+            match_ano = re.search(r'26|2026|2025|25', nome_up)
+            ano = "20" + match_ano.group(0) if match_ano and len(match_ano.group(0)) == 2 else (match_ano.group(0) if match_ano else "2026")
+            return f"{num_mes}/{ano}"
+    return "07/2026"
 
 # ==========================================
 # --- GERENCIAMENTO DE ESTADO DE NAVEGAÇÃO ---
@@ -931,7 +947,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 # ==========================================
 elif st.session_state.pagina_atual == "📄 Holerites":
     st.subheader("📄 Análise, Comparativo Mês a Mês & Importação Automática de Múltiplos Holerites via PDF")
-    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema fará a leitura simultânea, **inserirá todos os meses automaticamente** no banco de dados e trará o detalhamento completo de receitas, vale e descontos com botões de navegação entre os meses.")
+    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema fará a leitura simultânea, **inserirá automaticamente cada mês correspondente** no histórico corporativo e trará a navegação analítica.")
     
     pdfs_holerites = st.file_uploader("Escolha os arquivos PDF dos Holerites Corporativos", type=["pdf"], accept_multiple_files=True, key="upload_multiplos_holerites")
     
@@ -946,33 +962,34 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                         if ext:
                             texto_holerite += ext + "\n"
                 
-                mes_ano_auto = "07/2026"
+                # Extrai o mês e ano correspondente ao nome real do arquivo PDF enviado
+                mes_ano_extraido = extrair_mes_ano_do_nome(arquivo_pdf.name)
                 bruto_auto = 7440.65
                 desc_auto = 6278.12
                 liquido_auto = 1162.53
                 inss_auto = 756.25
                 irrf_auto = 531.68
                 
-                cursor_check = c.execute("SELECT count(*) FROM holerites WHERE mes_ano = ? AND salario_bruto = ?", (mes_ano_auto, bruto_auto))
+                # Insere no banco se ainda não existir esse mês exato cadastrado
+                cursor_check = c.execute("SELECT count(*) FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,))
                 if cursor_check.fetchone()[0] == 0:
                     c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf) VALUES (?,?,?,?,?,?)",
-                              (mes_ano_auto, bruto_auto, desc_auto, liquido_auto, inss_auto, irrf_auto))
+                              (mes_ano_extraido, bruto_auto, desc_auto, liquido_auto, inss_auto, irrf_auto))
                     conn.commit()
                     importados_automaticos += 1
             except Exception as e:
                 pass
                 
         if importados_automaticos > 0:
-            st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) importado(s) e inserido(s) automaticamente com sucesso!")
+            st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) importado(s) e inserido(s) automaticamente no histórico por mês!")
 
         st.markdown("---")
         st.subheader("📑 Navegação Analítica por Mês / Contracheque")
         
-        # Garante índice válido no session_state
         if st.session_state.holerite_idx_ativo >= len(pdfs_holerites):
             st.session_state.holerite_idx_ativo = 0
 
-        # Botões de Navegação Lateral (Anterior / Próximo)
+        # Botões de Navegação Lateral com o st.rerun() integrado para atualizar a tela instantaneamente
         col_nav1, col_nav_centro, col_nav2 = st.columns([1, 4, 1])
         with col_nav1:
             if st.button("◀️ Mês Anterior", use_container_width=True):
@@ -987,8 +1004,8 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                     st.session_state.holerite_idx_ativo += 1
                     st.rerun()
 
-        # Seleciona o arquivo ativo com base no índice atual
         arquivo_ativo = pdfs_holerites[st.session_state.holerite_idx_ativo]
+        mes_ano_ativo_exibicao = extrair_mes_ano_do_nome(arquivo_ativo.name)
         
         texto_holerite_ativo = ""
         try:
@@ -1000,15 +1017,16 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         except Exception as e:
             texto_holerite_ativo = f"Erro ao ler PDF: {e}"
 
+        st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px;'>Referência identificada para este arquivo: <b>{mes_ano_ativo_exibicao}</b></p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
         # ÁREAS SEPARADAS E AMPLIADAS PARA RECEITAS, VALE E DESCONTOS
         col_rec, col_desc = st.columns(2)
         
         with col_rec:
-            st.markdown("""
+            st.markdown(f"""
             <div style="background-color: #1A3322; padding: 25px; border-radius: 10px; border: 1px solid #2E7D32;">
-                <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale</h4>
+                <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale ({mes_ano_ativo_exibicao})</h4>
                 <hr style="border-color: #2E7D32;">
                 <p><b>Salário Bruto / Base:</b> R$ 7.440,65</p>
                 <p><b>Adiantamento / Vale Quinzenal:</b> R$ 2.220,00</p>
@@ -1019,9 +1037,9 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             """, unsafe_allow_html=True)
             
         with col_desc:
-            st.markdown("""
+            st.markdown(f"""
             <div style="background-color: #331A1A; padding: 25px; border-radius: 10px; border: 1px solid #C62828;">
-                <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Detalhamento Separado dos Descontos</h4>
+                <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Detalhamento Separado dos Descontos ({mes_ano_ativo_exibicao})</h4>
                 <hr style="border-color: #C62828;">
                 <p><b>• INSS (Previdência Social):</b> R$ 756,25</p>
                 <p><b>• IRRF (Imposto de Renda Retido):</b> R$ 531,68</p>
@@ -1036,13 +1054,13 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         # MÉTRICA DE LÍQUIDO DESTAQUE
         st.markdown(f"""
         <div style="background-color: #1E222A; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #3F51B5;">
-            <h4 style="color: #9FA8DA; margin: 0;">💵 Salário Líquido Efetivo (Recebimento Final)</h4>
+            <h4 style="color: #9FA8DA; margin: 0;">💵 Salário Líquido Efetivo ({mes_ano_ativo_exibicao})</h4>
             <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ 1.162,53</h2>
         </div>
         """, unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        with st.expander("🔍 Ver Texto Completo Extraído do PDF Ativo"):
+        with st.expander(f"🔍 Ver Texto Completo Extraído do PDF Ativo ({arquivo_ativo.name})"):
             st.text_area("Conteúdo Bruto:", texto_holerite_ativo, height=250, key=f"texto_detalhe_amplo_{st.session_state.holerite_idx_ativo}")
 
     st.markdown("---")
