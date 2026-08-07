@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 from datetime import datetime, date
+io_mod = __import__('io')
 
 # --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="💸 Gestor Financeiro Pro", layout="wide")
@@ -156,7 +157,6 @@ with aba3:
 
         st.markdown("---")
         
-        # --- REGRA 50/30/20 ---
         st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
         if receitas > 0:
             nec = df[df['categoria'].str.contains("Necessidade", na=False)]['valor'].sum()
@@ -184,8 +184,6 @@ with aba3:
             st.warning("Cadastre ao menos uma entrada (Receita) neste período para calcular as metas.")
 
         st.markdown("---")
-        
-        # --- GRÁFICOS ANALÍTICOS ---
         st.subheader("📈 Distribuição Analítica de Despesas (Mês Selecionado)")
         df_desp = df[df['tipo'] == 'Despesa']
         if not df_desp.empty:
@@ -411,9 +409,50 @@ with aba6:
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 7: EXTRATO, EXPORTAÇÃO EXCEL & BACKUP ---
+# --- ABA 7: EXTRATO, IMPORTAÇÃO, EXPORTAÇÃO & BACKUP ---
 with aba7:
-    st.subheader("📋 Extrato Corporativo, Exportação e Backup")
+    st.subheader("📋 Extrato Corporativo, Importação e Backup")
+    
+    # --- SEÇÃO DE IMPORTAÇÃO DE EXTRATO BANCÁRIO (CSV) ---
+    st.write("### 📥 Importar Extrato Bancário (CSV)")
+    st.info("O arquivo CSV deve conter colunas para **Data**, **Descrição** e **Valor** (valores negativos para despesas e positivos para receitas).")
+    
+    arquivo_importado = st.file_uploader("Escolha o arquivo CSV do banco", type=["csv"])
+    if arquivo_importado is not None:
+        try:
+            df_imp = pd.read_csv(arquivo_importado)
+            st.write("Pré-visualização do arquivo importado:")
+            st.dataframe(df_imp.head(3), use_container_width=True)
+            
+            col_data = st.selectbox("Coluna da Data:", df_imp.columns)
+            col_desc = st.selectbox("Coluna da Descrição:", df_imp.columns)
+            col_val = st.selectbox("Coluna do Valor:", df_imp.columns)
+            
+            if st.button("Confirmar e Importar Transações", use_container_width=True):
+                importados_contador = 0
+                for _, row in df_imp.iterrows():
+                    try:
+                        data_str = str(row[col_data])[:10]
+                        desc_str = str(row[col_desc])
+                        val_float = float(row[col_val])
+                        
+                        # Identifica automaticamente se é Receita ou Despesa com base no sinal do valor
+                        tipo_trans = "Receita" if val_float > 0 else "Despesa"
+                        val_absoluto = abs(val_float)
+                        cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
+                        
+                        c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
+                                  (data_str, tipo_trans, desc_str, cat_padrao_imp, val_absoluto))
+                        importados_contador += 1
+                    except Exception:
+                        continue
+                conn.commit()
+                st.success(f"{importados_contador} transações importadas com sucesso!")
+                st.rerun()
+        except Exception as e:
+            st.error(f"Erro ao ler o arquivo: {e}")
+
+    st.markdown("---")
     
     col_exp1, col_exp2 = st.columns(2)
     with col_exp1:
