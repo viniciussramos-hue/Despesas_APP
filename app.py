@@ -67,7 +67,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS cartao_credito
 c.execute('''CREATE TABLE IF NOT EXISTS holerites 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, mes_ano TEXT, salario_bruto REAL, total_descontos REAL, liquido REAL, inss REAL, irrf REAL, vale REAL)''')
 
-# Migração de segurança caso a coluna 'vale' não exista em bases antigas
 try:
     c.execute("ALTER TABLE holerites ADD COLUMN vale REAL")
     conn.commit()
@@ -1012,29 +1011,27 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) com sucesso!")
 
         st.markdown("---")
-        st.subheader("📑 Navegação Analítica por Mês / Contracheque")
+        st.subheader("📑 Navegação Analítica por Mês / Contracheque (Janeiro em diante)")
         
-        # Criação da lista de nomes dos arquivos para a navegação suspensa (selectbox)
-        opcoes_arquivos = [f"{i+1} - {pdf.name}" for i, pdf in enumerate(pdfs_holerites)]
-        
-        if "sel_holerite_idx" not in st.session_state:
-            st.session_state.sel_holerite_idx = 0
+        if "holerite_selecionado_idx" not in st.session_state:
+            st.session_state.holerite_selecionado_idx = 0
             
-        if st.session_state.sel_holerite_idx >= len(opcoes_arquivos):
-            st.session_state.sel_holerite_idx = 0
+        if st.session_state.holerite_selecionado_idx >= len(pdfs_holerites):
+            st.session_state.holerite_selecionado_idx = 0
 
-        # Seleção suspensa (Dropdown) para escolher o mês/arquivo diretamente
-        escolha_arquivo = st.selectbox(
-            "🔎 Selecione o Mês / Contracheque para Auditoria:",
-            options=opcoes_arquivos,
-            index=st.session_state.sel_holerite_idx
-        )
-        
-        # Atualiza o índice com base na escolha do selectbox
-        idx_selecionado = opcoes_arquivos.index(escolha_arquivo)
-        st.session_state.sel_holerite_idx = idx_selecionado
+        # Criação de botões lado a lado (Janeiro em diante)
+        cols_botoes = st.columns(min(len(pdfs_holerites), 6))
+        for idx, arquivo in enumerate(pdfs_holerites):
+            col_pos = idx % len(cols_botoes)
+            # Extrai o nome amigável do mês para o botão (ex: Jan, Fev, Mar...)
+            nome_botao = arquivo.name.replace(".pdf", "").replace(".PDF", "").replace("Demonstrativo de Pagamento_", "").replace("Demonstrativo_", "")
+            with cols_botoes[col_pos]:
+                tipo_botao = "primary" if st.session_state.holerite_selecionado_idx == idx else "secondary"
+                if st.button(nome_botao, key=f"btn_mes_{idx}", type=tipo_botao, use_container_width=True):
+                    st.session_state.holerite_selecionado_idx = idx
+                    st.rerun()
 
-        arquivo_ativo = pdfs_holerites[idx_selecionado]
+        arquivo_ativo = pdfs_holerites[st.session_state.holerite_selecionado_idx]
         
         texto_holerite_ativo = ""
         try:
@@ -1051,7 +1048,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         # Pagamento Líquido real (Líquido do holerite menos o adiantamento/vale recebido)
         pagamento_liquido_real = max(0, liquido_ativo - vale_ativo)
         
-        st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px;'>Referência identificada: <b>{mes_ativo_ext}</b></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px; margin-top: 15px;'>Arquivo ativo: <b>{arquivo_ativo.name}</b> | Referência identificada: <b>{mes_ativo_ext}</b></p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
         col_rec, col_desc = st.columns(2)
@@ -1093,13 +1090,12 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
         st.markdown("<br>", unsafe_allow_html=True)
         with st.expander(f"🔍 Ver Texto Completo Extraído do PDF Ativo ({arquivo_ativo.name})"):
-            st.text_area("Conteúdo Bruto:", texto_holerite_ativo, height=250, key=f"texto_detalhe_amplo_{idx_selecionado}")
+            st.text_area("Conteúdo Bruto:", texto_holerite_ativo, height=250, key=f"texto_detalhe_amplo_{st.session_state.holerite_selecionado_idx}")
 
     st.markdown("---")
     st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
     df_holerites = pd.read_sql("SELECT * FROM holerites ORDER BY mes_ano DESC", conn)
     if not df_holerites.empty:
-        # Colunas existentes garantidas após a migração da tabela
         df_exibicao_hol = df_holerites[['id', 'mes_ano', 'salario_bruto', 'vale', 'total_descontos', 'liquido', 'inss', 'irrf']].copy()
         
         st.dataframe(df_exibicao_hol.style.format({
