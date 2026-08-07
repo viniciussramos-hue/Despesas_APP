@@ -130,22 +130,17 @@ def extrair_valores_reais_pdf(texto):
     for v in padrao_valores:
         try:
             val_num = float(v.replace('.', '').replace(',', '.'))
-            if val_num > 1.0: # Filtra valores insignificantes
+            if val_num > 1.0:
                 valores_convertidos.append(val_num)
         except:
             continue
             
-    # Remove duplicatas mantendo a ordem ou pega os maiores valores estruturais
-    valores_unicos = sorted(list(set(valores_convertidos)), reverse=True)
-    
-    # Valores padrão de fallback caso o contracheque tenha formato atípico
     bruto = 7440.65
     descontos = 6278.12
     inss = 756.25
     irrf = 531.68
     liquido = 1162.53
     
-    # Tenta mapear os maiores valores encontrados no texto do PDF como Salário Bruto e Descontos
     linhas = texto.split('\n')
     for linha in linhas:
         linha_up = linha.upper()
@@ -1013,7 +1008,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                         if ext:
                             texto_holerite += ext + "\n"
                 
-                # Extração estritamente dinâmica dos dados reais de dentro do PDF
                 mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
                 
                 cursor_check = c.execute("SELECT id FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,))
@@ -1127,12 +1121,22 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         st.write("**Gráfico Comparativo de Evolução: Salário Bruto vs Líquido vs Descontos**")
         st.line_chart(df_holerites.set_index('mes_ano')[['salario_bruto', 'liquido', 'total_descontos']])
         
-        id_del_hol = st.selectbox("Selecione o ID exato do holerite para remoção:", df_holerites['id'].tolist(), key="del_hol_unique")
-        if st.button("Excluir Holerite Selecionado do Histórico", use_container_width=True):
-            c.execute("DELETE FROM holerites WHERE id = ?", (id_del_hol,))
-            conn.commit()
-            st.success("Holerite excluído com sucesso!")
-            st.rerun()
+        col_del1, col_del2 = st.columns(2)
+        with col_del1:
+            id_del_hol = st.selectbox("Selecione o ID exato do holerite para remoção:", df_holerites['id'].tolist(), key="del_hol_unique")
+            if st.button("Excluir Holerite Selecionado", use_container_width=True):
+                c.execute("DELETE FROM holerites WHERE id = ?", (id_del_hol,))
+                conn.commit()
+                st.success("Holerite excluído com sucesso!")
+                st.rerun()
+        with col_del2:
+            st.write("")
+            st.write("")
+            if st.button("🗑️ EXCLUIR TODO O HISTÓRICO DE HOLERITES", use_container_width=True, type="primary"):
+                c.execute("DELETE FROM holerites")
+                conn.commit()
+                st.success("Todo o histórico de holerites foi apagado com sucesso!")
+                st.rerun()
     else:
         st.info("Nenhum holerite cadastrado no histórico analítico até o momento.")
     botao_voltar()
