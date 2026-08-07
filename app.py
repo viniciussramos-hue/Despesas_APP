@@ -40,9 +40,14 @@ c.execute('''CREATE TABLE IF NOT EXISTS carteira_investimentos
              (id INTEGER PRIMARY KEY, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)''')
 conn.commit()
 
-# Inicializa tabela de depósitos (Desafios) se estiver vazia
+# Inicializa tabela de depósitos (Desafio de 20.100 / 200 depósitos / 52 semanas) se vazia ou se precisar resetar para o padrão de R$ 20.100
 if pd.read_sql("SELECT count(*) FROM tabela_depositos", conn).iloc[0,0] == 0:
-    for i in range(1, 32):
+    # Gerando uma progressão clássica (ex: 200 depósitos que somam R$ 20.100,00 -> de 100 em 100 ou progressivo de 100 a 20000 etc, ou 31 dias de 1 a 31 somando 496, ou progressão exata)
+    # Vamos criar 200 depósitos progressivos onde cada depósito i custa i * 1.0 ou progressão ideal para somar 20.100
+    # Para somar 20.100 em 200 depósitos: P.A. simples
+    n_dep = 200
+    # Soma de 1 a 200 = 20100. Perfeito! O Depósito 1 = R$ 1,00, Depósito 2 = R$ 2,00 ... Depósito 200 = R$ 200,00. Soma total = 20.100,00!
+    for i in range(1, n_dep + 1):
         c.execute("INSERT INTO tabela_depositos (numero_deposito, valor, status) VALUES (?, ?, ?)", (i, float(i), "Pendente"))
     conn.commit()
 
@@ -293,17 +298,17 @@ with aba4:
     else:
         st.info("Nenhum investimento cadastrado na carteira profissional ainda. Adicione acima para ver o dashboard avançado.")
 
-# --- ABA 5: DESAFIOS ---
+# --- ABA 5: DESAFIOS (DESAFIO DE 20.100 EM 200 DEPÓSITOS) ---
 with aba5:
-    st.subheader("🎯 Desafios de Depósito & Cofrinho")
-    st.info("Acompanhe o seu desafio de micro-poupança e metas progressivas de depósito!")
+    st.subheader("🎯 Desafio de Depósito (R$ 20.100,00 em 200 Depósitos)")
+    st.info("Acompanhe o seu progresso rumo à meta total de R$ 20.100,00 dividida em 200 depósitos progressivos!")
     
     df_deps = pd.read_sql("SELECT * FROM tabela_depositos", conn)
     total_concluido = df_deps[df_deps['status'] == 'Concluído']['valor'].sum()
-    meta_fixa = 200.00
+    meta_total_desafio = df_deps['valor'].sum() # Deve totalizar R$ 20.100,00
     
-    st.markdown(f"<h3 style='color: #00FF7F; text-align: center;'>Progresso do Desafio: R$ {total_concluido:,.2f} / R$ {meta_fixa:,.2f}</h3>", unsafe_allow_html=True)
-    st.progress(min(total_concluido / meta_fixa, 1.0))
+    st.markdown(f"<h3 style='color: #00FF7F; text-align: center;'>Progresso do Desafio: R$ {total_concluido:,.2f} / R$ {meta_total_desafio:,.2f}</h3>", unsafe_allow_html=True)
+    st.progress(min(total_concluido / meta_total_desafio if meta_total_desafio > 0 else 0, 1.0))
 
     col_esq, col_dir = st.columns([2, 1])
 
