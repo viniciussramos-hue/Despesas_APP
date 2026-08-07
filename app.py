@@ -226,9 +226,6 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
         if st.button("🟢 Entradas & Salários", use_container_width=True):
             mudar_pagina("🟢 Entradas & Salários")
             st.rerun()
-        if st.button("💸 Lançar Vale", use_container_width=True):
-            mudar_pagina("💸 Lançar Vale")
-            st.rerun()
         if st.button("📈 Investimentos", use_container_width=True):
             mudar_pagina("📈 Investimentos")
             st.rerun()
@@ -325,33 +322,6 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
                 st.success("Entrada financeira registrada com sucesso!")
             else:
                 st.error("Informe uma descrição e um valor de receita válido.")
-    botao_voltar()
-
-# ==========================================
-# --- SEÇÃO 2B: LANÇAR VALE ---
-# ==========================================
-elif st.session_state.pagina_atual == "💸 Lançar Vale":
-    st.subheader("💸 Lançamento Rápido de Vale / Adiantamento")
-    st.write("Insira o valor do vale recebido para compor o fluxo de caixa de entradas.")
-    
-    with st.form("form_lancar_vale_completo", clear_on_submit=True):
-        col_v1, col_v2 = st.columns(2)
-        with col_v1:
-            desc_vale = st.text_input("Descrição do Vale (Ex: Adiantamento Salarial / Vale Quinzenal)", value="Adiantamento / Vale")
-            valor_vale = st.number_input("Valor do Vale (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f")
-        with col_v2:
-            data_vale = st.date_input("Data de Recebimento do Vale", value=date.today())
-            st.write(""); st.write("")
-            
-        btn_salvar_vale = st.form_submit_button("Salvar Vale no Extrato", use_container_width=True)
-        if btn_salvar_vale:
-            if valor_vale > 0:
-                c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
-                          (data_vale.strftime("%Y-%m-%d"), "Receita", desc_vale.strip(), "Vale", valor_vale))
-                conn.commit()
-                st.success("Vale lançado e integrado ao caixa com sucesso!")
-            else:
-                st.error("Informe um valor de vale superior a zero.")
     botao_voltar()
 
 # ==========================================
@@ -989,9 +959,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
     
     pdfs_holerites = st.file_uploader("Escolha os arquivos PDF dos Holerites Corporativos", type=["pdf"], accept_multiple_files=True, key="upload_multiplos_holerites")
     
-    # Processa os uploads apenas se novos arquivos foram carregados explicitamente
     if pdfs_holerites:
-        # Usa uma chave no session_state para processar cada lote de arquivos apenas uma vez
         upload_ids = "-".join([f"{f.name}-{f.size}" for f in pdfs_holerites])
         if st.session_state.get("ultimo_upload_processado") != upload_ids:
             importados_automaticos = 0
@@ -1024,7 +992,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             if importados_automaticos > 0:
                 st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) com sucesso!")
 
-    # Carrega do banco de dados a lista atualizada de holerites para exibição
     df_holerites = pd.read_sql("SELECT * FROM holerites ORDER BY mes_ano DESC", conn)
 
     if pdfs_holerites:
