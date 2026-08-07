@@ -146,7 +146,7 @@ def extrair_valores_precisos_pdf(texto):
             elif ('IRRF' in linha_up or 'IMPOSTO DE RENDA' in linha_up) and 'BASE' not in linha_up:
                 irrf = val
 
-    liquido = max(0.0, bruto - descontos)
+    liquido = bruto - descontos
     return bruto, descontos, liquido, inss, irrf, vale
 
 def processar_texto_holerite(texto, nome_arquivo):
@@ -1043,8 +1043,8 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
         mes_ativo_ext, bruto_ativo, desc_ativo, liquido_ativo, inss_ativo, irrf_ativo, vale_ativo = processar_texto_holerite(texto_holerite_ativo, arquivo_ativo.name)
         
-        # Pagamento Líquido real (Líquido do holerite menos o adiantamento/vale recebido)
-        pagamento_liquido_real = max(0.0, liquido_ativo - vale_ativo)
+        # Pagamento Líquido real separado do vale para o display em azul
+        pagamento_liquido_real = max(0.0, bruto_ativo - desc_ativo)
         
         st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px; margin-top: 15px;'>Arquivo ativo: <b>{arquivo_ativo.name}</b> | Referência identificada: <b>{mes_ativo_ext}</b></p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1092,7 +1092,10 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
     st.markdown("---")
     st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
+    
+    # Recarrega o DataFrame diretamente do banco com commit garantido para refletir exclusões
     df_holerites = pd.read_sql("SELECT * FROM holerites ORDER BY mes_ano DESC", conn)
+    
     if not df_holerites.empty:
         df_exibicao_hol = df_holerites[['id', 'mes_ano', 'salario_bruto', 'vale', 'total_descontos', 'liquido', 'inss', 'irrf']].copy()
         
