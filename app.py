@@ -205,7 +205,7 @@
         <!-- Grupos de Acesso -->
         <div class="dashboard-groups">
             
-            <!-- Grupo 1: Gestão Diária -->
+            <!-- Grupo 1: Painel de Gestão Diária -->
             <div class="group-card">
                 <div class="group-title">Painel de Gestão Diária</div>
                 <div class="grid-buttons">
@@ -221,6 +221,14 @@
                         <div class="nav-btn-content">
                             <div class="icon-box">🟢</div>
                             <span>Entradas & Salários</span>
+                        </div>
+                        <span class="arrow-indicator">➔</span>
+                    </a>
+
+                    <a href="#contas-pagar" class="nav-btn btn-gold">
+                        <div class="nav-btn-content">
+                            <div class="icon-box">📅</div>
+                            <span>Contas a Pagar</span>
                         </div>
                         <span class="arrow-indicator">➔</span>
                     </a>
@@ -278,12 +286,20 @@
                         </div>
                         <span class="arrow-indicator">➔</span>
                     </a>
+
+                    <a href="#metas" class="nav-btn btn-gold">
+                        <div class="nav-btn-content">
+                            <div class="icon-box">🎯</div>
+                            <span>Metas de Gastos</span>
+                        </div>
+                        <span class="arrow-indicator">➔</span>
+                    </a>
                 </div>
             </div>
 
-            <!-- Grupo 3: Configuração, Relatórios & Suporte -->
+            <!-- Grupo 3: Configuração & Suporte -->
             <div class="group-card">
-                <div class="group-title">Configuração, Relatórios & Suporte</div>
+                <div class="group-title">Configuração & Suporte</div>
                 <div class="grid-buttons">
                     <a href="#categorias" class="nav-btn btn-gold">
                         <div class="nav-btn-content">
@@ -300,7 +316,13 @@
                         </div>
                         <span class="arrow-indicator">➔</span>
                     </a>
+                </div>
+            </div>
 
+            <!-- Grupo 4: Relatórios & Backup -->
+            <div class="group-card">
+                <div class="group-title">Relatórios & Backup</div>
+                <div class="grid-buttons">
                     <a href="#holerites" class="nav-btn btn-blue">
                         <div class="nav-btn-content">
                             <div class="icon-box">📄</div>
