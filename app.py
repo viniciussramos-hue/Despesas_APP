@@ -133,12 +133,9 @@ def extrair_valores_precisos_pdf(texto):
     vale = 2220.00
     
     linhas = texto.split('\n')
-    
-    # Procura específica por linhas de totais e bases no PDF
-    for i, linha in enumerate(linhas):
+    for linha in linhas:
         linha_up = linha.upper()
         nums = re.findall(r'(\d{1,3}(?:\.\d{3})*,\d{2})', linha)
-        
         if nums:
             val = float(nums[-1].replace('.', '').replace(',', '.'))
             if 'BASE INSS SÁLARIO' in linha_up or 'BASE INSS SALARIO' in linha_up:
@@ -154,17 +151,11 @@ def extrair_valores_precisos_pdf(texto):
             elif 'LÍQUIDO:' in linha_up or 'LIQUIDO:' in linha_up:
                 liquido = val
 
-    # Fallback caso não ache tags específicas
-    if bruto == 0.0:
-        bruto = 6819.67
-    if descontos == 0.0:
-        descontos = 6278.12
-    if liquido == 0.0:
-        liquido = max(0.0, bruto - descontos)
-    if inss == 0.0:
-        inss = 756.25
-    if irrf == 0.0:
-        irrf = 531.68
+    if bruto == 0.0: bruto = 6819.67
+    if descontos == 0.0: descontos = 6278.12
+    if liquido == 0.0: liquido = max(0.0, bruto - descontos)
+    if inss == 0.0: inss = 756.25
+    if irrf == 0.0: irrf = 531.68
 
     return bruto, descontos, liquido, inss, irrf, vale
 
@@ -994,43 +985,51 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 # ==========================================
 elif st.session_state.pagina_atual == "📄 Holerites":
     st.subheader("📄 Análise, Comparativo Mês a Mês & Leitura Dinâmica de Holerites via PDF")
-    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema lerá com precisão cirúrgica os impostos e proventos de cada mês.")
+    st.info("Faça o upload de arquivos PDF de contracheques. O sistema lerá com precisão cirúrgica os impostos e proventos.")
     
     pdfs_holerites = st.file_uploader("Escolha os arquivos PDF dos Holerites Corporativos", type=["pdf"], accept_multiple_files=True, key="upload_multiplos_holerites")
     
+    # Processa os uploads apenas se novos arquivos foram carregados explicitamente
     if pdfs_holerites:
-        importados_automaticos = 0
-        for arquivo_pdf in pdfs_holerites:
-            texto_holerite = ""
-            try:
-                with pdfplumber.open(arquivo_pdf) as pdf:
-                    for pagina in pdf.pages:
-                        ext = pagina.extract_text()
-                        if ext:
-                            texto_holerite += ext + "\n"
-                
-                mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val, vale_val = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
-                
-                cursor_check = c.execute("SELECT id FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,))
-                row_existente = cursor_check.fetchone()
-                
-                if not row_existente:
-                    c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf, vale) VALUES (?,?,?,?,?,?,?)",
-                              (mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val, vale_val))
-                    conn.commit()
-                    importados_automaticos += 1
-                else:
-                    c.execute("UPDATE holerites SET salario_bruto = ?, total_descontos = ?, liquido = ?, inss = ?, irrf = ?, vale = ? WHERE mes_ano = ?",
-                              (bruto_val, desc_val, liquido_val, inss_val, irrf_val, vale_val, mes_ano_extraido))
-                    conn.commit()
-            except Exception as e:
-                pass
-                
-        if importados_automaticos > 0:
-            st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) com sucesso!")
+        # Usa uma chave no session_state para processar cada lote de arquivos apenas uma vez
+        upload_ids = "-".join([f"{f.name}-{f.size}" for f in pdfs_holerites])
+        if st.session_state.get("ultimo_upload_processado") != upload_ids:
+            importados_automaticos = 0
+            for arquivo_pdf in pdfs_holerites:
+                texto_holerite = ""
+                try:
+                    with pdfplumber.open(arquivo_pdf) as pdf:
+                        for pagina in pdf.pages:
+                            ext = pagina.extract_text()
+                            if ext:
+                                texto_holerite += ext + "\n"
+                    
+                    mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val, vale_val = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
+                    
+                    cursor_check = c.execute("SELECT id FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,))
+                    row_existente = cursor_check.fetchone()
+                    
+                    if not row_existente:
+                        c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf, vale) VALUES (?,?,?,?,?,?,?)",
+                                  (mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val, vale_val))
+                        conn.commit()
+                        importados_automaticos += 1
+                    else:
+                        c.execute("UPDATE holerites SET salario_bruto = ?, total_descontos = ?, liquido = ?, inss = ?, irrf = ?, vale = ? WHERE mes_ano = ?",
+                                  (bruto_val, desc_val, liquido_val, inss_val, irrf_val, vale_val, mes_ano_extraido))
+                        conn.commit()
+                except Exception as e:
+                    pass
+            st.session_state["ultimo_upload_processado"] = upload_ids
+            if importados_automaticos > 0:
+                st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) com sucesso!")
 
+    # Carrega do banco de dados a lista atualizada de holerites para exibição
+    df_holerites = pd.read_sql("SELECT * FROM holerites ORDER BY mes_ano DESC", conn)
+
+    if pdfs_holerites:
         st.markdown("---")
-        st.subheader("📑 Navegação Analítica por Mês / Contracheque (Janeiro em diante)")
+        st.subheader("📑 Navegação Analítica por Mês / Contracheque")
         
         if "holerite_selecionado_idx" not in st.session_state:
             st.session_state.holerite_selecionado_idx = 0
@@ -1108,8 +1107,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
     st.markdown("---")
     st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
-    
-    df_holerites = pd.read_sql("SELECT * FROM holerites ORDER BY mes_ano DESC", conn)
     
     if not df_holerites.empty:
         df_exibicao_hol = df_holerites[['id', 'mes_ano', 'salario_bruto', 'vale', 'total_descontos', 'liquido', 'inss', 'irrf']].copy()
