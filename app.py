@@ -42,7 +42,7 @@ with st.sidebar:
         st.rerun()
 
 # --- DEFINIÇÃO DAS ABAS ---
-aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard & 50/30/20", "📅 Contas a Pagar & Edição", "📋 Extrato & Backup"])
+aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard & Insights", "📅 Contas a Pagar & Edição", "📋 Extrato & Backup"])
 
 # --- ABA 1: LANÇAR DESPESA ---
 with aba1:
@@ -79,9 +79,9 @@ with aba2:
             conn.commit()
             st.success("Entrada registrada com sucesso!")
 
-# --- ABA 3: DASHBOARD & 50/30/20 (ESTILO CARDS PROFISSIONAIS) ---
+# --- ABA 3: DASHBOARD, INSIGHTS & 50/30/20 ---
 with aba3:
-    st.subheader("📊 Painel de Controle & Regra do 50/30/20")
+    st.subheader("📊 Painel de Controle & Análise Automática")
     df = pd.read_sql("SELECT * FROM transacoes", conn)
     df_contas = pd.read_sql("SELECT * FROM contas", conn)
     
@@ -91,7 +91,6 @@ with aba3:
         despesas = df[df['tipo'] == 'Despesa']['valor'].sum()
         saldo_caixa = receitas - despesas
         
-        # Total de Contas a Pagar (Pendentes)
         total_contas_pendentes = 0
         if not df_contas.empty:
             total_contas_pendentes = df_contas[df_contas['pago'] == 0]['valor'].sum()
@@ -105,10 +104,36 @@ with aba3:
 
         st.markdown("---")
         
+        # --- SEÇÃO DE ANÁLISE AUTOMÁTICA (INSIGHTS) ---
+        st.subheader("🤖 Análise Automática de Inteligência Financeira")
+        
+        if receitas > 0:
+            taxa_poupanca = (inv / receitas) * 100 if 'inv' in locals() else 0
+            
+            # Alerta de saúde financeira geral
+            if despesas > receitas:
+                st.error("🚨 **Alerta Vermelho:** Suas despesas estão maiores do que as suas receitas neste período! Cuidado com o endividamento.")
+            elif saldo_caixa > (receitas * 0.3):
+                st.success("✨ **Parabéns:** Sua saúde financeira está excelente! Você está retendo uma boa margem da sua receita.")
+            else:
+                st.warning("⚠️ **Atenção:** Suas finanças estão equilibradas, mas observe os gastos para não comprometer o saldo.")
+
+            # Identificando a categoria que mais consome dinheiro
+            df_desp_analise = df[df['tipo'] == 'Despesa']
+            if not df_desp_analise.empty:
+                gasto_por_cat = df_desp_analise.groupby('categoria')['valor'].sum()
+                maior_gasto_cat = gasto_por_cat.idxmax()
+                valor_maior_gasto = gasto_por_cat.max()
+                st.info(f"💡 **Dica de Ouro:** A categoria que mais pesou no seu bolso foi **{maior_gasto_cat}**, totalizando **R$ {valor_maior_gasto:.2f}**.")
+        else:
+            st.info("ℹ️ Insira ao menos uma receita para habilitar a análise automática completa dos seus ganhos.")
+
+        st.markdown("---")
+        
         # Projeção
         dia_hoje = datetime.now().day
         projecao_final = (despesas / max(dia_hoje, 1)) * 30
-        st.info(f"💡 **Projeção de Fechamento de Mês:** Mantendo o ritmo atual, suas despesas devem fechar em aprox. **R$ {projecao_final:.2f}**.")
+        st.write(f"📈 **Projeção de Fechamento de Mês:** Mantendo o ritmo atual, suas despesas devem fechar em aprox. **R$ {projecao_final:.2f}**.")
 
         st.markdown("---")
         st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
