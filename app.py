@@ -34,22 +34,19 @@ c.execute('''CREATE TABLE IF NOT EXISTS categorias
              (id INTEGER PRIMARY KEY, nome TEXT)''')
 c.execute('''CREATE TABLE IF NOT EXISTS metas 
              (id INTEGER PRIMARY KEY, categoria TEXT, valor_meta REAL)''')
-c.execute('''CREATE TABLE IF NOT EXISTS tabela_depositos 
-             (id INTEGER PRIMARY KEY, numero_deposito INTEGER, valor REAL, status TEXT)''')
 c.execute('''CREATE TABLE IF NOT EXISTS carteira_investimentos 
              (id INTEGER PRIMARY KEY, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)''')
 conn.commit()
 
-# Inicializa tabela de depósitos (Desafio de 20.100 / 200 depósitos / 52 semanas) se vazia ou se precisar resetar para o padrão de R$ 20.100
-if pd.read_sql("SELECT count(*) FROM tabela_depositos", conn).iloc[0,0] == 0:
-    # Gerando uma progressão clássica (ex: 200 depósitos que somam R$ 20.100,00 -> de 100 em 100 ou progressivo de 100 a 20000 etc, ou 31 dias de 1 a 31 somando 496, ou progressão exata)
-    # Vamos criar 200 depósitos progressivos onde cada depósito i custa i * 1.0 ou progressão ideal para somar 20.100
-    # Para somar 20.100 em 200 depósitos: P.A. simples
-    n_dep = 200
-    # Soma de 1 a 200 = 20100. Perfeito! O Depósito 1 = R$ 1,00, Depósito 2 = R$ 2,00 ... Depósito 200 = R$ 200,00. Soma total = 20.100,00!
-    for i in range(1, n_dep + 1):
-        c.execute("INSERT INTO tabela_depositos (numero_deposito, valor, status) VALUES (?, ?, ?)", (i, float(i), "Pendente"))
-    conn.commit()
+# Força a recriação da tabela de depósitos para garantir os 200 depósitos exatos (Soma = R$ 20.100,00)
+c.execute('''DROP TABLE IF EXISTS tabela_depositos''')
+c.execute('''CREATE TABLE tabela_depositos (id INTEGER PRIMARY KEY, numero_deposito INTEGER, valor REAL, status TEXT)''')
+conn.commit()
+
+# Insere os 200 depósitos (Depósito 1 = R$ 1,00 até Depósito 200 = R$ 200,00 -> Total = 20.100,00)
+for i in range(1, 201):
+    c.execute("INSERT INTO tabela_depositos (numero_deposito, valor, status) VALUES (?, ?, ?)", (i, float(i), "Pendente"))
+conn.commit()
 
 # --- TÍTULO ---
 st.title("💸 Gestor Financeiro Profissional")
@@ -305,7 +302,7 @@ with aba5:
     
     df_deps = pd.read_sql("SELECT * FROM tabela_depositos", conn)
     total_concluido = df_deps[df_deps['status'] == 'Concluído']['valor'].sum()
-    meta_total_desafio = df_deps['valor'].sum() # Deve totalizar R$ 20.100,00
+    meta_total_desafio = df_deps['valor'].sum() # Agora totaliza exatamente R$ 20.100,00
     
     st.markdown(f"<h3 style='color: #00FF7F; text-align: center;'>Progresso do Desafio: R$ {total_concluido:,.2f} / R$ {meta_total_desafio:,.2f}</h3>", unsafe_allow_html=True)
     st.progress(min(total_concluido / meta_total_desafio if meta_total_desafio > 0 else 0, 1.0))
@@ -418,7 +415,7 @@ with aba6:
             if v_meta > 0:
                 st.progress(min(gasto_atual / v_meta, 1.0))
                 if gasto_atual > v_meta:
-                    st.error(f"⚠️ Você ultrapassou a meta de {cat_nome} em R$ {(gasto_atual - v_meta):,.2f}!")
+                    st.error(f"⚠️ Você ultrapassou a meta de cat_nome em R$ {(gasto_atual - v_meta):,.2f}!")
             else:
                 st.progress(0.0)
     else:
@@ -611,7 +608,7 @@ with aba9:
             st.success(f"Transação ID {id_excluir} excluída com sucesso!")
             st.rerun()
 
-        st.markdown("---")
+        st.markdown---()
         
         st.write("### ✏️ Editar Lançamento")
         id_editar = st.selectbox("Selecione o ID para editar:", df_extrato_full['id'].tolist(), key="select_edit")
