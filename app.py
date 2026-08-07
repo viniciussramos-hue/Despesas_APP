@@ -175,6 +175,23 @@ with aba3:
             if m['valor_meta'] > 0 and (gasto_cat_mes / m['valor_meta']) >= 0.9:
                 st.warning(f"⚠️ **Alerta de Orçamento:** Você atingiu ou ultrapassou 90% da meta em **{m['categoria']}**! (Gasto: R$ {gasto_cat_mes:,.2f} / Meta: R$ {m['valor_meta']:,.2f})")
 
+    df_contas_check = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
+    if not df_contas_check.empty:
+        hoje = date.today()
+        vencidas = []
+        proximas = []
+        for _, row in df_contas_check.iterrows():
+            data_venc = datetime.strptime(row['vencimento'], "%Y-%m-%d").date()
+            dias_diff = (data_venc - hoje).days
+            if dias_diff < 0:
+                vencidas.append(f"• **{row['descricao']}** (Vencia em {row['vencimento']} - R$ {row['valor']:,.2f})")
+            elif 0 <= dias_diff <= 3:
+                proximas.append(f"• **{row['descricao']}** (Vence em {row['vencimento']} - R$ {row['valor']:,.2f})")
+        if vencidas:
+            st.error("🚨 **Atenção! Contas VENCIDAS:**\n\n" + "\n".join(vencidas))
+        if proximas:
+            st.warning("⚠️ **Aviso: Contas próximas do vencimento (3 dias):**\n\n" + "\n".join(proximas))
+
     df_contas = pd.read_sql("SELECT * FROM contas", conn)
     if not df_all.empty:
         df['valor'] = pd.to_numeric(df['valor'], errors='coerce').fillna(0)
@@ -195,10 +212,7 @@ with aba3:
             nec = df[(df['tipo'] == 'Despesa') & (df['categoria'].str.contains("Necessidade", na=False))]['valor'].sum()
             des = df[(df['tipo'] == 'Despesa') & (df['categoria'].str.contains("Desejos", na=False))]['valor'].sum()
             inv = df[(df['tipo'] == 'Despesa') & (df['categoria'].str.contains("Investimentos", na=False))]['valor'].sum()
-            
-            meta_nec = receitas * 0.50
-            meta_des = receitas * 0.30
-            meta_inv = receitas * 0.20
+            meta_nec, meta_des, meta_inv = receitas * 0.50, receitas * 0.30, receitas * 0.20
             
             c_50, c_30, c_20 = st.columns(3)
             with c_50:
@@ -325,21 +339,66 @@ with aba7:
 # --- ABA 8: SAÚDE FINANCEIRA ---
 with aba8:
     st.subheader("❤️ Saúde Financeira")
+    st.write("Score de 0 a 1000 baseado em fatores de desempenho do seu perfil financeiro.")
+    
     df = pd.read_sql("SELECT * FROM transacoes", conn)
     receitas = df[df['tipo'] == 'Receita']['valor'].sum() if not df.empty else 0
     despesas = df[df['tipo'] == 'Despesa']['valor'].sum() if not df.empty else 0
-    score = int(750 if receitas >= despesas else 400)
-    st.metric("Score de Saúde Financeira", f"{score} / 1000")
+    
+    f_endividamento = 250 if receitas >= despesas else max(0, 250 - ((despesas - receitas) / max(receitas, 1)) * 250)
+    inv = df[df['categoria'].str.contains("Investimentos", na=False)]['valor'].sum() if not df.empty else 0
+    taxa_poupanca = (inv / receitas) if receitas > 0 else 0
+    f_poupanca = min(250, (taxa_poupanca / 0.20) * 250)
+    desejos = df[df['categoria'].str.contains("Desejos", na=False)]['valor'].sum() if not df.empty else 0
+    proporcao_desejos = (desejos / receitas) if receitas > 0 else 0
+    f_metas = 250 if proporcao_desejos <= 0.30 else max(0, 250 - ((proporcao_desejos - 0.30) * 500))
+    f_disciplina = 250 if not df.empty and receitas > 0 else 50
+    
+    score_total = int(f_endividamento + f_poupanca + f_metas + (f_disciplina * 0.5))
+    score_total = min(1000, max(0, score_total))
+    
+    if score_total >= 750:
+        status_score, cor_status = "Excelente 🚀", "🟢"
+    elif score_total >= 500:
+        status_score, cor_status = "Bom 👍", "🔵"
+    else:
+        status_score, cor_status = "Atenção ⚠️", "🟠"
+
+    st.markdown(f"""
+    <div style="background-color: #1E1E1E; padding: 30px; border-radius: 10px; text-align: center; border: 1px solid #333;">
+        <h1 style="font-size: 60px; color: #FF4B4B; margin: 0;">{score_total}</h1>
+        <p style="color: #888; font-size: 18px; margin: 5px 0 15px 0;">de 1000</p>
+        <h3 style="color: #FFF; margin: 0;">{cor_status} {status_score}</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.subheader("Detalhamento por Fator")
+    st.write("Avaliação baseada no seu volume atual de transações e metas.")
+    
+    st.write(f"🛡️ **Controle de Endividamento:** {int(f_endividamento)} / 250 pts")
+    st.progress(min(f_endividamento / 250, 1.0))
+    st.write(f"🎯 **Controle de Desejos (Regra 30%):** {int(f_metas)} / 250 pts")
+    st.progress(min(f_metas / 250, 1.0))
+    st.write(f"📈 **Taxa de Poupança / Investimento (Regra 20%):** {int(f_poupanca)} / 250 pts")
+    st.progress(min(f_poupanca / 250, 1.0))
+    st.write(f"📅 **Disciplina de Registros:** {int(f_disciplina * 0.5)} / 250 pts")
+    st.progress(min((f_disciplina * 0.5) / 250, 1.0))
 
 # --- ABA 9: PROJEÇÃO & CAIXA ---
 with aba9:
     st.subheader("🔮 Projeção Financeira & Fluxo de Caixa Diário")
+    st.info("Acompanhe a projeção dos próximos meses e o fluxo de caixa diário dos seus lançamentos.")
+    
     df_all_proj = pd.read_sql("SELECT * FROM transacoes", conn)
     if not df_all_proj.empty:
         df_all_proj['data'] = pd.to_datetime(df_all_proj['data'])
         df_all_proj['ano_mes'] = df_all_proj['data'].dt.strftime('%Y-%m')
+        
+        st.write("### 📅 Fluxo de Caixa Diário (Saldo Acumulado por Dia)")
         meses_disp_caixa = sorted(df_all_proj['ano_mes'].unique(), reverse=True)
         mes_caixa_sel = st.selectbox("Selecione o Mês para ver o Caixa Diário:", meses_disp_caixa)
+        
         df_caixa_mes = df_all_proj[df_all_proj['ano_mes'] == mes_caixa_sel].sort_values('data').copy()
         if not df_caixa_mes.empty:
             df_caixa_mes['valor_ajustado'] = df_caixa_mes.apply(lambda x: x['valor'] if x['tipo'] == 'Receita' else -x['valor'], axis=1)
@@ -349,15 +408,19 @@ with aba9:
 # --- ABA 10: CONTAS A PAGAR ---
 with aba10:
     st.subheader("📅 Calendário de Contas & Gerenciamento")
-    with st.form("conta", clear_on_submit=True):
-        venc = st.date_input("Data de Vencimento")
-        nome_conta = st.text_input("Nome da Conta")
-        val_conta = st.number_input("Valor", min_value=0.0, format="%.2f")
+    with aba10_form := st.form("conta", clear_on_submit=True):
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            venc = st.date_input("Data de Vencimento")
+            nome_conta = st.text_input("Nome da Conta")
+        with col_c2:
+            val_conta = st.number_input("Valor Estimado", min_value=0.0, format="%.2f")
         if st.form_submit_button("Adicionar ao Calendário", use_container_width=True):
             c.execute("INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)", (venc, str(nome_conta), val_conta, 0))
             conn.commit()
             st.success("Conta adicionada!")
             st.rerun()
+            
     contas = pd.read_sql("SELECT * FROM contas", conn)
     if not contas.empty:
         st.dataframe(contas, use_container_width=True)
