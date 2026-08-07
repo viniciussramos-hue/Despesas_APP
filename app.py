@@ -14,7 +14,6 @@ if not st.session_state.autenticado:
     st.title("🔒 Acesso Restrito - Gestor Financeiro")
     senha_digitada = st.text_input("Digite a senha de acesso:", type="password")
     
-    # Defina a senha que você quiser aqui (atualmente configurada como '1234')
     if st.button("Entrar", use_container_width=True):
         if senha_digitada == "1234":
             st.session_state.autenticado = True
@@ -22,7 +21,7 @@ if not st.session_state.autenticado:
             st.rerun()
         else:
             st.error("Senha incorreta! Tente novamente.")
-    st.stop()  # Para a execução do app aqui se não estiver logado
+    st.stop()
 
 # --- CONEXÃO BANCO DE DADOS (PERSISTENTE) ---
 conn = sqlite3.connect("gestor_financeiro.db", check_same_thread=False)
@@ -80,22 +79,36 @@ with aba2:
             conn.commit()
             st.success("Entrada registrada com sucesso!")
 
-# --- ABA 3: DASHBOARD & 50/30/20 ---
+# --- ABA 3: DASHBOARD & 50/30/20 (ESTILO CARDS PROFISSIONAIS) ---
 with aba3:
-    st.subheader("📊 Dashboard, Projeções & Regra do 50/30/20")
+    st.subheader("📊 Painel de Controle & Regra do 50/30/20")
     df = pd.read_sql("SELECT * FROM transacoes", conn)
-    if not df.empty:
-        df['valor'] = pd.to_numeric(df['valor'])
+    df_contas = pd.read_sql("SELECT * FROM contas", conn)
+    
+    if not df.empty or not df_contas.empty:
+        df['valor'] = pd.to_numeric(df['valor'], errors='coerce').fillna(0)
         receitas = df[df['tipo'] == 'Receita']['valor'].sum()
         despesas = df[df['tipo'] == 'Despesa']['valor'].sum()
+        saldo_caixa = receitas - despesas
         
+        # Total de Contas a Pagar (Pendentes)
+        total_contas_pendentes = 0
+        if not df_contas.empty:
+            total_contas_pendentes = df_contas[df_contas['pago'] == 0]['valor'].sum()
+
+        # Grid de Cards (Estilo GestorMoney)
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("💰 Saldo em Caixa", f"R$ {saldo_caixa:.2f}")
+        col2.metric("🟢 Total Entradas", f"R$ {receitas:.2f}")
+        col3.metric("🔴 Total Despesas", f"R$ {despesas:.2f}")
+        col4.metric("📅 Contas Pendentes", f"R$ {total_contas_pendentes:.2f}")
+
+        st.markdown("---")
+        
+        # Projeção
         dia_hoje = datetime.now().day
         projecao_final = (despesas / max(dia_hoje, 1)) * 30
-        
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Entradas", f"R$ {receitas:.2f}")
-        col2.metric("Total Despesas", f"R$ {despesas:.2f}")
-        col3.metric("Saldo Atual em Caixa", f"R$ {receitas - despesas:.2f}")
+        st.info(f"💡 **Projeção de Fechamento de Mês:** Mantendo o ritmo atual, suas despesas devem fechar em aprox. **R$ {projecao_final:.2f}**.")
 
         st.markdown("---")
         st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
@@ -123,7 +136,7 @@ with aba3:
                 st.write(f"Guardado: R$ {inv:.2f} / Meta: R$ {meta_inv:.2f}")
                 st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
         else:
-            st.info("Cadastre ao menos uma entrada (Receita) para calcular as metas.")
+            st.warning("Cadastre ao menos uma entrada (Receita) para calcular as metas da regra 50/30/20.")
 
         st.markdown("---")
         st.write("### Despesas por Categoria")
