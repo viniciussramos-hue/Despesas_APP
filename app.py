@@ -59,8 +59,8 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("<p style='text-align: center; color: #888; font-size: 12px;'>Elaborado por Vinicius Ramos</p>", unsafe_allow_html=True)
 
-# --- DEFINIÇÃO DAS ABAS ---
-aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9 = st.tabs([
+# --- DEFINIÇÃO DAS ABAS (10 Abas) ---
+aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9, aba10 = st.tabs([
     "🔴 Lançar Despesa", 
     "🟢 Entradas & Salários", 
     "📊 Dashboard", 
@@ -68,6 +68,7 @@ aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9 = st.tabs([
     "🎯 Desafios", 
     "🎯 Metas & Categorias", 
     "❤️ Saúde Financeira", 
+    "🔮 Projeção",
     "📅 Contas a Pagar", 
     "📋 Extrato & Backup"
 ])
@@ -224,12 +225,20 @@ with aba3:
             st.info("Nenhuma despesa registrada para este mês.")
             
         st.markdown("---")
-        st.subheader("📉 Evolução Histórica (Receitas vs. Despesas por Mês)")
+        st.subheader("📈 Evolução e Saldo Acumulado Histórico")
         df_pivot = df_all.pivot_table(index='ano_mes', columns='tipo', values='valor', aggfunc='sum').fillna(0)
         if 'Receita' not in df_pivot.columns: df_pivot['Receita'] = 0
         if 'Despesa' not in df_pivot.columns: df_pivot['Despesa'] = 0
-        df_evolucao = df_pivot[['Receita', 'Despesa']]
-        st.line_chart(df_evolucao)
+        
+        # Calcula o Saldo do mês e o Acumulado
+        df_pivot['Saldo Mensal'] = df_pivot['Receita'] - df_pivot['Despesa']
+        df_pivot['Saldo Acumulado'] = df_pivot['Saldo Mensal'].cumsum()
+        
+        st.write("**Gráfico de Saldo Acumulado (Evolução do Patrimônio em Caixa)**")
+        st.line_chart(df_pivot[['Saldo Acumulado']])
+        
+        st.write("**Comparativo Mensal (Receitas vs Despesas)**")
+        st.line_chart(df_pivot[['Receita', 'Despesa']])
         
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard corporativo.")
@@ -478,8 +487,82 @@ with aba7:
     st.write(f"📅 **Disciplina de Registros:** {int(f_disciplina * 0.5)} / 250 pts")
     st.progress(min((f_disciplina * 0.5) / 250, 1.0))
 
-# --- ABA 8: CONTAS A PAGAR ---
+# --- ABA 8: PROJEÇÃO FINANCEIRA ---
 with aba8:
+    st.subheader("🔮 Projeção Financeira para os Próximos Meses")
+    st.info("Simule e projete a evolução do seu saldo e capacidade de economia para os próximos meses com base nas suas médias atuais.")
+    
+    df_all_proj = pd.read_sql("SELECT * FROM transacoes", conn)
+    
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        meses_proj = st.slider("Quantos meses deseja projetar?", min_value=1, max_value=12, value=6)
+    with col_p2:
+        aporte_extra_mensal = st.number_input("Previsão de Aporte/Economia Extra Mensal (R$):", min_value=0.0, value=0.00, step=50.0)
+
+    if not df_all_proj.empty:
+        df_all_proj['data'] = pd.to_datetime(df_all_proj['data'])
+        df_all_proj['ano_mes'] = df_all_proj['data'].dt.strftime('%Y-%m')
+        
+        # Média mensal histórica
+        resumo_meses = df_all_proj.pivot_table(index='ano_mes', columns='tipo', values='valor', aggfunc='sum').fillna(0)
+        media_receitas = resumo_meses['Receita'].mean() if 'Receita' in resumo_meses.columns else 0.0
+        media_despesas = resumo_meses['Despesa'].mean() if 'Despesa' in resumo_meses.columns else 0.0
+        
+        saldo_atual_caixa = media_receitas - media_despesas
+        
+        st.markdown("---")
+        col_mp1, col_mp2, col_mp3 = st.columns(3)
+        col_mp1.metric("🟢 Média Mensal de Entradas", f"R$ {media_receitas:,.2f}")
+        col_mp2.metric("🔴 Média Mensal de Despesas", f"R$ {media_despesas:,.2f}")
+        col_mp3.metric("💡 Sobra Líquida Média", f"R$ {saldo_atual_caixa:,.2f}")
+        
+        st.markdown("---")
+        st.subheader(f"📊 Tabela de Projeção para os Próximos {meses_proj} Meses")
+        
+        lista_projecao = []
+        acumulado_proj = 0.0
+        
+        # Pega o último saldo real se houver
+        if 'Receita' in resumo_meses.columns and 'Despesa' in resumo_meses.columns:
+            acumulado_proj = (resumo_meses['Receita'] - resumo_meses['Despesa']).sum()
+
+        data_base = date.today()
+        for i in range(1, meses_proj + 1):
+            # Avança os meses
+            mes_futuro = data_base.month + i - 1
+            ano_futuro = data_base.year + (mes_futuro // 12)
+            mes_futuro = (mes_futuro % 12) + 1
+            nome_mes_ano = f"{ano_futuro}-{mes_futuro:02d}"
+            
+            sobra_mes = (media_receitas - media_despesas) + aporte_extra_mensal
+            acumulado_proj += sobra_mes
+            
+            lista_projecao.append({
+                "Mês/Ano": nome_mes_ano,
+                "Receita Projetada": media_receitas,
+                "Despesa Projetada": media_despesas,
+                "Aporte Extra": aporte_extra_mensal,
+                "Patrimônio Acumulado Projetado": acumulado_proj
+            })
+            
+        df_proj = pd.DataFrame(lista_projecao)
+        st.dataframe(df_proj.style.format({
+            'Receita Projetada': 'R$ {:,.2f}',
+            'Despesa Projetada': 'R$ {:,.2f}',
+            'Aporte Extra': 'R$ {:,.2f}',
+            'Patrimônio Acumulado Projetado': 'R$ {:,.2f}'
+        }), use_container_width=True)
+        
+        st.write("**Gráfico de Crescimento Patrimonial Projetado**")
+        df_graf_proj = df_proj.set_index('Mês/Ano')[['Patrimônio Acumulado Projetado']]
+        st.line_chart(df_graf_proj)
+        
+    else:
+        st.info("Cadastre algumas transações nas abas anteriores para habilitar a projeção baseada no seu histórico.")
+
+# --- ABA 9: CONTAS A PAGAR ---
+with aba9:
     st.subheader("📅 Calendário de Contas & Gerenciamento")
     
     with st.form("conta", clear_on_submit=True):
@@ -540,8 +623,8 @@ with aba8:
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 9: EXTRATO, IMPORTAÇÃO (CSV/PDF), EXPORTAÇÃO & BACKUP ---
-with aba9:
+# --- ABA 10: EXTRATO, IMPORTAÇÃO (CSV/PDF), EXPORTAÇÃO & BACKUP ---
+with aba10:
     st.subheader("📋 Extrato Corporativo, Importação (CSV / PDF) e Backup")
     
     col_exp1, col_exp2 = st.columns(2)
@@ -623,24 +706,19 @@ with aba9:
                     data_recente = date.today().strftime("%Y-%m-%d")
                     
                     for linha in linhas:
-                        # Identifica linhas de extrato do Itaú que possuem formato de data no início (ex: 07/08/2026)
                         partes = linha.split()
                         if len(partes) >= 3 and "/" in partes[0] and len(partes[0]) == 10:
                             try:
-                                # Tenta extrair a data DD/MM/YYYY para o formato YYYY-MM-DD
                                 d_partes = partes[0].split('/')
                                 if len(d_partes) == 3:
                                     data_recente = f"{d_partes[2]}-{d_partes[1]}-{d_partes[0]}"
                                 
-                                # O valor geralmente está no penúltimo ou último elemento antes do saldo
-                                # Exemplo linha extrato: 06/08/2026 | PIX QRS TELEFONICA | -65,86
                                 linha_limpa = linha.replace("R$", "").replace(".", "").replace(",", ".")
                                 sub_partes = linha_limpa.split()
                                 
                                 val_str = sub_partes[-1]
                                 val_float = float(val_str)
                                 
-                                # Descrição é o miolo da linha
                                 desc_str = " ".join(partes[1:-1]) if len(partes) > 2 else "Lançamento Extrato"
                                 
                                 tipo_trans = "Receita" if val_float > 0 else "Despesa"
