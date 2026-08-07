@@ -19,7 +19,7 @@ conn.commit()
 st.title("💸 Gestor Financeiro Profissional")
 
 # --- DEFINIÇÃO DAS ABAS ---
-aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard & 50/30/20", "📅 Contas a Pagar", "📋 Extrato"])
+aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard & 50/30/20", "📅 Contas a Pagar", "📋 Extrato & Edição"])
 
 # --- ABA 1: LANÇAR DESPESA ---
 with aba1:
@@ -136,13 +136,48 @@ with aba4:
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 5: EXTRATO ---
+# --- ABA 5: EXTRATO & EDIÇÃO ---
 with aba5:
-    st.subheader("📋 Extrato Completo de Transações")
+    st.subheader("📋 Extrato e Gerenciamento de Lançamentos")
     df_extrato = pd.read_sql("SELECT * FROM transacoes", conn)
+    
     if not df_extrato.empty:
+        # Seção de Exclusão individual
+        st.write("### ❌ Excluir Lançamento Específico")
+        id_excluir = st.selectbox("Selecione o ID da transação para apagar:", df_extrato['id'].tolist())
+        if st.button("Excluir Lançamento Selecionado"):
+            c.execute("DELETE FROM transacoes WHERE id = ?", (id_excluir,))
+            conn.commit()
+            st.success(f"Transação ID {id_excluir} excluída com sucesso!")
+            st.rerun()
+
+        st.markdown("---")
+        
+        # Seção de Edição
+        st.write("### ✏️ Editar Lançamento")
+        id_editar = st.selectbox("Selecione o ID para editar:", df_extrato['id'].tolist(), key="select_edit")
+        
+        # Pega os dados atuais do ID selecionado
+        item_atual = df_extrato[df_extrato['id'] == id_editar].iloc[0]
+        
+        with st.form("form_editar"):
+            novo_tipo = st.selectbox("Tipo", ["Despesa", "Receita"], index=0 if item_atual['tipo'] == "Despesa" else 1)
+            nova_desc = st.text_input("Descrição", value=item_atual['descricao'])
+            novo_valor = st.number_input("Valor (R$)", value=float(item_atual['valor']), format="%.2f")
+            nova_cat = st.text_input("Categoria", value=item_atual['categoria'])
+            
+            if st.form_submit_button("Atualizar Lançamento", use_container_width=True):
+                c.execute("UPDATE transacoes SET tipo = ?, descricao = ?, categoria = ?, valor = ? WHERE id = ?",
+                          (novo_tipo, nova_desc, nova_cat, novo_valor, id_editar))
+                conn.commit()
+                st.success(f"Transação ID {id_editar} atualizada com sucesso!")
+                st.rerun()
+
+        st.markdown("---")
+        st.subheader("Visualização Completa do Extrato")
         st.dataframe(df_extrato, use_container_width=True)
-        if st.button("🗑️ Limpar Todas as Transações", use_container_width=True):
+        
+        if st.button("🗑️ Limpar TODO o Extrato", use_container_width=True):
             c.execute("DELETE FROM transacoes")
             conn.commit()
             st.rerun()
