@@ -1,9 +1,13 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor Financeiro Profissional</title>
+import streamlit as st
+
+# Configuração da página
+st.set_page_config(
+    page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide"
+)
+
+# Estilo visual moderno injetado via CSS
+st.markdown(
+    """
     <style>
         :root {
             --bg-color: #0f1117;
@@ -20,29 +24,9 @@
             --accent-purple: #8b5cf6;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-        }
-
-        body {
+        .stApp {
             background-color: var(--bg-color);
-            color: var(--text-primary);
-            padding: 40px 20px;
-            min-height: 100vh;
             background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        /* Header */
-        .header {
-            margin-bottom: 30px;
         }
 
         .header-title {
@@ -56,19 +40,10 @@
             color: #ffffff;
         }
 
-        .header-title span {
-            font-size: 32px;
-        }
-
         .header-subtitle {
             color: var(--text-secondary);
             font-size: 15px;
-        }
-
-        /* Section Indicator */
-        .section-indicator {
-            margin-top: 25px;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
 
         .section-indicator h2 {
@@ -84,265 +59,140 @@
         .section-indicator p {
             color: var(--text-secondary);
             font-size: 13px;
-        }
-
-        /* Groups Layout */
-        .dashboard-groups {
-            display: flex;
-            flex-direction: column;
-            gap: 28px;
+            margin-bottom: 20px;
         }
 
         .group-card {
             background: rgba(18, 21, 28, 0.5);
             border: 1px solid var(--border-color);
             border-radius: 16px;
-            padding: 24px;
+            padding: 20px;
             backdrop-filter: blur(10px);
+            margin-bottom: 20px;
         }
 
         .group-title {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
             color: var(--text-secondary);
-            margin-bottom: 16px;
+            margin-bottom: 14px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-
-        .grid-buttons {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 14px;
-        }
-
-        /* Action Buttons / Cards */
-        .nav-btn {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 14px 18px;
-            color: var(--text-primary);
-            font-size: 14px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            transition: all 0.25s ease;
-            text-decoration: none;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-
-        .nav-btn:hover {
-            background: var(--card-hover);
-            border-color: var(--border-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
-        }
-
-        .nav-btn-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .icon-box {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 15px;
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        /* Cores customizadas para os ícones */
-        .btn-red .icon-box { color: var(--accent-red); background: rgba(239, 68, 68, 0.1); }
-        .btn-green .icon-box { color: var(--accent-green); background: rgba(34, 197, 94, 0.1); }
-        .btn-gold .icon-box { color: var(--accent-gold); background: rgba(245, 158, 11, 0.1); }
-        .btn-blue .icon-box { color: var(--accent-blue); background: rgba(59, 130, 246, 0.1); }
-        .btn-purple .icon-box { color: var(--accent-purple); background: rgba(139, 92, 246, 0.1); }
-
-        .arrow-indicator {
-            color: var(--text-secondary);
-            font-size: 12px;
-            opacity: 0.5;
-            transition: opacity 0.2s, transform 0.2s;
-        }
-
-        .nav-btn:hover .arrow-indicator {
-            opacity: 1;
-            transform: translateX(3px);
-        }
-
-        @media (max-width: 768px) {
-            .grid-buttons {
-                grid-template-columns: 1fr;
-            }
-        }
     </style>
-</head>
-<body>
+    """,
+    unsafe_allow_html=True,
+)
 
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div class="header-title">
-                <span>💸</span> Gestor Financeiro Profissional
-            </div>
-            <div class="header-subtitle">
-                Sistema avançado de controle orçamentário, investimentos, projeções e auditoria de holerites.
-            </div>
-
-            <div class="section-indicator">
-                <h2><span>🎛️</span> Painel de Indicadores & Acesso Rápido</h2>
-                <p>Clique em um dos botões abaixo para acessar a respectiva seção do sistema:</p>
-            </div>
-        </div>
-
-        <!-- Grupos de Acesso -->
-        <div class="dashboard-groups">
-            
-            <!-- Grupo 1: Painel de Gestão Diária -->
-            <div class="group-card">
-                <div class="group-title">Painel de Gestão Diária</div>
-                <div class="grid-buttons">
-                    <a href="#lancar-despesa" class="nav-btn btn-red">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">🔴</div>
-                            <span>Lançar Despesa</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-
-                    <a href="#entradas" class="nav-btn btn-green">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">🟢</div>
-                            <span>Entradas & Salários</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-
-                    <a href="#contas-pagar" class="nav-btn btn-gold">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">📅</div>
-                            <span>Contas a Pagar</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-
-                    <a href="#cartao" class="nav-btn btn-gold">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">💳</div>
-                            <span>Cartão de Crédito</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-
-                    <a href="#fluxo" class="nav-btn btn-green">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">📊</div>
-                            <span>Fluxo de Caixa</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Grupo 2: Análise & Planejamento -->
-            <div class="group-card">
-                <div class="group-title">Análise & Planejamento</div>
-                <div class="grid-buttons">
-                    <a href="#investimentos" class="nav-btn btn-blue">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">📈</div>
-                            <span>Investimentos</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-
-                    <a href="#projecoes" class="nav-btn btn-purple">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">🔮</div>
-                            <span>Projeções Futuras</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-
-                    <a href="#dashboard" class="nav-btn btn-blue">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">📊</div>
-                            <span>Dashboard Geral</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-
-                    <a href="#desafios" class="nav-btn btn-gold">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">🎯</div>
-                            <span>Desafios</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-
-                    <a href="#metas" class="nav-btn btn-gold">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">🎯</div>
-                            <span>Metas de Gastos</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Grupo 3: Configuração & Suporte -->
-            <div class="group-card">
-                <div class="group-title">Configuração & Suporte</div>
-                <div class="grid-buttons">
-                    <a href="#categorias" class="nav-btn btn-gold">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">🏷️</div>
-                            <span>Categorias & Ícones</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-
-                    <a href="#saude" class="nav-btn btn-red">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">❤️</div>
-                            <span>Saúde Financeira</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Grupo 4: Relatórios & Backup -->
-            <div class="group-card">
-                <div class="group-title">Relatórios & Backup</div>
-                <div class="grid-buttons">
-                    <a href="#holerites" class="nav-btn btn-blue">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">📄</div>
-                            <span>Holerites & PDF</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-
-                    <a href="#extrato" class="nav-btn btn-blue">
-                        <div class="nav-btn-content">
-                            <div class="icon-box">📋</div>
-                            <span>Extrato & Backup</span>
-                        </div>
-                        <span class="arrow-indicator">➔</span>
-                    </a>
-                </div>
-            </div>
-
-        </div>
+# Cabeçalho Principal
+st.markdown(
+    """
+    <div class="header-title"><span>💸</span> Gestor Financeiro Profissional</div>
+    <div class="header-subtitle">Sistema avançado de controle orçamentário, investimentos, projeções e auditoria de holerites.</div>
+    
+    <div class="section-indicator">
+        <h2><span>🎛️</span> Painel de Indicadores & Acesso Rápido</h2>
+        <p>Clique em um dos botões abaixo para acessar a respectiva seção do sistema:</p>
     </div>
+""",
+    unsafe_allow_html=True,
+)
 
-</body>
-</html>
+# Inicializa o controle de navegação se não existir
+if "pagina_atual" not in st.session_state:
+  st.session_state.pagina_atual = "Home"
+
+# ---------------------------------------------------------
+# GRUPO 1: Painel de Gestão Diária
+# ---------------------------------------------------------
+st.markdown(
+    '<div class="group-card"><div class="group-title">Painel de Gestão'
+    " Diária</div>",
+    unsafe_allow_html=True,
+)
+col1, col2, col3, col4, col5 = st.columns(5)
+
+with col1:
+  if st.button("🔴 Lançar Despesa", use_container_width=True):
+    st.session_state.pagina_atual = "Lançar Despesa"
+with col2:
+  if st.button("🟢 Entradas & Salários", use_container_width=True):
+    st.session_state.pagina_atual = "Entradas & Salários"
+with col3:
+  if st.button("📅 Contas a Pagar", use_container_width=True):
+    st.session_state.pagina_atual = "Contas a Pagar"
+with col4:
+  if st.button("💳 Cartão de Crédito", use_container_width=True):
+    st.session_state.pagina_atual = "Cartão de Crédito"
+with col5:
+  if st.button("📊 Fluxo de Caixa", use_container_width=True):
+    st.session_state.pagina_atual = "Fluxo de Caixa"
+st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------
+# GRUPO 2: Análise & Planejamento
+# ---------------------------------------------------------
+st.markdown(
+    '<div class="group-card"><div class="group-title">Análise &'
+    " Planejamento</div>",
+    unsafe_allow_html=True,
+)
+col1, col2, col3, col4, col5 = st.columns(5)
+
+with col1:
+  if st.button("📈 Investimentos", use_container_width=True):
+    st.session_state.pagina_atual = "Investimentos"
+with col2:
+  if st.button("🔮 Projeções Futuras", use_container_width=True):
+    st.session_state.pagina_atual = "Projeções Futuras"
+with col3:
+  if st.button("📊 Dashboard Geral", use_container_width=True):
+    st.session_state.pagina_atual = "Dashboard Geral"
+with col4:
+  if st.button("🎯 Desafios", use_container_width=True):
+    st.session_state.pagina_atual = "Desafios"
+with col5:
+  if st.button("🎯 Metas de Gastos", use_container_width=True):
+    st.session_state.pagina_atual = "Metas de Gastos"
+st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------
+# GRUPO 3 & 4: Configuração, Suporte, Relatórios & Backup
+# ---------------------------------------------------------
+col_a, col_b = st.columns(2)
+
+with col_a:
+  st.markdown(
+      '<div class="group-card"><div class="group-title">Configuração &'
+      " Suporte</div>",
+      unsafe_allow_html=True,
+  )
+  sub1, sub2 = st.columns(2)
+  with sub1:
+    if st.button("🏷️ Categorias & Ícones", use_container_width=True):
+      st.session_state.pagina_atual = "Categorias & Ícones"
+  with sub2:
+    if st.button("❤️ Saúde Financeira", use_container_width=True):
+      st.session_state.pagina_atual = "Saúde Financeira"
+  st.markdown("</div>", unsafe_allow_html=True)
+
+with col_b:
+  st.markdown(
+      '<div class="group-card"><div class="group-title">Relatórios &'
+      " Backup</div>",
+      unsafe_allow_html=True,
+  )
+  sub1, sub2 = st.columns(2)
+  with sub1:
+    if st.button("📄 Holerites & PDF", use_container_width=True):
+      st.session_state.pagina_atual = "Holerites & PDF"
+  with sub2:
+    if st.button("📋 Extrato & Backup", use_container_width=True):
+      st.session_state.pagina_atual = "Extrato & Backup"
+  st.markdown("</div>", unsafe_allow_html=True)
+
+# Exemplo de roteamento baseado na escolha do usuário
+st.write("---")
+st.info(f"Seção ativa no momento: **{st.session_state.pagina_atual}**")
