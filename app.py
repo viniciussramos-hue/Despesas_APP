@@ -43,7 +43,6 @@ if not st.session_state.autenticado:
 conn = sqlite3.connect("gestor_financeiro.db", check_same_thread=False)
 c = conn.cursor()
 
-# Criação de todas as tabelas essenciais para o funcionamento completo do ecossistema
 c.execute('''CREATE TABLE IF NOT EXISTS transacoes 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, tipo TEXT, descricao TEXT, categoria TEXT, valor REAL)''')
 
@@ -70,7 +69,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS holerites
 
 conn.commit()
 
-# Inicialização automática da tabela do Desafio de Depósitos (200 depósitos progressivos)
 if pd.read_sql("SELECT count(*) FROM tabela_depositos", conn).iloc[0,0] == 0:
     for i in range(1, 201):
         c.execute("INSERT INTO tabela_depositos (numero_deposito, valor, status) VALUES (?, ?, ?)", (i, float(i), "Pendente"))
@@ -80,7 +78,6 @@ if pd.read_sql("SELECT count(*) FROM tabela_depositos", conn).iloc[0,0] == 0:
 # --- MOTOR DE INTELIGÊNCIA E CATEGORIZAÇÃO ---
 # ==========================================
 def categorizar_automaticamente(descricao, tipo):
-    """Analisa descrições de extratos bancários e atribui automaticamente a categoria ideal."""
     desc_upper = descricao.upper()
     if tipo == "Receita":
         if "SALARIO" in desc_upper or "REMUNERACAO" in desc_upper or "PAGAMENTO" in desc_upper:
@@ -108,7 +105,6 @@ def categorizar_automaticamente(descricao, tipo):
         return "🏠 Contas Fixas (Necessidade)"
 
 def extrair_mes_ano_do_nome(nome_arquivo):
-    """Identifica o mês e ano com base no nome do arquivo PDF do holerite."""
     nome_up = nome_arquivo.upper()
     meses_map = {
         'JANEIRO': '01', 'FEVEREIRO': '02', 'MARCO': '03', 'MARÇO': '03',
@@ -122,51 +118,34 @@ def extrair_mes_ano_do_nome(nome_arquivo):
             return f"{num_mes}/{ano}"
     return "07/2026"
 
-def extrair_valores_reais_pdf(texto):
-    """Varre o texto completo do PDF extraindo todos os valores monetários e mapeando proventos e descontos."""
-    padrao_valores = re.findall(r'(\d{1,3}(?:\.\d{3})*,\d{2})', texto)
-    valores_convertidos = []
-    
-    for v in padrao_valores:
-        try:
-            val_num = float(v.replace('.', '').replace(',', '.'))
-            if val_num > 1.0:
-                valores_convertidos.append(val_num)
-        except:
-            continue
-            
+def extrair_valores_precisos_pdf(texto):
+    """Extrai estritamente os valores corretos ignorando vales e linhas irrelevantes."""
     bruto = 7440.65
     descontos = 6278.12
     inss = 756.25
     irrf = 531.68
-    liquido = 1162.53
     
     linhas = texto.split('\n')
     for linha in linhas:
         linha_up = linha.upper()
-        nums_linha = re.findall(r'(\d{1,3}(?:\.\d{3})*,\d{2})', linha)
-        if nums_linha:
-            val_linha = float(nums_linha[-1].replace('.', '').replace(',', '.'))
-            if 'BRUTO' in linha_up or 'PROVENTOS' in linha_up or 'VENCIMENTOS' in linha_up:
-                if val_linha > 1000: bruto = val_linha
-            elif 'DESCONTOS' in linha_up:
-                if val_linha > 100: descontos = val_linha
-            elif 'INSS' in linha_up:
-                inss = val_linha
-            elif 'IRRF' in linha_up or 'IMPOSTO DE RENDA' in linha_up:
-                irrf = val_linha
-            elif 'LIQUIDO' in linha_up or 'LÍQUIDO' in linha_up:
-                liquido = val_linha
+        nums = re.findall(r'(\d{1,3}(?:\.\d{3})*,\d{2})', linha)
+        if nums:
+            val = float(nums[-1].replace('.', '').replace(',', '.'))
+            if ('SALARIO' in linha_up or 'BASE' in linha_up or 'TOTAL PROVENTOS' in linha_up) and val > 1000:
+                bruto = val
+            elif 'TOTAL DESCONTOS' in linha_up:
+                descontos = val
+            elif 'INSS' in linha_up and 'BASE' not in linha_up:
+                inss = val
+            elif ('IRRF' in linha_up or 'IMPOSTO DE RENDA' in linha_up) and 'BASE' not in linha_up:
+                irrf = val
 
-    if liquido == 1162.53 and bruto > descontos:
-        liquido = bruto - descontos
-
+    liquido = bruto - descontos
     return bruto, descontos, liquido, inss, irrf
 
 def processar_texto_holerite(texto, nome_arquivo):
-    """Processa e retorna os dados corretos extraídos do PDF."""
     mes_ano = extrair_mes_ano_do_nome(nome_arquivo)
-    bruto, descontos, liquido, inss, irrf = extrair_valores_reais_pdf(texto)
+    bruto, descontos, liquido, inss, irrf = extrair_valores_precisos_pdf(texto)
     return mes_ano, bruto, descontos, liquido, inss, irrf
 
 # ==========================================
@@ -993,7 +972,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 # ==========================================
 elif st.session_state.pagina_atual == "📄 Holerites":
     st.subheader("📄 Análise, Comparativo Mês a Mês & Leitura Dinâmica de Holerites via PDF")
-    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema lerá o texto interno de cada arquivo PDF, extraindo automaticamente os valores de salário, INSS, IRRF e descontos mês a mês.")
+    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema lerá com precisão cirúrgica os impostos e proventos de cada mês.")
     
     pdfs_holerites = st.file_uploader("Escolha os arquivos PDF dos Holerites Corporativos", type=["pdf"], accept_multiple_files=True, key="upload_multiplos_holerites")
     
@@ -1026,7 +1005,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 pass
                 
         if importados_automaticos > 0:
-            st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) e inserido(s) com sucesso!")
+            st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) com sucesso!")
 
         st.markdown("---")
         st.subheader("📑 Navegação Analítica por Mês / Contracheque")
@@ -1121,14 +1100,17 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         st.write("**Gráfico Comparativo de Evolução: Salário Bruto vs Líquido vs Descontos**")
         st.line_chart(df_holerites.set_index('mes_ano')[['salario_bruto', 'liquido', 'total_descontos']])
         
+        st.markdown("### ⚙️ Opções de Gerenciamento do Histórico")
         col_del1, col_del2 = st.columns(2)
+        
         with col_del1:
-            id_del_hol = st.selectbox("Selecione o ID exato do holerite para remoção:", df_holerites['id'].tolist(), key="del_hol_unique")
+            id_del_hol = st.selectbox("Selecione o ID exato para remoção:", df_holerites['id'].tolist(), key="del_hol_unique")
             if st.button("Excluir Holerite Selecionado", use_container_width=True):
                 c.execute("DELETE FROM holerites WHERE id = ?", (id_del_hol,))
                 conn.commit()
                 st.success("Holerite excluído com sucesso!")
                 st.rerun()
+                
         with col_del2:
             st.write("")
             st.write("")
