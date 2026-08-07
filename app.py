@@ -149,7 +149,6 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
     st.markdown("### 🎛️ Painel de Indicadores & Acesso Rápido")
     st.write("Clique em um dos botões abaixo para acessar a respectiva seção do sistema:")
     
-    # Criando um layout em grade de botões estilo painel
     col_b1, col_b2, col_b3, col_b4 = st.columns(4)
     
     with col_b1:
@@ -736,12 +735,21 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                 st.error("Informe a descrição e o valor da conta.")
 
     st.markdown("---")
-    contas = pd.read_sql("SELECT * FROM contas", conn)
-    if not contas.empty:
-        st.write("### 📋 Relação Completa de Compromissos Cadastrados")
-        st.dataframe(contas, use_container_width=True)
+    
+    # Adicionando o Filtro de Pesquisa solicitado para contas/compromissos
+    st.write("### 🔍 Pesquisa de Contas")
+    termo_busca_contas = st.text_input("Digite o nome ou descrição da conta que deseja buscar:", "")
+    
+    if termo_busca_contas.strip():
+        contas_filtradas = pd.read_sql(f"SELECT * FROM contas WHERE descricao LIKE '%{termo_busca_contas}%'", conn)
     else:
-        st.info("Nenhuma conta cadastrada no calendário.")
+        contas_filtradas = pd.read_sql("SELECT * FROM contas", conn)
+
+    if not contas_filtradas.empty:
+        st.write("### 📋 Relação de Compromissos (Filtrados)")
+        st.dataframe(contas_filtradas, use_container_width=True)
+    else:
+        st.info("Nenhuma conta encontrada com o termo pesquisado.")
     botao_voltar()
 
 # ==========================================
@@ -805,10 +813,23 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
             st.error(f"Erro ao processar extrato bancário em PDF: {e}")
 
     st.markdown("---")
-    df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
-    if not df_extrato_full.empty:
-        st.write("### 📋 Extrato Geral Armazenado")
-        st.dataframe(df_extrato_full, use_container_width=True)
+    
+    # Adicionando Filtro de Pesquisa Inteligente no Extrato Geral
+    st.write("### 🔍 Pesquisa Inteligente no Extrato")
+    termo_busca_extrato = st.text_input("Digite parte da descrição ou categoria para filtrar o extrato:", "", key="filtro_extrato")
+    
+    if termo_busca_extrato.strip():
+        query_extrato = f"SELECT * FROM transacoes WHERE descricao LIKE '%{termo_busca_extrato}%' OR categoria LIKE '%{termo_busca_extrato}%'"
+    else:
+        query_extrato = "SELECT * FROM transacoes"
+        
+    df_extrato_filtrado = pd.read_sql(query_extrato, conn)
+    
+    if not df_extrato_filtrado.empty:
+        st.write("### 📋 Extrato Geral Armazenado (Filtrado)")
+        st.dataframe(df_extrato_filtrado, use_container_width=True)
+    else:
+        st.info("Nenhuma transação encontrada com o termo pesquisado.")
     botao_voltar()
 
 # ==========================================
