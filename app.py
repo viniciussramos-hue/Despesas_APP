@@ -98,11 +98,10 @@ with aba2:
             conn.commit()
             st.success("Entrada registrada com sucesso!")
 
-# --- ABA 3: DASHBOARD COM FILTRO DE PERÍODO & GRÁFICOS PROFISSIONAIS ---
+# --- ABA 3: DASHBOARD ---
 with aba3:
     st.subheader("📊 Painel de Controle Corporativo & Alertas")
     
-    # --- FILTRO GLOBAL DE MÊS/ANO ---
     df_all = pd.read_sql("SELECT * FROM transacoes", conn)
     if not df_all.empty:
         df_all['data'] = pd.to_datetime(df_all['data'])
@@ -113,12 +112,10 @@ with aba3:
         with col_f1:
             mes_selecionado = st.selectbox("Filtrar por Mês/Ano:", meses_disponiveis)
         
-        # Filtra o dataframe pelo mês escolhido
         df = df_all[df_all['ano_mes'] == mes_selecionado].copy()
     else:
         df = df_all.copy()
 
-    # --- NOTIFICAÇÕES DE CONTAS PENDENTES ---
     df_contas_check = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
     if not df_contas_check.empty:
         hoje = date.today()
@@ -158,8 +155,6 @@ with aba3:
         col4.metric("📅 Contas Pendentes", f"R$ {total_contas_pendentes:.2f}")
 
         st.markdown("---")
-        
-        # --- REGRA 50/30/20 ---
         st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
         if receitas > 0:
             nec = df[df['categoria'].str.contains("Necessidade", na=False)]['valor'].sum()
@@ -187,8 +182,6 @@ with aba3:
             st.warning("Cadastre ao menos uma entrada (Receita) neste período para calcular as metas.")
 
         st.markdown("---")
-        
-        # --- GRÁFICOS PROFISSIONAIS ---
         st.subheader("📈 Distribuição Analítica de Despesas")
         df_desp = df[df['tipo'] == 'Despesa']
         if not df_desp.empty:
@@ -206,24 +199,40 @@ with aba3:
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard corporativo.")
 
-# --- ABA 4: METAS & CATEGORIAS ---
+# --- ABA 4: METAS & CATEGORIAS (COM ÍCONES E EXCLUSÃO) ---
 with aba4:
-    st.subheader("🎯 Gerenciamento de Metas de Gastos & Novas Categorias")
+    st.subheader("🎯 Gerenciamento de Metas, Ícones e Categorias")
     
     col_m1, col_m2 = st.columns(2)
     
     with col_m1:
-        st.write("### ➕ Adicionar Nova Categoria")
+        st.write("### ➕ Adicionar Nova Categoria com Ícone")
         with st.form("form_nova_cat", clear_on_submit=True):
-            nova_cat_nome = st.text_input("Nome da Nova Categoria (Ex: ✈️ Viagens, 🐕 Pet)")
+            icone_escolhido = st.selectbox("Escolha um Ícone:", ["✈️", "🐕", "🎮", "📚", "💻", "💄", "⚡", "🏋️‍♂️", "🍔", "🎁", "🚗", "🏠"])
+            nome_cat_input = st.text_input("Nome da Categoria (Ex: Viagens, Pet, Jogos)")
+            
             if st.form_submit_button("Salvar Categoria", use_container_width=True):
-                if nova_cat_nome.strip():
-                    c.execute("INSERT INTO categorias (nome) VALUES (?)", (nova_cat_nome.strip(),))
+                if nome_cat_input.strip():
+                    categoria_final = f"{icone_escolhido} {nome_cat_input.strip()}"
+                    c.execute("INSERT INTO categorias (nome) VALUES (?)", (categoria_final,))
                     conn.commit()
-                    st.success(f"Categoria '{nova_cat_nome}' adicionada com sucesso!")
+                    st.success(f"Categoria '{categoria_final}' adicionada com sucesso!")
                     st.rerun()
                 else:
                     st.error("Digite um nome válido para a categoria.")
+        
+        st.markdown("---")
+        st.write("### 🗑️ Excluir Categoria Personalizada")
+        df_cats_excluir = pd.read_sql("SELECT * FROM categorias", conn)
+        if not df_cats_excluir.empty:
+            cat_para_deletar = st.selectbox("Selecione a categoria para apagar:", df_cats_excluir['nome'].tolist(), key="del_cat_select")
+            if st.button("Excluir Categoria Selecionada", use_container_width=True):
+                c.execute("DELETE FROM categorias WHERE nome = ?", (cat_para_deletar,))
+                conn.commit()
+                st.success(f"Categoria '{cat_para_deletar}' excluída com sucesso!")
+                st.rerun()
+        else:
+            st.info("Nenhuma categoria personalizada para excluir.")
                     
     with col_m2:
         st.write("### 🎯 Definir Meta de Gasto por Categoria")
@@ -395,11 +404,9 @@ with aba7:
     
     col_exp1, col_exp2 = st.columns(2)
     with col_exp1:
-        # Botão de Backup do Banco de Dados
         with open("gestor_financeiro.db", "rb") as f:
             st.download_button("💾 Baixar Backup do Banco (.db)", f, "gestor_financeiro.db", use_container_width=True)
     with col_exp2:
-        # Botão de Exportação para CSV / Excel
         df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
         if not df_extrato_full.empty:
             csv_data = df_extrato_full.to_csv(index=False).encode('utf-8')
