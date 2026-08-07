@@ -186,8 +186,11 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
             st.rerun()
             
     with col_b4:
-        if st.button("🎯 Metas & Categorias", use_container_width=True):
-            mudar_pagina("🎯 Metas & Categorias")
+        if st.button("🎯 Metas de Gastos", use_container_width=True):
+            mudar_pagina("🎯 Metas de Gastos")
+            st.rerun()
+        if st.button("🏷️ Categorias & Ícones", use_container_width=True):
+            mudar_pagina("🏷️ Categorias & Ícones")
             st.rerun()
         if st.button("❤️ Saúde Financeira", use_container_width=True):
             mudar_pagina("❤️ Saúde Financeira")
@@ -554,61 +557,30 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
     botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 7: METAS & CATEGORIAS ---
+# --- SEÇÃO 7A: METAS DE GASTOS ---
 # ==========================================
-elif st.session_state.pagina_atual == "🎯 Metas & Categorias":
-    st.subheader("🎯 Gerenciamento de Metas de Gastos, Ícones e Categorias")
-    col_m1, col_m2 = st.columns(2)
+elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
+    st.subheader("🎯 Definir Teto de Meta Mensal por Categoria")
+    st.write("Estabeleça limites orçamentários para manter o controle rigoroso dos seus gastos mensais.")
     
-    with col_m1:
-        st.write("### ➕ Adicionar Nova Categoria com Ícone")
-        with st.form("form_nova_categoria_completo", clear_on_submit=True):
-            icone_escolhido = st.selectbox("Escolha um Ícone Personalizado:", ["✈️", "🐕", "🎮", "📚", "💻", "💄", "⚡", "🏋️‍♂️", "🍔", "🎁", "🚗", "🏠"])
-            nome_cat_input = st.text_input("Nome da Categoria (Ex: Viagens, Pets, Jogos)")
-            
-            if st.form_submit_button("Salvar Nova Categoria", use_container_width=True):
-                if nome_cat_input.strip():
-                    categoria_final = f"{icone_escolhido} {nome_cat_input.strip()}"
-                    c.execute("INSERT INTO categorias (nome) VALUES (?)", (categoria_final,))
-                    conn.commit()
-                    st.success(f"Categoria '{categoria_final}' criada com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("Digite um nome válido para a categoria.")
-        
-        st.markdown("---")
-        st.write("### 🗑️ Excluir Categoria Personalizada")
-        df_cats_excluir = pd.read_sql("SELECT * FROM categorias", conn)
-        if not df_cats_excluir.empty:
-            cat_para_deletar = st.selectbox("Selecione a categoria para apagar:", df_cats_excluir['nome'].tolist(), key="del_cat_select_unique")
-            if st.button("Excluir Categoria Selecionada", use_container_width=True):
-                c.execute("DELETE FROM categorias WHERE nome = ?", (cat_para_deletar,))
-                conn.commit()
-                st.success(f"Categoria '{cat_para_deletar}' excluída com sucesso!")
-                st.rerun()
-        else:
-            st.info("Nenhuma categoria personalizada cadastrada para exclusão.")
-                    
-    with col_m2:
-        st.write("### 🎯 Definir Teto de Meta Mensal por Categoria")
-        cats_padrao_meta = [
-            "🏠 Contas Fixas (Necessidade)", "🛒 Supermercado (Necessidade)", "🚗 Transporte (Necessidade)", 
-            "💊 Saúde (Necessidade)", "🍔 Lazer & Alimentação Fora (Desejos)", "🎉 Outros Desejos (Desejos)", 
-            "📈 Investimentos / Poupança (20%)"
-        ]
-        df_cats_db = pd.read_sql("SELECT nome FROM categorias", conn)
-        lista_todas_cats = cats_padrao_meta + df_cats_db['nome'].tolist() if not df_cats_db.empty else cats_padrao_meta
+    cats_padrao_meta = [
+        "🏠 Contas Fixas (Necessidade)", "🛒 Supermercado (Necessidade)", "🚗 Transporte (Necessidade)", 
+        "💊 Saúde (Necessidade)", "🍔 Lazer & Alimentação Fora (Desejos)", "🎉 Outros Desejos (Desejos)", 
+        "📈 Investimentos / Poupança (20%)"
+    ]
+    df_cats_db = pd.read_sql("SELECT nome FROM categorias", conn)
+    lista_todas_cats = cats_padrao_meta + df_cats_db['nome'].tolist() if not df_cats_db.empty else cats_padrao_meta
 
-        with st.form("form_meta_teto_completo", clear_on_submit=True):
-            cat_meta = st.selectbox("Escolha a Categoria Orçamentária", lista_todas_cats)
-            valor_meta_input = st.number_input("Valor Teto de Meta (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f")
-            
-            if st.form_submit_button("Salvar Meta de Gasto", use_container_width=True):
-                c.execute("DELETE FROM metas WHERE categoria = ?", (cat_meta,))
-                c.execute("INSERT INTO metas (categoria, valor_meta) VALUES (?, ?)", (cat_meta, valor_meta_input))
-                conn.commit()
-                st.success(f"Teto de meta para '{cat_meta}' salvo com sucesso!")
-                st.rerun()
+    with st.form("form_meta_teto_completo", clear_on_submit=True):
+        cat_meta = st.selectbox("Escolha a Categoria Orçamentária", lista_todas_cats)
+        valor_meta_input = st.number_input("Valor Teto de Meta (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f")
+        
+        if st.form_submit_button("Salvar Meta de Gasto", use_container_width=True):
+            c.execute("DELETE FROM metas WHERE categoria = ?", (cat_meta,))
+            c.execute("INSERT INTO metas (categoria, valor_meta) VALUES (?, ?)", (cat_meta, valor_meta_input))
+            conn.commit()
+            st.success(f"Teto de meta para '{cat_meta}' salvo com sucesso!")
+            st.rerun()
 
     st.markdown("---")
     st.subheader("📋 Acompanhamento Visual das Metas de Gastos")
@@ -630,6 +602,55 @@ elif st.session_state.pagina_atual == "🎯 Metas & Categorias":
                 st.progress(0.0)
     else:
         st.info("Nenhuma meta de gasto definida até o momento.")
+    botao_voltar()
+
+# ==========================================
+# --- SEÇÃO 7B: CATEGORIAS & ÍCONES ---
+# ==========================================
+elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
+    st.subheader("🏷️ Gerenciamento de Categorias Personalizadas & Ícones")
+    st.write("Cadastre novas categorias customizadas para o seu ecossistema financeiro.")
+    
+    col_m1, col_m2 = st.columns(2)
+    
+    with col_m1:
+        st.write("### ➕ Adicionar Nova Categoria com Ícone")
+        with st.form("form_nova_categoria_completo", clear_on_submit=True):
+            icone_escolhido = st.selectbox("Escolha um Ícone Personalizado:", ["✈️", "🐕", "🎮", "📚", "💻", "💄", "⚡", "🏋️‍♂️", "🍔", "🎁", "🚗", "🏠"])
+            nome_cat_input = st.text_input("Nome da Categoria (Ex: Viagens, Pets, Jogos)")
+            
+            if st.form_submit_button("Salvar Nova Categoria", use_container_width=True):
+                if nome_cat_input.strip():
+                    categoria_final = f"{icone_escolhido} {nome_cat_input.strip()}"
+                    c.execute("INSERT INTO categorias (nome) VALUES (?)", (categoria_final,))
+                    conn.commit()
+                    st.success(f"Categoria '{categoria_final}' criada com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Digite um nome válido para a categoria.")
+                    
+    with col_m2:
+        st.write("### 🗑️ Excluir Categoria Personalizada")
+        df_cats_excluir = pd.read_sql("SELECT * FROM categorias", conn)
+        if not df_cats_excluir.empty:
+            with st.form("form_excluir_cat_completo"):
+                cat_para_deletar = st.selectbox("Selecione a categoria para apagar:", df_cats_excluir['nome'].tolist())
+                if st.form_submit_button("Excluir Categoria Selecionada", use_container_width=True):
+                    c.execute("DELETE FROM categorias WHERE nome = ?", (cat_para_deletar,))
+                    conn.commit()
+                    st.success(f"Categoria '{cat_para_deletar}' excluída com sucesso!")
+                    st.rerun()
+        else:
+            st.info("Nenhuma categoria personalizada cadastrada para exclusão.")
+            
+    st.markdown("---")
+    st.subheader("📋 Relação de Categorias Personalizadas Cadastradas")
+    df_cats_view = pd.read_sql("SELECT * FROM categorias", conn)
+    if not df_cats_view.empty:
+        st.dataframe(df_cats_view, use_container_width=True)
+    else:
+        st.info("Nenhuma categoria customizada registrada.")
+        
     botao_voltar()
 
 # ==========================================
@@ -821,7 +842,6 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 
     st.markdown("---")
     
-    # 🔍 PAINEL DE PESQUISA INTELIGENTE E FILTROS AVANÇADOS COMBINADOS
     st.write("### 🔍 Pesquisa Avançada & Filtros Inteligentes no Extrato")
     
     col_s1, col_s2, col_s3 = st.columns([2, 1, 1])
@@ -837,7 +857,6 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
     if not df_trans_all.empty:
         df_extrato_filtrado = df_trans_all.copy()
         
-        # 1. Aplica filtro de texto com similaridade se digitado
         if termo_busca_extrato.strip():
             termo_limpo = termo_busca_extrato.strip().lower()
             descricoes_t = df_extrato_filtrado['descricao'].tolist()
@@ -854,11 +873,9 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
             )
             df_extrato_filtrado = df_extrato_filtrado[mask]
 
-        # 2. Aplica filtro por Tipo (Receita / Despesa)
         if filtro_tipo != "Todos":
             df_extrato_filtrado = df_extrato_filtrado[df_extrato_filtrado['tipo'] == filtro_tipo]
 
-        # 3. Aplica ordenação por valor
         if ordenacao_val == "Maior para Menor":
             df_extrato_filtrado = df_extrato_filtrado.sort_values(by="valor", ascending=False)
         elif ordenacao_val == "Menor para Maior":
