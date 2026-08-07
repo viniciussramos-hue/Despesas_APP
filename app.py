@@ -98,7 +98,7 @@ with aba2:
             conn.commit()
             st.success("Entrada registrada com sucesso!")
 
-# --- ABA 3: DASHBOARD ---
+# --- ABA 3: DASHBOARD COM EVOLUÇÃO MENSAL ---
 with aba3:
     st.subheader("📊 Painel de Controle Corporativo & Alertas")
     
@@ -138,7 +138,7 @@ with aba3:
 
     df_contas = pd.read_sql("SELECT * FROM contas", conn)
     
-    if not df.empty or not df_contas.empty:
+    if not df_all.empty:
         df['valor'] = pd.to_numeric(df['valor'], errors='coerce').fillna(0)
         receitas = df[df['tipo'] == 'Receita']['valor'].sum()
         despesas = df[df['tipo'] == 'Despesa']['valor'].sum()
@@ -155,6 +155,8 @@ with aba3:
         col4.metric("📅 Contas Pendentes", f"R$ {total_contas_pendentes:.2f}")
 
         st.markdown("---")
+        
+        # --- REGRA 50/30/20 ---
         st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
         if receitas > 0:
             nec = df[df['categoria'].str.contains("Necessidade", na=False)]['valor'].sum()
@@ -182,7 +184,9 @@ with aba3:
             st.warning("Cadastre ao menos uma entrada (Receita) neste período para calcular as metas.")
 
         st.markdown("---")
-        st.subheader("📈 Distribuição Analítica de Despesas")
+        
+        # --- GRÁFICOS ANALÍTICOS ---
+        st.subheader("📈 Distribuição Analítica de Despesas (Mês Selecionado)")
         df_desp = df[df['tipo'] == 'Despesa']
         if not df_desp.empty:
             gasto_cat = df_desp.groupby('categoria')['valor'].sum()
@@ -196,10 +200,19 @@ with aba3:
                 st.dataframe(gasto_cat.reset_index().rename(columns={'valor': 'Total Gasto (R$)'}), use_container_width=True)
         else:
             st.info("Nenhuma despesa registrada para este mês.")
+            
+        st.markdown("---")
+        st.subheader("📉 Evolução Histórica (Receitas vs. Despesas por Mês)")
+        df_pivot = df_all.pivot_table(index='ano_mes', columns='tipo', values='valor', aggfunc='sum').fillna(0)
+        if 'Receita' not in df_pivot.columns: df_pivot['Receita'] = 0
+        if 'Despesa' not in df_pivot.columns: df_pivot['Despesa'] = 0
+        df_evolucao = df_pivot[['Receita', 'Despesa']]
+        st.line_chart(df_evolucao)
+        
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard corporativo.")
 
-# --- ABA 4: METAS & CATEGORIAS (COM ÍCONES E EXCLUSÃO) ---
+# --- ABA 4: METAS & CATEGORIAS ---
 with aba4:
     st.subheader("🎯 Gerenciamento de Metas, Ícones e Categorias")
     
