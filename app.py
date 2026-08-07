@@ -19,15 +19,24 @@ conn.commit()
 st.title("💸 Gestor Financeiro Profissional")
 
 # --- DEFINIÇÃO DAS ABAS ---
-aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard", "📅 Contas a Pagar", "📋 Extrato"])
+aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard & 50/30/20", "📅 Contas a Pagar", "📋 Extrato"])
 
 # --- ABA 1: LANÇAR DESPESA ---
 with aba1:
     st.subheader("Registrar Saída / Despesa")
     with st.form("lancar_despesa"):
-        desc = st.text_input("Descrição (Ex: Supermercado, Aluguel)")
+        desc = st.text_input("Descrição (Ex: Supermercado, Aluguel, Uber)")
         valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
-        cat = st.selectbox("Categoria", ["Alimentação", "Transporte", "Contas Fixas", "Saúde", "Lazer", "Outros"])
+        # Categorias divididas para facilitar o 50/30/20
+        cat = st.selectbox("Categoria", [
+            "🏠 Contas Fixas (Necessidade)", 
+            "🛒 Supermercado (Necessidade)", 
+            "🚗 Transporte (Necessidade)", 
+            "💊 Saúde (Necessidade)", 
+            "🍔 Lazer & Alimentação Fora (Desejos)", 
+            "🎉 Outros Desejos (Desejos)", 
+            "📈 Investimentos / Poupança (20%)"
+        ])
         if st.form_submit_button("Salvar Despesa", use_container_width=True):
             c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
                       (datetime.now().strftime("%Y-%m-%d"), "Despesa", desc, cat, valor))
@@ -48,35 +57,61 @@ with aba2:
             conn.commit()
             st.success("Entrada registrada com sucesso!")
 
-# --- ABA 3: DASHBOARD ---
+# --- ABA 3: DASHBOARD & 50/30/20 ---
 with aba3:
-    st.subheader("📊 Dashboard e Projeções")
+    st.subheader("📊 Dashboard, Projeções & Regra do 50/30/20")
     df = pd.read_sql("SELECT * FROM transacoes", conn)
     if not df.empty:
         df['valor'] = pd.to_numeric(df['valor'])
         receitas = df[df['tipo'] == 'Receita']['valor'].sum()
         despesas = df[df['tipo'] == 'Despesa']['valor'].sum()
         
-        # Projeção
+        # Projeção de Gastos
         dia_hoje = datetime.now().day
         projecao_final = (despesas / max(dia_hoje, 1)) * 30
         
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Entradas", f"R$ {receitas:.2f}")
         col2.metric("Total Despesas", f"R$ {despesas:.2f}")
-        col3.metric("Saldo Atual em Caixa", f"R$ {receitas - despesas:.2f}", delta=f"R$ {receitas - despesas:.2f}")
+        col3.metric("Saldo Atual em Caixa", f"R$ {receitas - despesas:.2f}")
 
         st.markdown("---")
-        col_proj1, col_proj2 = st.columns(2)
-        col_proj1.metric("Projeção de Gastos (Fim do Mês)", f"R$ {projecao_final:.2f}")
+        st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
+        
+        if receitas > 0:
+            # Separando os blocos com base nas categorias cadastradas
+            nec = df[df['categoria'].str.contains("Necessidade", na=False)]['valor'].sum()
+            des = df[df['categoria'].str.contains("Desejos", na=False)]['valor'].sum()
+            inv = df[df['categoria'].str.contains("Investimentos", na=False)]['valor'].sum()
+            
+            meta_nec = receitas * 0.50
+            meta_des = receitas * 0.30
+            meta_inv = receitas * 0.20
+            
+            c_50, c_30, c_20 = st.columns(3)
+            
+            with c_50:
+                st.write(f"**50% Necessidades**")
+                st.write(Gasto: R$ {nec:.2f} / Meta: R$ {meta_nec:.2f})
+                st.progress(min(nec / meta_nec if meta_nec > 0 else 0, 1.0))
+                
+            with c_30:
+                st.write(f"**30% Desejos**")
+                st.write(f"Gasto: R$ {des:.2f} / Meta: R$ {meta_des:.2f}")
+                st.progress(min(des / meta_des if meta_des > 0 else 0, 1.0))
+                
+            with c_20:
+                st.write(f"**20% Investimentos**")
+                st.write(f"Guardado: R$ {inv:.2f} / Meta: R$ {meta_inv:.2f}")
+                st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
+        else:
+            st.info("Cadastre ao menos uma entrada (Receita) para calcular as metas da regra 50/30/20.")
 
         st.markdown("---")
         st.write("### Despesas por Categoria")
         df_desp = df[df['tipo'] == 'Despesa']
         if not df_desp.empty:
             st.bar_chart(df_desp.groupby('categoria')['valor'].sum())
-        else:
-            st.info("Nenhuma despesa registrada para exibir o gráfico.")
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard.")
 
