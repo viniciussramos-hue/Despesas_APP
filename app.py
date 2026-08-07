@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 from datetime import datetime, date
 import pdfplumber
+import difflib
 
 # ==========================================
 # --- CONFIGURAÇÃO DA PÁGINA E TEMA ---
@@ -736,17 +737,26 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
     st.markdown("---")
     
-    # Adicionando o Filtro de Pesquisa solicitado para contas/compromissos
-    st.write("### 🔍 Pesquisa de Contas")
-    termo_busca_contas = st.text_input("Digite o nome ou descrição da conta que deseja buscar:", "")
+    # Pesquisa com busca inteligente por similaridade em tempo real
+    st.write("### 🔍 Pesquisa Inteligente de Contas (com Similaridade)")
+    termo_busca_contas = st.text_input("Digite o nome ou descrição da conta:", "", key="busca_contas_input")
     
-    if termo_busca_contas.strip():
-        contas_filtradas = pd.read_sql(f"SELECT * FROM contas WHERE descricao LIKE '%{termo_busca_contas}%'", conn)
+    df_contas_all = pd.read_sql("SELECT * FROM contas", conn)
+    
+    if termo_busca_contas.strip() and not df_contas_all.empty:
+        termo_limpo = termo_busca_contas.strip().lower()
+        # Filtro exato por trecho ou busca por similaridade (difflib)
+        descricoes = df_contas_all['descricao'].tolist()
+        similares = difflib.get_close_matches(termo_limpo, [d.lower() for d in descricoes], n=10, cutoff=0.3)
+        
+        # Filtra registros que contenham o texto digitado ou tenham alta similaridade
+        mask = df_contas_all['descricao'].str.lower().str.contains(termo_limpo, na=False) | df_contas_all['descricao'].str.lower().isin(similares)
+        contas_filtradas = df_contas_all[mask]
     else:
-        contas_filtradas = pd.read_sql("SELECT * FROM contas", conn)
+        contas_filtradas = df_contas_all
 
     if not contas_filtradas.empty:
-        st.write("### 📋 Relação de Compromissos (Filtrados)")
+        st.write("### 📋 Relação de Compromissos (Resultados da Busca)")
         st.dataframe(contas_filtradas, use_container_width=True)
     else:
         st.info("Nenhuma conta encontrada com o termo pesquisado.")
@@ -814,19 +824,32 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 
     st.markdown("---")
     
-    # Adicionando Filtro de Pesquisa Inteligente no Extrato Geral
-    st.write("### 🔍 Pesquisa Inteligente no Extrato")
-    termo_busca_extrato = st.text_input("Digite parte da descrição ou categoria para filtrar o extrato:", "", key="filtro_extrato")
+    # Pesquisa com busca inteligente por similaridade em tempo real no extrato
+    st.write("### 🔍 Pesquisa Inteligente no Extrato (com Similaridade)")
+    termo_busca_extrato = st.text_input("Digite parte da descrição ou categoria para filtrar o extrato em tempo real:", "", key="filtro_extrato_similaridade")
     
-    if termo_busca_extrato.strip():
-        query_extrato = f"SELECT * FROM transacoes WHERE descricao LIKE '%{termo_busca_extrato}%' OR categoria LIKE '%{termo_busca_extrato}%'"
-    else:
-        query_extrato = "SELECT * FROM transacoes"
+    df_trans_all = pd.read_sql("SELECT * FROM transacoes", conn)
+    
+    if termo_busca_extrato.strip() and not df_trans_all.empty:
+        termo_limpo = termo_busca_extrato.strip().lower()
+        descricoes_t = df_trans_all['descricao'].tolist()
+        categorias_t = df_trans_all['categoria'].tolist()
         
-    df_extrato_filtrado = pd.read_sql(query_extrato, conn)
-    
+        similares_desc = difflib.get_close_matches(termo_limpo, [d.lower() for d in descricoes_t], n=15, cutoff=0.25)
+        similares_cat = difflib.get_close_matches(termo_limpo, [cat.lower() for cat in categorias_t], n=15, cutoff=0.25)
+        
+        mask = (
+            df_trans_all['descricao'].str.lower().str.contains(termo_limpo, na=False) | 
+            df_trans_all['categoria'].str.lower().str.contains(termo_limpo, na=False) |
+            df_trans_all['descricao'].str.lower().isin(similares_desc) |
+            df_trans_all['categoria'].str.lower().isin(similares_cat)
+        )
+        df_extrato_filtrado = df_trans_all[mask]
+    else:
+        df_extrato_filtrado = df_trans_all
+
     if not df_extrato_filtrado.empty:
-        st.write("### 📋 Extrato Geral Armazenado (Filtrado)")
+        st.write("### 📋 Extrato Geral Armazenado (Resultados da Busca)")
         st.dataframe(df_extrato_filtrado, use_container_width=True)
     else:
         st.info("Nenhuma transação encontrada com o termo pesquisado.")
