@@ -737,7 +737,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
     st.markdown("---")
     
-    # Pesquisa com busca inteligente por similaridade em tempo real
     st.write("### 🔍 Pesquisa Inteligente de Contas (com Similaridade)")
     termo_busca_contas = st.text_input("Digite o nome ou descrição da conta:", "", key="busca_contas_input")
     
@@ -745,11 +744,9 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     
     if termo_busca_contas.strip() and not df_contas_all.empty:
         termo_limpo = termo_busca_contas.strip().lower()
-        # Filtro exato por trecho ou busca por similaridade (difflib)
         descricoes = df_contas_all['descricao'].tolist()
         similares = difflib.get_close_matches(termo_limpo, [d.lower() for d in descricoes], n=10, cutoff=0.3)
         
-        # Filtra registros que contenham o texto digitado ou tenham alta similaridade
         mask = df_contas_all['descricao'].str.lower().str.contains(termo_limpo, na=False) | df_contas_all['descricao'].str.lower().isin(similares)
         contas_filtradas = df_contas_all[mask]
     else:
@@ -824,35 +821,57 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 
     st.markdown("---")
     
-    # Pesquisa com busca inteligente por similaridade em tempo real no extrato
-    st.write("### 🔍 Pesquisa Inteligente no Extrato (com Similaridade)")
-    termo_busca_extrato = st.text_input("Digite parte da descrição ou categoria para filtrar o extrato em tempo real:", "", key="filtro_extrato_similaridade")
+    # 🔍 PAINEL DE PESQUISA INTELIGENTE E FILTROS AVANÇADOS COMBINADOS
+    st.write("### 🔍 Pesquisa Avançada & Filtros Inteligentes no Extrato")
     
+    col_s1, col_s2, col_s3 = st.columns([2, 1, 1])
+    with col_s1:
+        termo_busca_extrato = st.text_input("Filtrar por texto/similaridade (Descrição ou Categoria):", "", key="filtro_extrato_similaridade")
+    with col_s2:
+        filtro_tipo = st.selectbox("Filtrar por Tipo:", ["Todos", "Receita", "Despesa"])
+    with col_s3:
+        ordenacao_val = st.selectbox("Ordenar por Valor:", ["Padrão (ID)", "Maior para Menor", "Menor para Maior"])
+
     df_trans_all = pd.read_sql("SELECT * FROM transacoes", conn)
     
-    if termo_busca_extrato.strip() and not df_trans_all.empty:
-        termo_limpo = termo_busca_extrato.strip().lower()
-        descricoes_t = df_trans_all['descricao'].tolist()
-        categorias_t = df_trans_all['categoria'].tolist()
+    if not df_trans_all.empty:
+        df_extrato_filtrado = df_trans_all.copy()
         
-        similares_desc = difflib.get_close_matches(termo_limpo, [d.lower() for d in descricoes_t], n=15, cutoff=0.25)
-        similares_cat = difflib.get_close_matches(termo_limpo, [cat.lower() for cat in categorias_t], n=15, cutoff=0.25)
-        
-        mask = (
-            df_trans_all['descricao'].str.lower().str.contains(termo_limpo, na=False) | 
-            df_trans_all['categoria'].str.lower().str.contains(termo_limpo, na=False) |
-            df_trans_all['descricao'].str.lower().isin(similares_desc) |
-            df_trans_all['categoria'].str.lower().isin(similares_cat)
-        )
-        df_extrato_filtrado = df_trans_all[mask]
-    else:
-        df_extrato_filtrado = df_trans_all
+        # 1. Aplica filtro de texto com similaridade se digitado
+        if termo_busca_extrato.strip():
+            termo_limpo = termo_busca_extrato.strip().lower()
+            descricoes_t = df_extrato_filtrado['descricao'].tolist()
+            categorias_t = df_extrato_filtrado['categoria'].tolist()
+            
+            similares_desc = difflib.get_close_matches(termo_limpo, [d.lower() for d in descricoes_t], n=20, cutoff=0.25)
+            similares_cat = difflib.get_close_matches(termo_limpo, [cat.lower() for cat in categorias_t], n=20, cutoff=0.25)
+            
+            mask = (
+                df_extrato_filtrado['descricao'].str.lower().str.contains(termo_limpo, na=False) | 
+                df_extrato_filtrado['categoria'].str.lower().str.contains(termo_limpo, na=False) |
+                df_extrato_filtrado['descricao'].str.lower().isin(similares_desc) |
+                df_extrato_filtrado['categoria'].str.lower().isin(similares_cat)
+            )
+            df_extrato_filtrado = df_extrato_filtrado[mask]
 
-    if not df_extrato_filtrado.empty:
-        st.write("### 📋 Extrato Geral Armazenado (Resultados da Busca)")
-        st.dataframe(df_extrato_filtrado, use_container_width=True)
+        # 2. Aplica filtro por Tipo (Receita / Despesa)
+        if filtro_tipo != "Todos":
+            df_extrato_filtrado = df_extrato_filtrado[df_extrato_filtrado['tipo'] == filtro_tipo]
+
+        # 3. Aplica ordenação por valor
+        if ordenacao_val == "Maior para Menor":
+            df_extrato_filtrado = df_extrato_filtrado.sort_values(by="valor", ascending=False)
+        elif ordenacao_val == "Menor para Maior":
+            df_extrato_filtrado = df_extrato_filtrado.sort_values(by="valor", ascending=True)
+
+        if not df_extrato_filtrado.empty:
+            st.write(f"### 📋 Resultados Encontrados ({len(df_extrato_filtrado)} registros)")
+            st.dataframe(df_extrato_filtrado, use_container_width=True)
+        else:
+            st.info("Nenhuma transação encontrada com os filtros e termos pesquisados.")
     else:
-        st.info("Nenhuma transação encontrada com o termo pesquisado.")
+        st.info("Nenhum extrato armazenado no banco de dados.")
+    
     botao_voltar()
 
 # ==========================================
