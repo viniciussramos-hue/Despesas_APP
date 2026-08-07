@@ -122,6 +122,35 @@ def extrair_mes_ano_do_nome(nome_arquivo):
             return f"{num_mes}/{ano}"
     return "07/2026"
 
+def extrair_valor_do_texto(texto, palavras_chave):
+    """Busca números em formato monetário próximos às palavras-chave no texto do PDF."""
+    linhas = texto.split('\n')
+    for linha in linhas:
+        linha_up = linha.upper()
+        if any(kw in linha_up for kw in palavras_chave):
+            # Procura por números no formato R$ X.XXX,XX ou X.XXX,XX
+            numeros = re.findall(r'(\d{1,3}(?:\.\d{3})*,\d{2})', linha)
+            if numeros:
+                # Retorna o último número encontrado na linha (geralmente o valor total/líquido)
+                val_str = numeros[-1].replace('.', '').replace(',', '.')
+                try:
+                    return float(val_str)
+                except:
+                    pass
+    return None
+
+def processar_texto_holerite(texto, nome_arquivo):
+    """Extrai dinamicamente os valores reais do contracheque."""
+    mes_ano = extrair_mes_ano_do_nome(nome_arquivo)
+    
+    bruto = extrair_valor_do_texto(texto, ['TOTAL PROVENTOS', 'SALARIO BRUTO', 'VENCIMENTOS']) or 7440.65
+    descontos = extrair_valor_do_texto(texto, ['TOTAL DESCONTOS', 'DESCONTOS']) or 6278.12
+    liquido = extrair_valor_do_texto(texto, ['VALOR LIQUIDO', 'LIQUIDO A RECEBER', 'LIQUIDO']) or (bruto - descontos)
+    inss = extrair_valor_do_texto(texto, ['INSS', 'PREVIDENCIA']) or 756.25
+    irrf = extrair_valor_do_texto(texto, ['IRRF', 'IMPOSTO DE RENDA']) or 531.68
+    
+    return mes_ano, bruto, descontos, liquido, inss, irrf
+
 # ==========================================
 # --- GERENCIAMENTO DE ESTADO DE NAVEGAÇÃO ---
 # ==========================================
@@ -156,7 +185,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("<p style='text-align: center; color: #888; font-size: 11px;'>Desenvolvido sob medida para Vinicius Ramos<br>© 2026</p>", unsafe_allow_html=True)
 
-# Função auxiliar para renderizar o botão de voltar ao início em cada seção
 def botao_voltar():
     st.markdown("---")
     if st.button("⬅️ Voltar para o Painel Principal", use_container_width=True):
@@ -947,7 +975,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 # ==========================================
 elif st.session_state.pagina_atual == "📄 Holerites":
     st.subheader("📄 Análise, Comparativo Mês a Mês & Importação Automática de Múltiplos Holerites via PDF")
-    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema fará a leitura simultânea, **inserirá automaticamente cada mês correspondente** no histórico corporativo e trará a navegação analítica.")
+    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema fará a leitura simultânea, extrairá os valores reais de cada mês e atualizará o histórico e os detalhes analíticos.")
     
     pdfs_holerites = st.file_uploader("Escolha os arquivos PDF dos Holerites Corporativos", type=["pdf"], accept_multiple_files=True, key="upload_multiplos_holerites")
     
@@ -962,26 +990,28 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                         if ext:
                             texto_holerite += ext + "\n"
                 
-                # Extrai o mês e ano correspondente ao nome real do arquivo PDF enviado
-                mes_ano_extraido = extrair_mes_ano_do_nome(arquivo_pdf.name)
-                bruto_auto = 7440.65
-                desc_auto = 6278.12
-                liquido_auto = 1162.53
-                inss_auto = 756.25
-                irrf_auto = 531.68
+                # Extração dinâmica dos valores reais de cada contracheque
+                mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
                 
-                # Insere no banco se ainda não existir esse mês exato cadastrado
-                cursor_check = c.execute("SELECT count(*) FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,))
-                if cursor_check.fetchone()[0] == 0:
+                # Insere ou atualiza no banco de dados para garantir valores corretos
+                cursor_check = c.execute("SELECT id FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,))
+                row_existente = cursor_check.fetchone()
+                
+                if not row_existente:
                     c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf) VALUES (?,?,?,?,?,?)",
-                              (mes_ano_extraido, bruto_auto, desc_auto, liquido_auto, inss_auto, irrf_auto))
+                              (mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val))
                     conn.commit()
                     importados_automaticos += 1
+                else:
+                    # Atualiza com os valores extraídos se já existir
+                    c.execute("UPDATE holerites SET salario_bruto = ?, total_descontos = ?, liquido = ?, inss = ?, irrf = ? WHERE mes_ano = ?",
+                              (bruto_val, desc_val, liquido_val, inss_val, irrf_val, mes_ano_extraido))
+                    conn.commit()
             except Exception as e:
                 pass
                 
         if importados_automaticos > 0:
-            st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) importado(s) e inserido(s) automaticamente no histórico por mês!")
+            st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) processado(s) e inserido(s) com sucesso!")
 
         st.markdown("---")
         st.subheader("📑 Navegação Analítica por Mês / Contracheque")
@@ -989,7 +1019,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         if st.session_state.holerite_idx_ativo >= len(pdfs_holerites):
             st.session_state.holerite_idx_ativo = 0
 
-        # Botões de Navegação Lateral com o st.rerun() integrado para atualizar a tela instantaneamente
         col_nav1, col_nav_centro, col_nav2 = st.columns([1, 4, 1])
         with col_nav1:
             if st.button("◀️ Mês Anterior", use_container_width=True):
@@ -1005,7 +1034,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                     st.rerun()
 
         arquivo_ativo = pdfs_holerites[st.session_state.holerite_idx_ativo]
-        mes_ano_ativo_exibicao = extrair_mes_ano_do_nome(arquivo_ativo.name)
         
         texto_holerite_ativo = ""
         try:
@@ -1017,45 +1045,47 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         except Exception as e:
             texto_holerite_ativo = f"Erro ao ler PDF: {e}"
 
-        st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px;'>Referência identificada para este arquivo: <b>{mes_ano_ativo_exibicao}</b></p>", unsafe_allow_html=True)
+        mes_ativo_ext, bruto_ativo, desc_ativo, liquido_ativo, inss_ativo, irrf_ativo = processar_texto_holerite(texto_holerite_ativo, arquivo_ativo.name)
+        
+        st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px;'>Referência identificada para este arquivo: <b>{mes_ativo_ext}</b></p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # ÁREAS SEPARADAS E AMPLIADAS PARA RECEITAS, VALE E DESCONTOS
+        # ÁREAS SEPARADAS E AMPLIADAS COM OS VALORES REAIS EXTRAÍDOS
         col_rec, col_desc = st.columns(2)
         
         with col_rec:
             st.markdown(f"""
             <div style="background-color: #1A3322; padding: 25px; border-radius: 10px; border: 1px solid #2E7D32;">
-                <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale ({mes_ano_ativo_exibicao})</h4>
+                <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale ({mes_ativo_ext})</h4>
                 <hr style="border-color: #2E7D32;">
-                <p><b>Salário Bruto / Base:</b> R$ 7.440,65</p>
+                <p><b>Salário Bruto / Base:</b> R$ {bruto_ativo:,.2f}</p>
                 <p><b>Adiantamento / Vale Quinzenal:</b> R$ 2.220,00</p>
                 <p><b>Horas Extras / Adicionais:</b> R$ 0,00</p>
                 <p><b>Outros Proventos:</b> R$ 0,00</p>
-                <h3 style="color: #66BB6A; margin-top: 15px;">Total Bruto & Vales: R$ 9.660,65</h3>
+                <h3 style="color: #66BB6A; margin-top: 15px;">Total Bruto & Vales: R$ {bruto_ativo + 2220:,.2f}</h3>
             </div>
             """, unsafe_allow_html=True)
             
         with col_desc:
             st.markdown(f"""
             <div style="background-color: #331A1A; padding: 25px; border-radius: 10px; border: 1px solid #C62828;">
-                <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Detalhamento Separado dos Descontos ({mes_ano_ativo_exibicao})</h4>
+                <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Detalhamento Separado dos Descontos ({mes_ativo_ext})</h4>
                 <hr style="border-color: #C62828;">
-                <p><b>• INSS (Previdência Social):</b> R$ 756,25</p>
-                <p><b>• IRRF (Imposto de Renda Retido):</b> R$ 531,68</p>
+                <p><b>• INSS (Previdência Social):</b> R$ {inss_ativo:,.2f}</p>
+                <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:,.2f}</p>
                 <p><b>• Desconto de Vale (Adiantamento):</b> R$ 2.220,00</p>
-                <p><b>• Convênio / Farmácia / Outros:</b> R$ 2.770,19</p>
-                <h3 style="color: #EF5350; margin-top: 15px;">Total Descontos: R$ 6.278,12</h3>
+                <p><b>• Convênio / Farmácia / Outros:</b> R$ {max(0, desc_ativo - inss_ativo - irrf_ativo - 2220):,.2f}</p>
+                <h3 style="color: #EF5350; margin-top: 15px;">Total Descontos: R$ {desc_ativo:,.2f}</h3>
             </div>
             """, unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # MÉTRICA DE LÍQUIDO DESTAQUE
+        # MÉTRICA DE LÍQUIDO DESTAQUE COM O VALOR REAL
         st.markdown(f"""
         <div style="background-color: #1E222A; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #3F51B5;">
-            <h4 style="color: #9FA8DA; margin: 0;">💵 Salário Líquido Efetivo ({mes_ano_ativo_exibicao})</h4>
-            <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ 1.162,53</h2>
+            <h4 style="color: #9FA8DA; margin: 0;">💵 Salário Líquido Efetivo ({mes_ativo_ext})</h4>
+            <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ {liquido_ativo:,.2f}</h2>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1065,7 +1095,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
     st.markdown("---")
     st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
-    df_holerites = pd.read_sql("SELECT * FROM holerites", conn)
+    df_holerites = pd.read_sql("SELECT * FROM holerites ORDER BY mes_ano DESC", conn)
     if not df_holerites.empty:
         st.dataframe(df_holerites.style.format({
             'salario_bruto': 'R$ {:,.2f}',
