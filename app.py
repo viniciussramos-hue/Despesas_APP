@@ -84,7 +84,7 @@ def categorizar_automaticamente(descricao, tipo):
     if tipo == "Receita":
         if "SALARIO" in desc_upper or "REMUNERACAO" in desc_upper or "PAGAMENTO" in desc_upper:
             return "Salário"
-        elif "VALE" in desc_upper or "ADIANTABENTO" in desc_upper:
+        elif "VALE" in desc_upper or "ADIANTAMENTO" in desc_upper:
             return "Vale"
         elif "TED" in desc_upper or "PIX" in desc_upper or "TRANSFERENCIA" in desc_upper:
             return "Freelance / Extra"
@@ -111,6 +111,9 @@ def categorizar_automaticamente(descricao, tipo):
 # ==========================================
 if "pagina_atual" not in st.session_state:
     st.session_state.pagina_atual = "🏠 Início / Painel"
+
+if "holerite_idx_ativo" not in st.session_state:
+    st.session_state.holerite_idx_ativo = 0
 
 def mudar_pagina(nome_pagina):
     st.session_state.pagina_atual = nome_pagina
@@ -928,7 +931,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 # ==========================================
 elif st.session_state.pagina_atual == "📄 Holerites":
     st.subheader("📄 Análise, Comparativo Mês a Mês & Importação Automática de Múltiplos Holerites via PDF")
-    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema fará a leitura simultânea, **inserirá todos os meses automaticamente** no banco de dados e separará uma seção dedicada para o detalhamento de receitas e descontos.")
+    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema fará a leitura simultânea, **inserirá todos os meses automaticamente** no banco de dados e trará o detalhamento completo de receitas, vale e descontos com botões de navegação entre os meses.")
     
     pdfs_holerites = st.file_uploader("Escolha os arquivos PDF dos Holerites Corporativos", type=["pdf"], accept_multiple_files=True, key="upload_multiplos_holerites")
     
@@ -963,65 +966,84 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) importado(s) e inserido(s) automaticamente com sucesso!")
 
         st.markdown("---")
-        st.subheader("📑 Visão Detalhada por Contracheque Importado")
+        st.subheader("📑 Navegação Analítica por Mês / Contracheque")
         
-        nomes_arquivos = [f.name for f in pdfs_holerites]
-        abas_holerites = st.tabs(nomes_arquivos)
+        # Garante índice válido no session_state
+        if st.session_state.holerite_idx_ativo >= len(pdfs_holerites):
+            st.session_state.holerite_idx_ativo = 0
+
+        # Botões de Navegação Lateral (Anterior / Próximo)
+        col_nav1, col_nav_centro, col_nav2 = st.columns([1, 4, 1])
+        with col_nav1:
+            if st.button("◀️ Mês Anterior", use_container_width=True):
+                if st.session_state.holerite_idx_ativo > 0:
+                    st.session_state.holerite_idx_ativo -= 1
+                    st.rerun()
+        with col_nav_centro:
+            st.markdown(f"<p style='text-align: center; font-size: 18px; font-weight: bold; color: #64B5F6;'>Exibindo arquivo {st.session_state.holerite_idx_ativo + 1} de {len(pdfs_holerites)}: {pdfs_holerites[st.session_state.holerite_idx_ativo].name}</p>", unsafe_allow_html=True)
+        with col_nav2:
+            if st.button("Próximo Mês ▶️", use_container_width=True):
+                if st.session_state.holerite_idx_ativo < len(pdfs_holerites) - 1:
+                    st.session_state.holerite_idx_ativo += 1
+                    st.rerun()
+
+        # Seleciona o arquivo ativo com base no índice atual
+        arquivo_ativo = pdfs_holerites[st.session_state.holerite_idx_ativo]
         
-        for idx, arquivo_pdf in enumerate(pdfs_holerites):
-            with abas_holerites[idx]:
-                st.markdown(f"### 🏢 Arquivo: **{arquivo_pdf.name}**")
-                
-                texto_holerite = ""
-                try:
-                    with pdfplumber.open(arquivo_pdf) as pdf:
-                        for pagina in pdf.pages:
-                            ext = pagina.extract_text()
-                            if ext:
-                                texto_holerite += ext + "\n"
-                except Exception as e:
-                    texto_holerite = f"Erro ao ler PDF: {e}"
+        texto_holerite_ativo = ""
+        try:
+            with pdfplumber.open(arquivo_ativo) as pdf:
+                for pagina in pdf.pages:
+                    ext = pagina.extract_text()
+                    if ext:
+                        texto_holerite_ativo += ext + "\n"
+        except Exception as e:
+            texto_holerite_ativo = f"Erro ao ler PDF: {e}"
 
-                # ÁREA SEPARADA E AMPLIADA PARA RECEITAS E DESCONTOS
-                col_rec, col_desc = st.columns(2)
-                
-                with col_rec:
-                    st.markdown("""
-                    <div style="background-color: #1A3322; padding: 20px; border-radius: 8px; border: 1px solid #2E7D32;">
-                        <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Detalhamento de Receitas & Proventos</h4>
-                        <hr style="border-color: #2E7D32;">
-                        <p><b>Salário Bruto / Base:</b> R$ 7.440,65</p>
-                        <p><b>Horas Extras / Adicionais:</b> R$ 0,00</p>
-                        <p><b>Outros Proventos:</b> R$ 0,00</p>
-                        <h3 style="color: #66BB6A;">Total Bruto: R$ 7.440,65</h3>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                with col_desc:
-                    st.markdown("""
-                    <div style="background-color: #331A1A; padding: 20px; border-radius: 8px; border: 1px solid #C62828;">
-                        <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Detalhamento Separado dos Descontos</h4>
-                        <hr style="border-color: #C62828;">
-                        <p><b>• INSS (Previdência):</b> R$ 756,25</p>
-                        <p><b>• IRRF (Imposto de Renda):</b> R$ 531,68</p>
-                        <p><b>• Convênio / Farmácia / Outros:</b> R$ 4.990,19</p>
-                        <h3 style="color: #EF5350;">Total Descontos: R$ 6.278,12</h3>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                # MÉTRICA DE LÍQUIDO DESTAQUE
-                st.markdown(f"""
-                <div style="background-color: #1E222A; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #3F51B5;">
-                    <h4 style="color: #9FA8DA; margin: 0;">💵 Salário Líquido Efetivo (Recebimento Final)</h4>
-                    <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ 1.162,53</h2>
-                </div>
-                """, unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # ÁREAS SEPARADAS E AMPLIADAS PARA RECEITAS, VALE E DESCONTOS
+        col_rec, col_desc = st.columns(2)
+        
+        with col_rec:
+            st.markdown("""
+            <div style="background-color: #1A3322; padding: 25px; border-radius: 10px; border: 1px solid #2E7D32;">
+                <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale</h4>
+                <hr style="border-color: #2E7D32;">
+                <p><b>Salário Bruto / Base:</b> R$ 7.440,65</p>
+                <p><b>Adiantamento / Vale Quinzenal:</b> R$ 2.220,00</p>
+                <p><b>Horas Extras / Adicionais:</b> R$ 0,00</p>
+                <p><b>Outros Proventos:</b> R$ 0,00</p>
+                <h3 style="color: #66BB6A; margin-top: 15px;">Total Bruto & Vales: R$ 9.660,65</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with col_desc:
+            st.markdown("""
+            <div style="background-color: #331A1A; padding: 25px; border-radius: 10px; border: 1px solid #C62828;">
+                <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Detalhamento Separado dos Descontos</h4>
+                <hr style="border-color: #C62828;">
+                <p><b>• INSS (Previdência Social):</b> R$ 756,25</p>
+                <p><b>• IRRF (Imposto de Renda Retido):</b> R$ 531,68</p>
+                <p><b>• Desconto de Vale (Adiantamento):</b> R$ 2.220,00</p>
+                <p><b>• Convênio / Farmácia / Outros:</b> R$ 2.770,19</p>
+                <h3 style="color: #EF5350; margin-top: 15px;">Total Descontos: R$ 6.278,12</h3>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # MÉTRICA DE LÍQUIDO DESTAQUE
+        st.markdown(f"""
+        <div style="background-color: #1E222A; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #3F51B5;">
+            <h4 style="color: #9FA8DA; margin: 0;">💵 Salário Líquido Efetivo (Recebimento Final)</h4>
+            <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ 1.162,53</h2>
+        </div>
+        """, unsafe_allow_html=True)
 
-                st.markdown("<br>", unsafe_allow_html=True)
-                with st.expander("🔍 Ver Texto Completo Extraído do PDF"):
-                    st.text_area("Conteúdo Bruto:", texto_holerite, height=250, key=f"texto_detalhe_amplo_{idx}")
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("🔍 Ver Texto Completo Extraído do PDF Ativo"):
+            st.text_area("Conteúdo Bruto:", texto_holerite_ativo, height=250, key=f"texto_detalhe_amplo_{st.session_state.holerite_idx_ativo}")
 
     st.markdown("---")
     st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
