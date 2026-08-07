@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import datetime
+from datetime import datetime, date
 
 # --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="💸 Gestor Financeiro Pro", layout="wide")
@@ -60,7 +60,6 @@ aba1, aba2, aba3, aba4, aba5, aba6, aba7 = st.tabs([
 with aba1:
     st.subheader("Registrar Saída / Despesa")
     
-    # Busca categorias padrão + categorias cadastradas pelo usuário
     cats_padrao = [
         "🏠 Contas Fixas (Necessidade)", 
         "🛒 Supermercado (Necessidade)", 
@@ -98,9 +97,31 @@ with aba2:
             conn.commit()
             st.success("Entrada registrada com sucesso!")
 
-# --- ABA 3: DASHBOARD ---
+# --- ABA 3: DASHBOARD & NOTIFICAÇÕES DE CONTAS ---
 with aba3:
-    st.subheader("📊 Painel de Controle & Regra do 50/30/20")
+    st.subheader("📊 Painel de Controle & Alertas de Vencimento")
+    
+    # --- SISTEMA DE NOTIFICAÇÃO INTELIGENTE DE CONTAS ---
+    df_contas_check = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
+    if not df_contas_check.empty:
+        hoje = date.today()
+        vencidas = []
+        proximas = []
+        
+        for _, row in df_contas_check.iterrows():
+            data_venc = datetime.strptime(row['vencimento'], "%Y-%m-%d").date()
+            dias_diff = (data_venc - hoje).days
+            
+            if dias_diff < 0:
+                vencidas.append(f"• **{row['descricao']}** (Vencia em {row['vencimento']} - R$ {row['valor']:.2f})")
+            elif 0 <= dias_diff <= 3:
+                proximas.append(f"• **{row['descricao']}** (Vence em {row['vencimento']} - R$ {row['valor']:.2f})")
+                
+        if vencidas:
+            st.error("🚨 **Atenção! Você possui contas VENCIDAS:**\n\n" + "\n".join(vencidas))
+        if proximas:
+            st.warning("⚠️ **Aviso: Contas próximas do vencimento (próximos 3 dias):**\n\n" + "\n".join(proximas))
+
     df = pd.read_sql("SELECT * FROM transacoes", conn)
     df_contas = pd.read_sql("SELECT * FROM contas", conn)
     
@@ -161,7 +182,7 @@ with aba3:
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard.")
 
-# --- ABA 4: METAS & CATEGORIAS (NOVA ABA) ---
+# --- ABA 4: METAS & CATEGORIAS ---
 with aba4:
     st.subheader("🎯 Gerenciamento de Metas de Gastos & Novas Categorias")
     
@@ -170,7 +191,7 @@ with aba4:
     with col_m1:
         st.write("### ➕ Adicionar Nova Categoria")
         with st.form("form_nova_cat", clear_on_submit=True):
-            nova_cat_nome = st.text_input("Nome da Nova Categoria (Ex: Pet, Educação)")
+            nova_cat_nome = st.text_input("Nome da Nova Categoria (Ex: ✈️ Viagens, 🐕 Pet)")
             if st.form_submit_button("Salvar Categoria", use_container_width=True):
                 if nova_cat_nome.strip():
                     c.execute("INSERT INTO categorias (nome) VALUES (?)", (nova_cat_nome.strip(),))
@@ -182,7 +203,6 @@ with aba4:
                     
     with col_m2:
         st.write("### 🎯 Definir Meta de Gasto por Categoria")
-        # Pega todas as categorias disponíveis para associar à meta
         cats_padrao = [
             "🏠 Contas Fixas (Necessidade)", 
             "🛒 Supermercado (Necessidade)", 
@@ -200,7 +220,6 @@ with aba4:
             valor_meta_input = st.number_input("Valor Máximo de Meta (R$)", min_value=0.0, format="%.2f")
             
             if st.form_submit_button("Salvar Meta", use_container_width=True):
-                # Verifica se já existe meta para essa categoria, se sim atualiza, senão insere
                 c.execute("DELETE FROM metas WHERE categoria = ?", (cat_meta,))
                 c.execute("INSERT INTO metas (categoria, valor_meta) VALUES (?, ?)", (cat_meta, valor_meta_input))
                 conn.commit()
@@ -217,7 +236,6 @@ with aba4:
             cat_nome = row['categoria']
             v_meta = row['valor_meta']
             
-            # Soma quanto foi gasto nessa categoria
             gasto_atual = df_trans[df_trans['categoria'] == cat_nome]['valor'].sum() if not df_trans.empty else 0.0
             
             st.write(f"**{cat_nome}** — Gasto: R$ {gasto_atual:.2f} / Meta: R$ {v_meta:.2f}")
