@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 from datetime import datetime, date
-io_mod = __import__('io')
 
 # --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="💸 Gestor Financeiro Pro", layout="wide")
@@ -75,7 +74,7 @@ with aba1:
 
     with st.form("lancar_despesa", clear_on_submit=True):
         desc = st.text_input("Descrição (Ex: Supermercado, Aluguel, Uber)")
-        valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
+        valor = st.number_input("Valor (R$)", min_value=0.0, value=0.0, step=1.0, format="%.2f")
         cat = st.selectbox("Categoria", lista_categorias)
         data_desp = st.date_input("Data do Gasto", value=date.today())
         
@@ -90,7 +89,7 @@ with aba2:
     st.subheader("Registrar Entrada (Salário, Vale, Férias, 13º, etc.)")
     with st.form("lancar_entrada", clear_on_submit=True):
         desc_rec = st.text_input("Descrição (Ex: Salário Mensal, 13º Salário, Férias, Vale)")
-        valor_rec = st.number_input("Valor da Entrada (R$)", min_value=0.0, format="%.2f")
+        valor_rec = st.number_input("Valor da Entrada (R$)", min_value=0.0, value=0.0, step=1.0, format="%.2f")
         cat_rec = st.selectbox("Tipo de Receita", ["Salário", "Vale", "13º Salário", "Férias", "Freelance / Extra", "Outras Receitas"])
         data_rec = st.date_input("Data de Recebimento", value=date.today())
         if st.form_submit_button("Salvar Entrada", use_container_width=True):
@@ -99,7 +98,7 @@ with aba2:
             conn.commit()
             st.success("Entrada registrada com sucesso!")
 
-# --- ABA 3: DASHBOARD COM EVOLUÇÃO MENSAL ---
+# --- ABA 3: DASHBOARD COM FORMATO REAIS ---
 with aba3:
     st.subheader("📊 Painel de Controle Corporativo & Alertas")
     
@@ -128,9 +127,9 @@ with aba3:
             dias_diff = (data_venc - hoje).days
             
             if dias_diff < 0:
-                vencidas.append(f"• **{row['descricao']}** (Vencia em {row['vencimento']} - R$ {row['valor']:.2f})")
+                vencidas.append(f"• **{row['descricao']}** (Vencia em {row['vencimento']} - R$ {row['valor']:,.2f})")
             elif 0 <= dias_diff <= 3:
-                proximas.append(f"• **{row['descricao']}** (Vence em {row['vencimento']} - R$ {row['valor']:.2f})")
+                proximas.append(f"• **{row['descricao']}** (Vence em {row['vencimento']} - R$ {row['valor']:,.2f})")
                 
         if vencidas:
             st.error("🚨 **Atenção! Contas VENCIDAS:**\n\n" + "\n".join(vencidas))
@@ -150,10 +149,10 @@ with aba3:
             total_contas_pendentes = df_contas[df_contas['pago'] == 0]['valor'].sum()
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("💰 Saldo do Período", f"R$ {saldo_caixa:.2f}")
-        col2.metric("🟢 Entradas", f"R$ {receitas:.2f}")
-        col3.metric("🔴 Despesas", f"R$ {despesas:.2f}")
-        col4.metric("📅 Contas Pendentes", f"R$ {total_contas_pendentes:.2f}")
+        col1.metric("💰 Saldo do Período", f"R$ {saldo_caixa:,.2f}")
+        col2.metric("🟢 Entradas", f"R$ {receitas:,.2f}")
+        col3.metric("🔴 Despesas", f"R$ {despesas:,.2f}")
+        col4.metric("📅 Contas Pendentes", f"R$ {total_contas_pendentes:,.2f}")
 
         st.markdown("---")
         
@@ -170,15 +169,15 @@ with aba3:
             c_50, c_30, c_20 = st.columns(3)
             with c_50:
                 st.write("**50% Necessidades**")
-                st.write(f"Gasto: R$ {nec:.2f} / Meta: R$ {meta_nec:.2f}")
+                st.write(f"Gasto: R$ {nec:,.2f} / Meta: R$ {meta_nec:,.2f}")
                 st.progress(min(nec / meta_nec if meta_nec > 0 else 0, 1.0))
             with c_30:
                 st.write("**30% Desejos**")
-                st.write(f"Gasto: R$ {des:.2f} / Meta: R$ {meta_des:.2f}")
+                st.write(f"Gasto: R$ {des:,.2f} / Meta: R$ {meta_des:,.2f}")
                 st.progress(min(des / meta_des if meta_des > 0 else 0, 1.0))
             with c_20:
                 st.write("**20% Investimentos**")
-                st.write(f"Guardado: R$ {inv:.2f} / Meta: R$ {meta_inv:.2f}")
+                st.write(f"Guardado: R$ {inv:,.2f} / Meta: R$ {meta_inv:,.2f}")
                 st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
         else:
             st.warning("Cadastre ao menos uma entrada (Receita) neste período para calcular as metas.")
@@ -195,7 +194,9 @@ with aba3:
                 st.bar_chart(gasto_cat)
             with col_g2:
                 st.write("**Resumo Percentual de Gastos**")
-                st.dataframe(gasto_cat.reset_index().rename(columns={'valor': 'Total Gasto (R$)'}), use_container_width=True)
+                df_resumo = gasto_cat.reset_index().rename(columns={'valor': 'Total Gasto (R$)'})
+                df_resumo['Total Gasto (R$)'] = df_resumo['Total Gasto (R$)'].apply(lambda x: f"R$ {x:,.2f}")
+                st.dataframe(df_resumo, use_container_width=True)
         else:
             st.info("Nenhuma despesa registrada para este mês.")
             
@@ -261,7 +262,7 @@ with aba4:
 
         with st.form("form_meta", clear_on_submit=True):
             cat_meta = st.selectbox("Escolha a Categoria", lista_todas_cats)
-            valor_meta_input = st.number_input("Valor Máximo de Meta (R$)", min_value=0.0, format="%.2f")
+            valor_meta_input = st.number_input("Valor Máximo de Meta (R$)", min_value=0.0, value=0.0, step=1.0, format="%.2f")
             
             if st.form_submit_button("Salvar Meta", use_container_width=True):
                 c.execute("DELETE FROM metas WHERE categoria = ?", (cat_meta,))
@@ -282,11 +283,11 @@ with aba4:
             
             gasto_atual = df_trans[df_trans['categoria'] == cat_nome]['valor'].sum() if not df_trans.empty else 0.0
             
-            st.write(f"**{cat_nome}** — Gasto: R$ {gasto_atual:.2f} / Meta: R$ {v_meta:.2f}")
+            st.write(f"**{cat_nome}** — Gasto: R$ {gasto_atual:,.2f} / Meta: R$ {v_meta:,.2f}")
             if v_meta > 0:
                 st.progress(min(gasto_atual / v_meta, 1.0))
                 if gasto_atual > v_meta:
-                    st.error(f"⚠️ Você ultrapassou a meta de {cat_nome} em R$ {(gasto_atual - v_meta):.2f}!")
+                    st.error(f"⚠️ Você ultrapassou a meta de {cat_nome} em R$ {(gasto_atual - v_meta):,.2f}!")
             else:
                 st.progress(0.0)
     else:
@@ -357,7 +358,7 @@ with aba6:
             venc = st.date_input("Data de Vencimento")
             nome_conta = st.text_input("Nome da Conta (Ex: IPVA, Seguro, Aluguel)")
         with col_c2:
-            val_conta = st.number_input("Valor Estimado", min_value=0.0, format="%.2f")
+            val_conta = st.number_input("Valor Estimado", min_value=0.0, value=0.0, step=1.0, format="%.2f")
         
         if st.form_submit_button("Adicionar ao Calendário", use_container_width=True):
             c.execute("INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)", (venc, str(nome_conta), val_conta, 0))
@@ -413,6 +414,24 @@ with aba6:
 with aba7:
     st.subheader("📋 Extrato Corporativo, Importação e Backup")
     
+    col_exp1, col_exp2 = st.columns(2)
+    with col_exp1:
+        with open("gestor_financeiro.db", "rb") as f:
+            st.download_button("💾 Baixar Backup do Banco (.db)", f, "gestor_financeiro.db", use_container_width=True)
+    with col_exp2:
+        df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
+        if not df_extrato_full.empty:
+            csv_data = df_extrato_full.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📊 Exportar Extrato para Excel (CSV)",
+                data=csv_data,
+                file_name="extrato_financeiro.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+    st.markdown("---")
+    
     # --- SEÇÃO DE IMPORTAÇÃO DE EXTRATO BANCÁRIO (CSV) ---
     st.write("### 📥 Importar Extrato Bancário (CSV)")
     st.info("O arquivo CSV deve conter colunas para **Data**, **Descrição** e **Valor** (valores negativos para despesas e positivos para receitas).")
@@ -436,7 +455,6 @@ with aba7:
                         desc_str = str(row[col_desc])
                         val_float = float(row[col_val])
                         
-                        # Identifica automaticamente se é Receita ou Despesa com base no sinal do valor
                         tipo_trans = "Receita" if val_float > 0 else "Despesa"
                         val_absoluto = abs(val_float)
                         cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
@@ -451,24 +469,6 @@ with aba7:
                 st.rerun()
         except Exception as e:
             st.error(f"Erro ao ler o arquivo: {e}")
-
-    st.markdown("---")
-    
-    col_exp1, col_exp2 = st.columns(2)
-    with col_exp1:
-        with open("gestor_financeiro.db", "rb") as f:
-            st.download_button("💾 Baixar Backup do Banco (.db)", f, "gestor_financeiro.db", use_container_width=True)
-    with col_exp2:
-        df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
-        if not df_extrato_full.empty:
-            csv_data = df_extrato_full.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📊 Exportar Extrato para Excel (CSV)",
-                data=csv_data,
-                file_name="extrato_financeiro.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
 
     st.markdown("---")
     
