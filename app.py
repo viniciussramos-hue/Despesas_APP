@@ -1049,7 +1049,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
                 df_extrato_filtrado['descricao'].str.lower().str.contains(termo_limpo, na=False) | 
                 df_extrato_filtrado['categoria'].str.lower().str.contains(termo_limpo, na=False) |
                 df_extrato_filtrado['descricao'].str.lower().isin(similares_desc) |
-                df_extrato_filtrado['categoria'].str.lower().isin(similares_cat)
+                df_extrato_filtrado['descricao'].str.lower().isin(similares_cat)
             )
             df_extrato_filtrado = df_extrato_filtrado[mask]
 
@@ -1113,44 +1113,41 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             if importados_automaticos > 0:
                 st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) com sucesso!")
 
-    # Carrega do banco de dados a lista de holerites salvos (garantindo que mesmo sem upload os dados antigos apareçam)
+    # Carrega do banco de dados os holerites salvos para exibir os cartões mensais permanentemente
     df_holerites = pd.read_sql("SELECT * FROM holerites ORDER BY mes_ano DESC", conn)
 
-    if pdfs_holerites:
+    if not df_holerites.empty:
         st.markdown("---")
-        st.subheader("📑 Navegação Analítica por Mês / Contracheque")
+        st.subheader("📑 Navegação Analítica por Mês / Contracheque (Salvo no Banco)")
         
-        if "holerite_selecionado_idx" not in st.session_state:
-            st.session_state.holerite_selecionado_idx = 0
+        if "holerite_selecionado_db_idx" not in st.session_state:
+            st.session_state.holerite_selecionado_db_idx = 0
             
-        if st.session_state.holerite_selecionado_idx >= len(pdfs_holerites):
-            st.session_state.holerite_selecionado_idx = 0
+        if st.session_state.holerite_selecionado_db_idx >= len(df_holerites):
+            st.session_state.holerite_selecionado_db_idx = 0
 
-        cols_botoes = st.columns(min(len(pdfs_holerites), 6))
-        for idx, arquivo in enumerate(pdfs_holerites):
+        lista_meses_db = df_holerites['mes_ano'].tolist()
+        cols_botoes = st.columns(min(len(lista_meses_db), 6))
+        
+        for idx, mes_ref in enumerate(lista_meses_db):
             col_pos = idx % len(cols_botoes)
-            nome_botao = arquivo.name.replace(".pdf", "").replace(".PDF", "").replace("Demonstrativo de Pagamento_", "").replace("Demonstrativo_", "")
             with cols_botoes[col_pos]:
-                tipo_botao = "primary" if st.session_state.holerite_selecionado_idx == idx else "secondary"
-                if st.button(nome_botao, key=f"btn_mes_{idx}", type=tipo_botao, use_container_width=True):
-                    st.session_state.holerite_selecionado_idx = idx
+                tipo_botao = "primary" if st.session_state.holerite_selecionado_db_idx == idx else "secondary"
+                if st.button(f"Mês {mes_ref}", key=f"btn_mes_db_{idx}", type=tipo_botao, use_container_width=True):
+                    st.session_state.holerite_selecionado_db_idx = idx
                     st.rerun()
 
-        arquivo_ativo = pdfs_holerites[st.session_state.holerite_selecionado_idx]
+        # Seleciona o holerite ativo com base no banco de dados
+        row_ativo = df_holerites.iloc[st.session_state.holerite_selecionado_db_idx]
+        mes_ativo_ext = row_ativo['mes_ano']
+        bruto_ativo = row_ativo['salario_bruto']
+        desc_ativo = row_ativo['total_descontos']
+        liquido_ativo = row_ativo['liquido']
+        inss_ativo = row_ativo['inss']
+        irrf_ativo = row_ativo['irrf']
+        vale_ativo = row_ativo['vale'] if row_ativo['vale'] is not None else 2220.00
         
-        texto_holerite_ativo = ""
-        try:
-            with pdfplumber.open(arquivo_ativo) as pdf:
-                for pagina in pdf.pages:
-                    ext = pagina.extract_text()
-                    if ext:
-                        texto_holerite_ativo += ext + "\n"
-        except Exception as e:
-            texto_holerite_ativo = f"Erro ao ler PDF: {e}"
-
-        mes_ativo_ext, bruto_ativo, desc_ativo, liquido_ativo, inss_ativo, irrf_ativo, vale_ativo = processar_texto_holerite(texto_holerite_ativo, arquivo_ativo.name)
-        
-        st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px; margin-top: 15px;'>Arquivo ativo: <b>{arquivo_ativo.name}</b> | Referência identificada: <b>{mes_ativo_ext}</b></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px; margin-top: 15px;'>Referência ativa no painel: <b>{mes_ativo_ext}</b></p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
         col_rec, col_desc = st.columns(2)
@@ -1189,10 +1186,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ {liquido_ativo:,.2f}</h2>
         </div>
         """, unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        with st.expander(f"🔍 Ver Texto Completo Extraído do PDF Ativo ({arquivo_ativo.name})"):
-            st.text_area("Conteúdo Bruto:", texto_holerite_ativo, height=250, key=f"texto_detalhe_amplo_{st.session_state.holerite_selecionado_idx}")
 
     st.markdown("---")
     st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
