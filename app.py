@@ -809,7 +809,6 @@ elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
     df_trans_proj = pd.read_sql("SELECT * FROM transacoes", conn)
     df_hol_proj = pd.read_sql("SELECT * FROM holerites", conn)
     
-    # Cálculo da média de receitas e despesas recentes
     if not df_trans_proj.empty:
         df_trans_proj['data'] = pd.to_datetime(df_trans_proj['data'])
         df_trans_proj['ano_mes'] = df_trans_proj['data'].dt.strftime('%Y-%m')
@@ -834,42 +833,6 @@ elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
         proj_despesa_base = st.number_input("Despesa Mensal Média Estimada (R$)", value=float(media_despesa_hist), step=100.0, format="%.2f")
     with col_s3:
         taxa_investimento_proj = st.slider("Taxa Anual de Retorno dos Investimentos (%)", min_value=0.0, max_value=25.0, value=10.0, step=0.5)
-
-    # Geração dos próximos 6 meses de projeção
-    meses_futuros = []
-    saldo_projetado = []
-    acumulado_proj = 0.0
-    
-    hoje_proj = date.today()
-    for i in range(1, 7):
-        data_fut = hoje_proj + timedelta(days=30 * i)
-        nome_m = data_fut.strftime('%m/%Y')
-        meses_futuros.append(nome_m)
-        
-        caixa_mes = proj_receita_base - proj_despesa_base
-        acumulado_proj += caixa_mes
-        saldo_projetado.append(acumulado_proj)
-
-    df_proj_futuro = pd.DataFrame({
-        'Mês / Ano': meses_futuros,
-        'Receita Projetada': [proj_receita_base] * 6,
-        'Despesa Projetada': [proj_despesa_base] * 6,
-        'Resultado Mensal': [proj_receita_base - proj_despesa_base] * 6,
-        'Patrimônio Acumulado Estimado': saldo_projetado
-    })
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.write("#### 📊 Tabela de Projeção Preditiva (Próximo Semestre)")
-    st.dataframe(df_proj_futuro.style.format({
-        'Receita Projetada': 'R$ {:,.2f}',
-        'Despesa Projetada': 'R$ {:,.2f}',
-        'Resultado Mensal': 'R$ {:,.2f}',
-        'Patrimônio Acumulado Estimado': 'R$ {:,.2f}'
-    }), use_container_width=True, hide_index=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.write("#### 📈 Gráfico de Projeção do Patrimônio Acumulado")
-    st.line_chart(df_proj_futuro.set_index('Mês / Ano')[['Patrimônio Acumulado Estimado']])
 
     st.markdown("---")
     st.write("### 🔍 Análise de Cenários: Otimista vs Conservador vs Estresse")
@@ -904,6 +867,42 @@ elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
             <p><b>Sobra Mensal:</b> R$ {:,.2f}</p>
         </div>
         """.format((proj_receita_base * 0.85) - (proj_despesa_base * 1.15)), unsafe_allow_html=True)
+
+    # Geração dos próximos 6 meses de projeção
+    meses_futuros = []
+    saldo_projetado = []
+    acumulado_proj = 0.0
+    
+    hoje_proj = date.today()
+    for i in range(1, 7):
+        data_fut = hoje_proj + timedelta(days=30 * i)
+        nome_m = data_fut.strftime('%m/%Y')
+        meses_futuros.append(nome_m)
+        
+        caixa_mes = proj_receita_base - proj_despesa_base
+        acumulado_proj += caixa_mes
+        saldo_projetado.append(acumulado_proj)
+
+    df_proj_futuro = pd.DataFrame({
+        'Mês / Ano': meses_futuros,
+        'Receita Projetada': [proj_receita_base] * 6,
+        'Despesa Projetada': [proj_despesa_base] * 6,
+        'Resultado Mensal': [proj_receita_base - proj_despesa_base] * 6,
+        'Patrimônio Acumulado Estimado': saldo_projetado
+    })
+
+    st.markdown("---")
+    st.write("#### 📊 Tabela de Projeção Preditiva (Próximo Semestre)")
+    st.dataframe(df_proj_futuro.style.format({
+        'Receita Projetada': 'R$ {:,.2f}',
+        'Despesa Projetada': 'R$ {:,.2f}',
+        'Resultado Mensal': 'R$ {:,.2f}',
+        'Patrimônio Acumulado Estimado': 'R$ {:,.2f}'
+    }), use_container_width=True, hide_index=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.write("#### 📈 Gráfico de Projeção do Patrimônio Acumulado")
+    st.line_chart(df_proj_futuro.set_index('Mês / Ano')[['Patrimônio Acumulado Estimado']])
 
     botao_voltar()
 
