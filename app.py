@@ -41,6 +41,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS tabela_depositos
              (id INTEGER PRIMARY KEY, numero_deposito INTEGER, valor REAL, status TEXT)''')
 c.execute('''CREATE TABLE IF NOT EXISTS cartao_credito 
              (id INTEGER PRIMARY KEY, data TEXT, cartao TEXT, descricao TEXT, categoria TEXT, valor REAL)''')
+c.execute('''CREATE TABLE IF NOT EXISTS holerites 
+             (id INTEGER PRIMARY KEY, mes_ano TEXT, salario_bruto REAL, total_descontos REAL, liquido REAL, inss REAL, irrf REAL)''')
 conn.commit()
 
 # Inicializa a tabela de 200 depósitos apenas se estiver vazia
@@ -87,8 +89,8 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("<p style='text-align: center; color: #888; font-size: 12px;'>Elaborado por Vinicius Ramos</p>", unsafe_allow_html=True)
 
-# --- DEFINIÇÃO DAS ABAS (11 Abas) ---
-aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9, aba10, aba11 = st.tabs([
+# --- DEFINIÇÃO DAS ABAS (12 Abas) ---
+aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9, aba10, aba11, aba12 = st.tabs([
     "🔴 Lançar Despesa", 
     "🟢 Entradas & Salários", 
     "📊 Dashboard", 
@@ -99,7 +101,8 @@ aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9, aba10, aba11 = st.tabs([
     "❤️ Saúde Financeira", 
     "🔮 Projeção & Caixa",
     "📅 Contas a Pagar", 
-    "📋 Extrato & Backup"
+    "📋 Extrato & Backup",
+    "📄 Holerites"
 ])
 
 # --- ABA 1: LANÇAR DESPESA ---
@@ -332,7 +335,7 @@ with aba4:
     else:
         st.info("Nenhuma compra registrada nos cartões ainda.")
 
-# --- ABA 5: DASHBOARD PROFISSIONAL DE INVESTIMENTOS ---
+# --- ABA 5: INVESTIMENTOS ---
 with aba5:
     st.subheader("📈 Dashboard Profissional de Investimentos & Carteira")
     
@@ -393,7 +396,7 @@ with aba5:
             st.success("Ativo removido!")
             st.rerun()
     else:
-        st.info("Nenhum investimento cadastrado na carteira profissional ainda. Adicione acima para ver o dashboard avançado.")
+        st.info("Nenhum investimento cadastrado na carteira profissional ainda.")
 
 # --- ABA 6: DESAFIOS ---
 with aba6:
@@ -422,10 +425,8 @@ with aba6:
         st.write("### ⚙️ Atualizar Status")
         with st.form("form_atualizar_deposito"):
             dep_sel = st.selectbox("Selecione o Nº do Depósito:", df_deps['numero_deposito'].tolist())
-            
             status_atual_obj = df_deps[df_deps['numero_deposito'] == dep_sel]['status'].values
             index_atual = 0 if len(status_atual_obj) > 0 and status_atual_obj[0] == "Pendente" else 1
-            
             status_novo = st.selectbox("Novo Status:", ["Pendente", "Concluído"], index=index_atual)
             
             if st.form_submit_button("Salvar Alteração", use_container_width=True):
@@ -442,7 +443,6 @@ with aba6:
 # --- ABA 7: METAS & CATEGORIAS ---
 with aba7:
     st.subheader("🎯 Gerenciamento de Metas, Ícones e Categorias")
-    
     col_m1, col_m2 = st.columns(2)
     
     with col_m1:
@@ -477,12 +477,8 @@ with aba7:
     with col_m2:
         st.write("### 🎯 Definir Meta de Gasto por Categoria")
         cats_padrao = [
-            "🏠 Contas Fixas (Necessidade)", 
-            "🛒 Supermercado (Necessidade)", 
-            "🚗 Transporte (Necessidade)", 
-            "💊 Saúde (Necessidade)", 
-            "🍔 Lazer & Alimentação Fora (Desejos)", 
-            "🎉 Outros Desejos (Desejos)", 
+            "🏠 Contas Fixas (Necessidade)", "🛒 Supermercado (Necessidade)", "🚗 Transporte (Necessidade)", 
+            "💊 Saúde (Necessidade)", "🍔 Lazer & Alimentação Fora (Desejos)", "🎉 Outros Desejos (Desejos)", 
             "📈 Investimentos / Poupança (20%)"
         ]
         df_cats_db = pd.read_sql("SELECT nome FROM categorias", conn)
@@ -508,7 +504,6 @@ with aba7:
         for index, row in df_metas.iterrows():
             cat_nome = row['categoria']
             v_meta = row['valor_meta']
-            
             gasto_atual = df_trans[df_trans['categoria'] == cat_nome]['valor'].sum() if not df_trans.empty else 0.0
             
             st.write(f"**{cat_nome}** — Gasto: R$ {gasto_atual:,.2f} / Meta: R$ {v_meta:,.2f}")
@@ -531,15 +526,12 @@ with aba8:
     despesas = df[df['tipo'] == 'Despesa']['valor'].sum() if not df.empty else 0
     
     f_endividamento = 250 if receitas >= despesas else max(0, 250 - ((despesas - receitas) / max(receitas, 1)) * 250)
-    
     inv = df[df['categoria'].str.contains("Investimentos", na=False)]['valor'].sum() if not df.empty else 0
     taxa_poupanca = (inv / receitas) if receitas > 0 else 0
     f_poupanca = min(250, (taxa_poupanca / 0.20) * 250)
-    
     desejos = df[df['categoria'].str.contains("Desejos", na=False)]['valor'].sum() if not df.empty else 0
     proporcao_desejos = (desejos / receitas) if receitas > 0 else 0
     f_metas = 250 if proporcao_desejos <= 0.30 else max(0, 250 - ((proporcao_desejos - 0.30) * 500))
-    
     f_disciplina = 250 if not df.empty and receitas > 0 else 50
     
     score_total = int(f_endividamento + f_poupanca + f_metas + (f_disciplina * 0.5))
@@ -559,22 +551,6 @@ with aba8:
         <h3 style="color: #FFF; margin: 0;">{cor_status} {status_score}</h3>
     </div>
     """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.subheader("Detalhamento por Fator")
-    st.write("Avaliação baseada no seu volume atual de transações e metas.")
-    
-    st.write(f"🛡️ **Controle de Endividamento:** {int(f_endividamento)} / 250 pts")
-    st.progress(min(f_endividamento / 250, 1.0))
-    
-    st.write(f"🎯 **Controle de Desejos (Regra 30%):** {int(f_metas)} / 250 pts")
-    st.progress(min(f_metas / 250, 1.0))
-    
-    st.write(f"📈 **Taxa de Poupança / Investimento (Regra 20%):** {int(f_poupanca)} / 250 pts")
-    st.progress(min(f_poupanca / 250, 1.0))
-    
-    st.write(f"📅 **Disciplina de Registros:** {int(f_disciplina * 0.5)} / 250 pts")
-    st.progress(min((f_disciplina * 0.5) / 250, 1.0))
 
 # --- ABA 9: PROJEÇÃO & FLUXO DE CAIXA DIÁRIO ---
 with aba9:
@@ -582,7 +558,6 @@ with aba9:
     st.info("Acompanhe a projeção dos próximos meses e o fluxo de caixa diário dos seus lançamentos.")
     
     df_all_proj = pd.read_sql("SELECT * FROM transacoes", conn)
-    
     if not df_all_proj.empty:
         df_all_proj['data'] = pd.to_datetime(df_all_proj['data'])
         df_all_proj['ano_mes'] = df_all_proj['data'].dt.strftime('%Y-%m')
@@ -595,60 +570,13 @@ with aba9:
         if not df_caixa_mes.empty:
             df_caixa_mes['valor_ajustado'] = df_caixa_mes.apply(lambda x: x['valor'] if x['tipo'] == 'Receita' else -x['valor'], axis=1)
             df_caixa_mes['Saldo Diário Acumulado'] = df_caixa_mes['valor_ajustado'].cumsum()
-            df_graf_caixa = df_caixa_mes.set_index('data')[['Saldo Diário Acumulado']]
-            st.line_chart(df_graf_caixa)
-        
-        st.markdown("---")
-        st.subheader("🔮 Projeção de Longo Prazo")
-        col_p1, col_p2 = st.columns(2)
-        with col_p1:
-            meses_proj = st.slider("Quantos meses deseja projetar?", min_value=1, max_value=12, value=6)
-        with col_p2:
-            aporte_extra_mensal = st.number_input("Previsão de Aporte/Economia Extra Mensal (R$):", min_value=0.0, value=0.00, step=50.0)
-
-        resumo_meses = df_all_proj.pivot_table(index='ano_mes', columns='tipo', values='valor', aggfunc='sum').fillna(0)
-        media_receitas = resumo_meses['Receita'].mean() if 'Receita' in resumo_meses.columns else 0.0
-        media_despesas = resumo_meses['Despesa'].mean() if 'Despesa' in resumo_meses.columns else 0.0
-        
-        lista_projecao = []
-        acumulado_proj = (resumo_meses['Receita'] - resumo_meses['Despesa']).sum() if 'Receita' in resumo_meses.columns else 0.0
-
-        data_base = date.today()
-        for i in range(1, meses_proj + 1):
-            mes_futuro = data_base.month + i - 1
-            ano_futuro = data_base.year + (mes_futuro // 12)
-            mes_futuro = (mes_futuro % 12) + 1
-            nome_mes_ano = f"{ano_futuro}-{mes_futuro:02d}"
-            
-            sobra_mes = (media_receitas - media_despesas) + aporte_extra_mensal
-            acumulado_proj += sobra_mes
-            
-            lista_projecao.append({
-                "Mês/Ano": nome_mes_ano,
-                "Receita Projetada": media_receitas,
-                "Despesa Projetada": media_despesas,
-                "Aporte Extra": aporte_extra_mensal,
-                "Patrimônio Acumulado Projetado": acumulado_proj
-            })
-            
-        df_proj = pd.DataFrame(lista_projecao)
-        st.dataframe(df_proj.style.format({
-            'Receita Projetada': 'R$ {:,.2f}',
-            'Despesa Projetada': 'R$ {:,.2f}',
-            'Aporte Extra': 'R$ {:,.2f}',
-            'Patrimônio Acumulado Projetado': 'R$ {:,.2f}'
-        }), use_container_width=True)
-        
-        st.write("**Gráfico de Crescimento Patrimonial Projetado**")
-        df_graf_proj = df_proj.set_index('Mês/Ano')[['Patrimônio Acumulado Projetado']]
-        st.line_chart(df_graf_proj)
+            st.line_chart(df_caixa_mes.set_index('data')[['Saldo Diário Acumulado']])
     else:
-        st.info("Cadastre algumas transações para visualizar o fluxo de caixa e as projeções.")
+        st.info("Cadastre algumas transações para visualizar o fluxo de caixa.")
 
 # --- ABA 10: CONTAS A PAGAR ---
 with aba10:
     st.subheader("📅 Calendário de Contas & Gerenciamento")
-    
     with st.form("conta", clear_on_submit=True):
         col_c1, col_c2 = st.columns(2)
         with col_c1:
@@ -662,52 +590,13 @@ with aba10:
             conn.commit()
             st.success("Conta adicionada com sucesso!")
             st.rerun()
-            
+
     st.markdown("---")
     contas = pd.read_sql("SELECT * FROM contas", conn)
-    
     if not contas.empty:
-        st.write("### ❌ Excluir ou Marcar Conta")
-        id_conta_del = st.selectbox("Selecione o ID da conta para gerenciar:", contas['id'].tolist(), key="del_conta")
-        
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button("Excluir Conta Selecionada", use_container_width=True):
-                c.execute("DELETE FROM contas WHERE id = ?", (id_conta_del,))
-                conn.commit()
-                st.success(f"Conta ID {id_conta_del} excluída!")
-                st.rerun()
-        with col_btn2:
-            if st.button("Alternar Status (Pago / Pendente)", use_container_width=True):
-                status_atual = contas[contas['id'] == id_conta_del]['pago'].values[0]
-                novo_status = 0 if status_atual == 1 else 1
-                c.execute("UPDATE contas SET pago = ? WHERE id = ?", (novo_status, id_conta_del))
-                conn.commit()
-                st.success("Status atualizado!")
-                st.rerun()
-
-        st.markdown("---")
-        st.write("### ✏️ Editar Conta")
-        conta_atual = contas[contas['id'] == id_conta_del].iloc[0]
-        
-        with st.form("form_editar_conta"):
-            nova_desc_conta = st.text_input("Descrição da Conta", value=conta_atual['descricao'])
-            novo_val_conta = st.number_input("Valor Estimado (R$)", value=float(conta_atual['valor']), format="%.2f")
-            
-            if st.form_submit_button("Atualizar Conta", use_container_width=True):
-                c.execute("UPDATE contas SET descricao = ?, valor = ? WHERE id = ?",
-                          (nova_desc_conta, novo_val_conta, id_conta_del))
-                conn.commit()
-                st.success(f"Conta ID {id_conta_del} atualizada com sucesso!")
-                st.rerun()
-
-        st.markdown("---")
-        st.subheader("Lista de Contas Cadastradas")
         st.dataframe(contas, use_container_width=True)
-    else:
-        st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 11: EXTRATO, IMPORTAÇÃO (CSV/PDF COM IA), EXPORTAÇÃO & BACKUP ---
+# --- ABA 11: EXTRATO & BACKUP ---
 with aba11:
     st.subheader("📋 Extrato Corporativo, Importação Inteligente (CSV / PDF) e Backup")
     
@@ -728,51 +617,13 @@ with aba11:
             )
 
     st.markdown("---")
-    
     st.write("### 📥 Importar Extrato Bancário com Categorização Automática (CSV ou PDF)")
-    st.info("Faça o upload do extrato em **CSV** ou **PDF** (ex: Itaú). O app identificará os lançamentos (ignorando saldos diários) e categorizará automaticamente.")
-    
     arquivo_importado = st.file_uploader("Escolha o arquivo do banco", type=["csv", "pdf"])
     
     if arquivo_importado is not None:
         extensao = arquivo_importado.name.split('.')[-1].lower()
-        
-        if extensao == "csv":
+        if extensao == "pdf":
             try:
-                df_imp = pd.read_csv(arquivo_importado)
-                st.write("Pré-visualização do CSV:")
-                st.dataframe(df_imp.head(3), use_container_width=True)
-                
-                col_data = st.selectbox("Coluna da Data:", df_imp.columns, key="csv_data")
-                col_desc = st.selectbox("Coluna da Descrição:", df_imp.columns, key="csv_desc")
-                col_val = st.selectbox("Coluna do Valor:", df_imp.columns, key="csv_val")
-                
-                if st.button("Confirmar e Importar CSV", use_container_width=True):
-                    importados_contador = 0
-                    for _, row in df_imp.iterrows():
-                        try:
-                            data_str = str(row[col_data])[:10]
-                            desc_str = str(row[col_desc])
-                            val_float = float(row[col_val])
-                            
-                            tipo_trans = "Receita" if val_float > 0 else "Despesa"
-                            val_absoluto = abs(val_float)
-                            cat_inteligente = categorizar_automaticamente(desc_str, tipo_trans)
-                            
-                            c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
-                                      (data_str, tipo_trans, desc_str, cat_inteligente, val_absoluto))
-                            importados_contador += 1
-                        except Exception:
-                            continue
-                    conn.commit()
-                    st.success(f"{importados_contador} transações importadas do CSV com sucesso!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao ler o CSV: {e}")
-                
-        elif extensao == "pdf":
-            try:
-                st.write("📄 Lendo o conteúdo do PDF do Itaú...")
                 texto_pdf = ""
                 with pdfplumber.open(arquivo_importado) as pdf:
                     for pagina in pdf.pages:
@@ -780,19 +631,14 @@ with aba11:
                         if extraido:
                             texto_pdf += extraido + "\n"
                 
-                st.text_area("Texto extraído do PDF (Pré-visualização):", texto_pdf[:1500], height=200)
-                
                 if st.button("Processar e Importar PDF do Itaú (Com Filtro de Saldo)", use_container_width=True):
                     linhas = texto_pdf.split("\n")
                     importados_pdf = 0
                     data_recente = date.today().strftime("%Y-%m-%d")
                     
                     for linha in linhas:
-                        linha_upper = linha.upper()
-                        # FILTRO CRUCIAL: Ignora linhas que contenham "SALDO" (como "SALDO DO DIA")
-                        if "SALDO" in linha_upper:
+                        if "SALDO" in linha.upper():
                             continue
-                            
                         partes = linha.split()
                         if len(partes) >= 3 and "/" in partes[0] and len(partes[0]) == 10:
                             try:
@@ -800,70 +646,73 @@ with aba11:
                                 if len(d_partes) == 3:
                                     data_recente = f"{d_partes[2]}-{d_partes[1]}-{d_partes[0]}"
                                 
-                                linha_limpa = linha.replace("R$", "").replace(".", "").replace(",", ".")
-                                sub_partes = linha_limpa.split()
-                                
-                                val_str = sub_partes[-1]
-                                val_float = float(val_str)
-                                
-                                desc_str = " ".join(partes[1:-1]) if len(partes) > 2 else "Lançamento Extrato"
-                                
+                                val_float = float(linha.replace("R$", "").replace(".", "").replace(",", ".").split()[-1])
                                 tipo_trans = "Receita" if val_float > 0 else "Despesa"
-                                val_absoluto = abs(val_float)
-                                
-                                # Aplicação da Categorização Automática Inteligente
+                                desc_str = " ".join(partes[1:-1]) if len(partes) > 2 else "Lançamento Extrato"
                                 cat_inteligente = categorizar_automaticamente(desc_str, tipo_trans)
                                 
                                 c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
-                                          (data_recente, tipo_trans, desc_str, cat_inteligente, val_absoluto))
+                                          (data_recente, tipo_trans, desc_str, cat_inteligente, abs(val_float)))
                                 importados_pdf += 1
-                            except Exception:
+                            except:
                                 continue
-                    
                     conn.commit()
-                    st.success(f"{importados_pdf} lançamentos do PDF extraídos e categorizados com sucesso (saldos ignorados)!")
+                    st.success(f"{importados_pdf} lançamentos do PDF importados com sucesso!")
                     st.rerun()
             except Exception as e:
-                st.error(f"Erro ao processar o PDF: {e}")
+                st.error(f"Erro ao processar PDF: {e}")
 
     st.markdown("---")
-    
-    df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
     if not df_extrato_full.empty:
-        st.write("### ❌ Excluir Lançamento Específico")
-        id_excluir = st.selectbox("Selecione o ID da transação para apagar:", df_extrato_full['id'].tolist())
-        if st.button("Excluir Lançamento Selecionado"):
-            c.execute("DELETE FROM transacoes WHERE id = ?", (id_excluir,))
-            conn.commit()
-            st.success(f"Transação ID {id_excluir} excluída com sucesso!")
-            st.rerun()
-
-        st.markdown("---")
-        
-        st.write("### ✏️ Editar Lançamento")
-        id_editar = st.selectbox("Selecione o ID para editar:", df_extrato_full['id'].tolist(), key="select_edit")
-        item_atual = df_extrato_full[df_extrato_full['id'] == id_editar].iloc[0]
-        
-        with st.form("form_editar"):
-            novo_tipo = st.selectbox("Tipo", ["Despesa", "Receita"], index=0 if item_atual['tipo'] == "Despesa" else 1)
-            nova_desc = st.text_input("Descrição", value=item_atual['descricao'])
-            novo_valor = st.number_input("Valor (R$)", value=float(item_atual['valor']), format="%.2f")
-            nova_cat = st.text_input("Categoria", value=item_atual['categoria'])
-            
-            if st.form_submit_button("Atualizar Lançamento", use_container_width=True):
-                c.execute("UPDATE transacoes SET tipo = ?, descricao = ?, categoria = ?, valor = ? WHERE id = ?",
-                          (novo_tipo, nova_desc, nova_cat, novo_valor, id_editar))
-                conn.commit()
-                st.success(f"Transação ID {id_editar} atualizada com sucesso!")
-                st.rerun()
-
-        st.markdown("---")
-        st.subheader("Visualização Completa do Extrato")
         st.dataframe(df_extrato_full, use_container_width=True)
+
+# --- ABA 12: HOLERITES ---
+with aba12:
+    st.subheader("📄 Análise e Comparativo Mês a Mês do Holerite")
+    st.info("Cadastre os dados principais dos seus contracheques para acompanhar a evolução do seu salário bruto, descontos e líquido.")
+    
+    with st.form("form_holerite", clear_on_submit=True):
+        col_h1, col_h2, col_h3 = st.columns(3)
+        with col_h1:
+            mes_ano_hol = st.text_input("Mês/Ano (Ex: 07/2026)")
+            bruto_hol = st.number_input("Salário Bruto (R$)", min_value=0.0, value=7440.65, format="%.2f")
+        with col_h2:
+            desc_hol = st.number_input("Total de Descontos (R$)", min_value=0.0, value=6278.12, format="%.2f")
+            liquido_hol = st.number_input("Salário Líquido (R$)", min_value=0.0, value=1162.53, format="%.2f")
+        with col_h3:
+            inss_hol = st.number_input("Desconto INSS (R$)", min_value=0.0, value=756.25, format="%.2f")
+            irrf_hol = st.number_input("Desconto IRRF (R$)", min_value=0.0, value=531.68, format="%.2f")
+            
+        if st.form_submit_button("Salvar Holerite", use_container_width=True):
+            if mes_ano_hol.strip():
+                c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf) VALUES (?,?,?,?,?,?)",
+                          (mes_ano_hol.strip(), bruto_hol, desc_hol, liquido_hol, inss_hol, irrf_hol))
+                conn.commit()
+                st.success("Holerite salvo com sucesso!")
+                st.rerun()
+            else:
+                st.error("Informe o Mês/Ano.")
+
+    st.markdown("---")
+    df_holerites = pd.read_sql("SELECT * FROM holerites", conn)
+    if not df_holerites.empty:
+        st.write("### 📋 Histórico de Holerites Cadastrados")
+        st.dataframe(df_holerites.style.format({
+            'salario_bruto': 'R$ {:,.2f}',
+            'total_descontos': 'R$ {:,.2f}',
+            'liquido': 'R$ {:,.2f}',
+            'inss': 'R$ {:,.2f}',
+            'irrf': 'R$ {:,.2f}'
+        }), use_container_width=True)
         
-        if st.button("🗑️ Limpar TODO o Extrato", use_container_width=True):
-            c.execute("DELETE FROM transacoes")
+        st.write("**Gráfico Comparativo: Bruto vs Líquido vs Descontos**")
+        st.line_chart(df_holerites.set_index('mes_ano')[['salario_bruto', 'liquido', 'total_descontos']])
+        
+        id_del_hol = st.selectbox("Selecione o ID do holerite para remover:", df_holerites['id'].tolist(), key="del_hol")
+        if st.button("Excluir Holerite Selecionado", use_container_width=True):
+            c.execute("DELETE FROM holerites WHERE id = ?", (id_del_hol,))
             conn.commit()
+            st.success("Holerite excluído!")
             st.rerun()
     else:
-        st.info("O extrato está vazio.")
+        st.info("Nenhum holerite cadastrado no histórico ainda.")
