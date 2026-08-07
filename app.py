@@ -606,7 +606,7 @@ with aba9:
                 
         elif extensao == "pdf":
             try:
-                st.write("📄 Lendo o conteúdo do PDF...")
+                st.write("📄 Lendo o conteúdo do PDF do Itaú...")
                 texto_pdf = ""
                 with pdfplumber.open(arquivo_importado) as pdf:
                     for pagina in pdf.pages:
@@ -615,35 +615,46 @@ with aba9:
                             texto_pdf += extraido + "\n"
                 
                 st.text_area("Texto extraído do PDF (Pré-visualização):", texto_pdf[:1500], height=200)
-                st.info("O leitor tentará identificar linhas com datas e valores monetários para inserção automática.")
+                st.info("O sistema mapeará as linhas de lançamentos do extrato do Itaú.")
                 
-                if st.button("Processar e Importar PDF", use_container_width=True):
+                if st.button("Processar e Importar PDF do Itaú", use_container_width=True):
                     linhas = texto_pdf.split("\n")
                     importados_pdf = 0
+                    data_recente = date.today().strftime("%Y-%m-%d")
                     
                     for linha in linhas:
-                        if any(char.isdigit() for char in linha):
+                        # Identifica linhas de extrato do Itaú que possuem formato de data no início (ex: 07/08/2026)
+                        partes = linha.split()
+                        if len(partes) >= 3 and "/" in partes[0] and len(partes[0]) == 10:
                             try:
-                                partes = linha.split()
-                                if len(partes) >= 2:
-                                    val_str = partes[-1].replace("R$", "").replace(".", "").replace(",", ".")
-                                    val_float = float(val_str)
-                                    
-                                    data_str = date.today().strftime("%Y-%m-%d")
-                                    desc_str = " ".join(partes[:-1])
-                                    
-                                    tipo_trans = "Receita" if val_float > 0 else "Despesa"
-                                    val_absoluto = abs(val_float)
-                                    cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
-                                    
-                                    c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
-                                              (data_str, tipo_trans, desc_str, cat_padrao_imp, val_absoluto))
-                                    importados_pdf += 1
+                                # Tenta extrair a data DD/MM/YYYY para o formato YYYY-MM-DD
+                                d_partes = partes[0].split('/')
+                                if len(d_partes) == 3:
+                                    data_recente = f"{d_partes[2]}-{d_partes[1]}-{d_partes[0]}"
+                                
+                                # O valor geralmente está no penúltimo ou último elemento antes do saldo
+                                # Exemplo linha extrato: 06/08/2026 | PIX QRS TELEFONICA | -65,86
+                                linha_limpa = linha.replace("R$", "").replace(".", "").replace(",", ".")
+                                sub_partes = linha_limpa.split()
+                                
+                                val_str = sub_partes[-1]
+                                val_float = float(val_str)
+                                
+                                # Descrição é o miolo da linha
+                                desc_str = " ".join(partes[1:-1]) if len(partes) > 2 else "Lançamento Extrato"
+                                
+                                tipo_trans = "Receita" if val_float > 0 else "Despesa"
+                                val_absoluto = abs(val_float)
+                                cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
+                                
+                                c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
+                                          (data_recente, tipo_trans, desc_str, cat_padrao_imp, val_absoluto))
+                                importados_pdf += 1
                             except Exception:
                                 continue
                     
                     conn.commit()
-                    st.success(f"{importados_pdf} lançamentos extraídos e importados do PDF com sucesso!")
+                    st.success(f"{importados_pdf} lançamentos do PDF extraídos e importados com sucesso!")
                     st.rerun()
             except Exception as e:
                 st.error(f"Erro ao processar o PDF: {e}")
