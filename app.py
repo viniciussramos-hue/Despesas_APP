@@ -39,6 +39,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS carteira_investimentos
              (id INTEGER PRIMARY KEY, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)''')
 c.execute('''CREATE TABLE IF NOT EXISTS tabela_depositos 
              (id INTEGER PRIMARY KEY, numero_deposito INTEGER, valor REAL, status TEXT)''')
+c.execute('''CREATE TABLE IF NOT EXISTS cartao_credito 
+             (id INTEGER PRIMARY KEY, data TEXT, cartao TEXT, descricao TEXT, categoria TEXT, valor REAL)''')
 conn.commit()
 
 # Inicializa a tabela de 200 depósitos apenas se estiver vazia
@@ -46,6 +48,32 @@ if pd.read_sql("SELECT count(*) FROM tabela_depositos", conn).iloc[0,0] == 0:
     for i in range(1, 201):
         c.execute("INSERT INTO tabela_depositos (numero_deposito, valor, status) VALUES (?, ?, ?)", (i, float(i), "Pendente"))
     conn.commit()
+
+# --- FUNÇÃO DE CATEGORIZAÇÃO INTELIGENTE ---
+def categorizar_automaticamente(descricao, tipo):
+    desc_upper = descricao.upper()
+    if tipo == "Receita":
+        if "SALARIO" in desc_upper or "REMUNERACAO" in desc_upper:
+            return "Salário"
+        elif "TED" in desc_upper or "PIX" in desc_upper:
+            return "Freelance / Extra"
+        return "Outras Receitas"
+    else:
+        if any(x in desc_upper for x in ["SUPERMERCADO", "SHIBA", "MARKET", "ARMAZ", "BIG CENTER"]):
+            return "🛒 Supermercado (Necessidade)"
+        elif any(x in desc_upper for x in ["TELEFONICA", "EDP", "BOLETO", "ALUGUEL", "CONDOMINIO"]):
+            return "🏠 Contas Fixas (Necessidade)"
+        elif any(x in desc_upper for x in ["AUTO", "POSTO", "UBER", "BIKE", "IPVA"]):
+            return "🚗 Transporte (Necessidade)"
+        elif any(x in desc_upper for x in ["FARMACIA", "SAUDE", "MEDICO"]):
+            return "💊 Saúde (Necessidade)"
+        elif any(x in desc_upper for x in ["RESTAURANTE", "LANCHE", "PASTE", "PANIF", "BAR"]):
+            return "🍔 Lazer & Alimentação Fora (Desejos)"
+        elif any(x in desc_upper for x in ["GOOGLE", "SPOTIFY", "STEAM", "JOGO", "NETFLIX"]):
+            return "🎉 Outros Desejos (Desejos)"
+        elif "INVEST" in desc_upper or "ACOES" in desc_upper:
+            return "📈 Investimentos / Poupança (20%)"
+        return "🏠 Contas Fixas (Necessidade)"
 
 # --- TÍTULO ---
 st.title("💸 Gestor Financeiro Profissional")
@@ -59,16 +87,17 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("<p style='text-align: center; color: #888; font-size: 12px;'>Elaborado por Vinicius Ramos</p>", unsafe_allow_html=True)
 
-# --- DEFINIÇÃO DAS ABAS (10 Abas) ---
-aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9, aba10 = st.tabs([
+# --- DEFINIÇÃO DAS ABAS (11 Abas) ---
+aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9, aba10, aba11 = st.tabs([
     "🔴 Lançar Despesa", 
     "🟢 Entradas & Salários", 
     "📊 Dashboard", 
+    "💳 Cartão de Crédito",
     "📈 Investimentos", 
     "🎯 Desafios", 
     "🎯 Metas & Categorias", 
     "❤️ Saúde Financeira", 
-    "🔮 Projeção",
+    "🔮 Projeção & Caixa",
     "📅 Contas a Pagar", 
     "📋 Extrato & Backup"
 ])
@@ -132,6 +161,19 @@ with aba3:
         df = df_all[df_all['ano_mes'] == mes_selecionado].copy()
     else:
         df = df_all.copy()
+
+    # Alerta de Gastos Anômalos (Comparação com a média histórica)
+    if not df_all.empty and not df.empty:
+        df_desp_all = df_all[df_all['tipo'] == 'Despesa']
+        if len(df_desp_all['ano_mes'].unique()) > 1:
+            media_por_cat = df_desp_all.groupby(['categoria', 'ano_mes'])['valor'].sum().reset_index()
+            media_historica = media_por_cat.groupby('categoria')['valor'].mean().to_dict()
+            
+            gasto_atual_cat = df[df['tipo'] == 'Despesa'].groupby('categoria')['valor'].sum().to_dict()
+            for cat, val in gasto_atual_cat.items():
+                med = media_historica.get(cat, val)
+                if med > 0 and val > (med * 1.3):  # 30% acima da média histórica
+                    st.warning(f"🚨 **Alerta de Gasto Anômalo:** Os gastos em **{cat}** (R$ {val:,.2f}) estão 30% acima da sua média histórica (R$ {med:,.2f})!")
 
     metas_check = pd.read_sql("SELECT * FROM metas", conn)
     if not df.empty and not metas_check.empty:
@@ -230,7 +272,6 @@ with aba3:
         if 'Receita' not in df_pivot.columns: df_pivot['Receita'] = 0
         if 'Despesa' not in df_pivot.columns: df_pivot['Despesa'] = 0
         
-        # Calcula o Saldo do mês e o Acumulado
         df_pivot['Saldo Mensal'] = df_pivot['Receita'] - df_pivot['Despesa']
         df_pivot['Saldo Acumulado'] = df_pivot['Saldo Mensal'].cumsum()
         
@@ -243,8 +284,56 @@ with aba3:
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard corporativo.")
 
-# --- ABA 4: DASHBOARD PROFISSIONAL DE INVESTIMENTOS ---
+# --- ABA 4: CARTÃO DE CRÉDITO ---
 with aba4:
+    st.subheader("💳 Gestão Detalhada de Cartão de Crédito")
+    st.info("Cadastre os gastos individuais do cartão para acompanhar quais compras pesam mais na fatura.")
+    
+    with st.form("form_cartao", clear_on_submit=True):
+        col_cc1, col_cc2 = st.columns(2)
+        with col_cc1:
+            nome_cartao = st.selectbox("Cartão", ["Itaúcard", "Samsung Itaú", "Nubank", "Outro"])
+            desc_cc = st.text_input("Descrição da Compra (Ex: Lojas Americanas, Uber)")
+        with col_cc2:
+            val_cc = st.number_input("Valor da Compra (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f")
+            data_cc = st.date_input("Data da Compra", value=date.today())
+            
+        cat_cc = st.selectbox("Categoria da Compra", [
+            "🛒 Supermercado (Necessidade)", 
+            "🏠 Contas Fixas (Necessidade)", 
+            "🚗 Transporte (Necessidade)", 
+            "💊 Saúde (Necessidade)", 
+            "🍔 Lazer & Alimentação Fora (Desejos)", 
+            "🎉 Outros Desejos (Desejos)"
+        ])
+        
+        if st.form_submit_button("Adicionar Gasto ao Cartão", use_container_width=True):
+            c.execute("INSERT INTO cartao_credito (data, cartao, descricao, categoria, valor) VALUES (?,?,?,?,?)",
+                      (data_cc.strftime("%Y-%m-%d"), nome_cartao, desc_cc, cat_cc, val_cc))
+            conn.commit()
+            st.success("Compra no cartão registrada com sucesso!")
+            st.rerun()
+
+    st.markdown("---")
+    df_cartao = pd.read_sql("SELECT * FROM cartao_credito", conn)
+    if not df_cartao.empty:
+        st.write("### 📋 Fatura Detalhada de Cartões")
+        st.dataframe(df_cartao, use_container_width=True)
+        
+        total_fatura = df_cartao['valor'].sum()
+        st.metric("💳 Total Acumulado em Faturas", f"R$ {total_fatura:,.2f}")
+        
+        id_del_cc = st.selectbox("Selecione o ID da compra no cartão para remover:", df_cartao['id'].tolist())
+        if st.button("Remover Compra Selecionada", use_container_width=True):
+            c.execute("DELETE FROM cartao_credito WHERE id = ?", (id_del_cc,))
+            conn.commit()
+            st.success("Compra removida do cartão!")
+            st.rerun()
+    else:
+        st.info("Nenhuma compra registrada nos cartões ainda.")
+
+# --- ABA 5: DASHBOARD PROFISSIONAL DE INVESTIMENTOS ---
+with aba5:
     st.subheader("📈 Dashboard Profissional de Investimentos & Carteira")
     
     with st.form("form_ativo_inv", clear_on_submit=True):
@@ -306,8 +395,8 @@ with aba4:
     else:
         st.info("Nenhum investimento cadastrado na carteira profissional ainda. Adicione acima para ver o dashboard avançado.")
 
-# --- ABA 5: DESAFIOS (DESAFIO DE 20.100 EM 200 DEPÓSITOS) ---
-with aba5:
+# --- ABA 6: DESAFIOS ---
+with aba6:
     st.subheader("🎯 Desafio de Depósito (R$ 20.100,00 em 200 Depósitos)")
     st.info("Acompanhe o seu progresso rumo à meta total de R$ 20.100,00 dividida em 200 depósitos progressivos!")
     
@@ -350,8 +439,8 @@ with aba5:
             conn.commit()
             st.rerun()
 
-# --- ABA 6: METAS & CATEGORIAS ---
-with aba6:
+# --- ABA 7: METAS & CATEGORIAS ---
+with aba7:
     st.subheader("🎯 Gerenciamento de Metas, Ícones e Categorias")
     
     col_m1, col_m2 = st.columns(2)
@@ -432,8 +521,8 @@ with aba6:
     else:
         st.info("Nenhuma meta de gasto cadastrada ainda.")
 
-# --- ABA 7: SAÚDE FINANCEIRA ---
-with aba7:
+# --- ABA 8: SAÚDE FINANCEIRA ---
+with aba8:
     st.subheader("❤️ Saúde Financeira")
     st.write("Score de 0 a 1000 baseado em fatores de desempenho do seu perfil financeiro.")
     
@@ -487,49 +576,45 @@ with aba7:
     st.write(f"📅 **Disciplina de Registros:** {int(f_disciplina * 0.5)} / 250 pts")
     st.progress(min((f_disciplina * 0.5) / 250, 1.0))
 
-# --- ABA 8: PROJEÇÃO FINANCEIRA ---
-with aba8:
-    st.subheader("🔮 Projeção Financeira para os Próximos Meses")
-    st.info("Simule e projete a evolução do seu saldo e capacidade de economia para os próximos meses com base nas suas médias atuais.")
+# --- ABA 9: PROJEÇÃO & FLUXO DE CAIXA DIÁRIO ---
+with aba9:
+    st.subheader("🔮 Projeção Financeira & Fluxo de Caixa Diário")
+    st.info("Acompanhe a projeção dos próximos meses e o fluxo de caixa diário dos seus lançamentos.")
     
     df_all_proj = pd.read_sql("SELECT * FROM transacoes", conn)
     
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        meses_proj = st.slider("Quantos meses deseja projetar?", min_value=1, max_value=12, value=6)
-    with col_p2:
-        aporte_extra_mensal = st.number_input("Previsão de Aporte/Economia Extra Mensal (R$):", min_value=0.0, value=0.00, step=50.0)
-
     if not df_all_proj.empty:
         df_all_proj['data'] = pd.to_datetime(df_all_proj['data'])
         df_all_proj['ano_mes'] = df_all_proj['data'].dt.strftime('%Y-%m')
         
-        # Média mensal histórica
+        st.write("### 📅 Fluxo de Caixa Diário (Saldo Acumulado por Dia)")
+        meses_disp_caixa = sorted(df_all_proj['ano_mes'].unique(), reverse=True)
+        mes_caixa_sel = st.selectbox("Selecione o Mês para ver o Caixa Diário:", meses_disp_caixa)
+        
+        df_caixa_mes = df_all_proj[df_all_proj['ano_mes'] == mes_caixa_sel].sort_values('data').copy()
+        if not df_caixa_mes.empty:
+            df_caixa_mes['valor_ajustado'] = df_caixa_mes.apply(lambda x: x['valor'] if x['tipo'] == 'Receita' else -x['valor'], axis=1)
+            df_caixa_mes['Saldo Diário Acumulado'] = df_caixa_mes['valor_ajustado'].cumsum()
+            df_graf_caixa = df_caixa_mes.set_index('data')[['Saldo Diário Acumulado']]
+            st.line_chart(df_graf_caixa)
+        
+        st.markdown("---")
+        st.subheader("🔮 Projeção de Longo Prazo")
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            meses_proj = st.slider("Quantos meses deseja projetar?", min_value=1, max_value=12, value=6)
+        with col_p2:
+            aporte_extra_mensal = st.number_input("Previsão de Aporte/Economia Extra Mensal (R$):", min_value=0.0, value=0.00, step=50.0)
+
         resumo_meses = df_all_proj.pivot_table(index='ano_mes', columns='tipo', values='valor', aggfunc='sum').fillna(0)
         media_receitas = resumo_meses['Receita'].mean() if 'Receita' in resumo_meses.columns else 0.0
         media_despesas = resumo_meses['Despesa'].mean() if 'Despesa' in resumo_meses.columns else 0.0
         
-        saldo_atual_caixa = media_receitas - media_despesas
-        
-        st.markdown("---")
-        col_mp1, col_mp2, col_mp3 = st.columns(3)
-        col_mp1.metric("🟢 Média Mensal de Entradas", f"R$ {media_receitas:,.2f}")
-        col_mp2.metric("🔴 Média Mensal de Despesas", f"R$ {media_despesas:,.2f}")
-        col_mp3.metric("💡 Sobra Líquida Média", f"R$ {saldo_atual_caixa:,.2f}")
-        
-        st.markdown("---")
-        st.subheader(f"📊 Tabela de Projeção para os Próximos {meses_proj} Meses")
-        
         lista_projecao = []
-        acumulado_proj = 0.0
-        
-        # Pega o último saldo real se houver
-        if 'Receita' in resumo_meses.columns and 'Despesa' in resumo_meses.columns:
-            acumulado_proj = (resumo_meses['Receita'] - resumo_meses['Despesa']).sum()
+        acumulado_proj = (resumo_meses['Receita'] - resumo_meses['Despesa']).sum() if 'Receita' in resumo_meses.columns else 0.0
 
         data_base = date.today()
         for i in range(1, meses_proj + 1):
-            # Avança os meses
             mes_futuro = data_base.month + i - 1
             ano_futuro = data_base.year + (mes_futuro // 12)
             mes_futuro = (mes_futuro % 12) + 1
@@ -557,12 +642,11 @@ with aba8:
         st.write("**Gráfico de Crescimento Patrimonial Projetado**")
         df_graf_proj = df_proj.set_index('Mês/Ano')[['Patrimônio Acumulado Projetado']]
         st.line_chart(df_graf_proj)
-        
     else:
-        st.info("Cadastre algumas transações nas abas anteriores para habilitar a projeção baseada no seu histórico.")
+        st.info("Cadastre algumas transações para visualizar o fluxo de caixa e as projeções.")
 
-# --- ABA 9: CONTAS A PAGAR ---
-with aba9:
+# --- ABA 10: CONTAS A PAGAR ---
+with aba10:
     st.subheader("📅 Calendário de Contas & Gerenciamento")
     
     with st.form("conta", clear_on_submit=True):
@@ -623,9 +707,9 @@ with aba9:
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 10: EXTRATO, IMPORTAÇÃO (CSV/PDF), EXPORTAÇÃO & BACKUP ---
-with aba10:
-    st.subheader("📋 Extrato Corporativo, Importação (CSV / PDF) e Backup")
+# --- ABA 11: EXTRATO, IMPORTAÇÃO (CSV/PDF COM IA), EXPORTAÇÃO & BACKUP ---
+with aba11:
+    st.subheader("📋 Extrato Corporativo, Importação Inteligente (CSV / PDF) e Backup")
     
     col_exp1, col_exp2 = st.columns(2)
     with col_exp1:
@@ -645,9 +729,8 @@ with aba10:
 
     st.markdown("---")
     
-    # --- SEÇÃO DE IMPORTAÇÃO (CSV E PDF) ---
-    st.write("### 📥 Importar Extrato Bancário (CSV ou PDF)")
-    st.info("Faça o upload do seu extrato bancário em formato **CSV** ou **PDF** para cadastrar as transações automaticamente.")
+    st.write("### 📥 Importar Extrato Bancário com Categorização Automática (CSV ou PDF)")
+    st.info("Faça o upload do extrato em **CSV** ou **PDF** (ex: Itaú). O app identificará os lançamentos e categorizará automaticamente.")
     
     arquivo_importado = st.file_uploader("Escolha o arquivo do banco", type=["csv", "pdf"])
     
@@ -674,10 +757,10 @@ with aba10:
                             
                             tipo_trans = "Receita" if val_float > 0 else "Despesa"
                             val_absoluto = abs(val_float)
-                            cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
+                            cat_inteligente = categorizar_automaticamente(desc_str, tipo_trans)
                             
                             c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
-                                      (data_str, tipo_trans, desc_str, cat_padrao_imp, val_absoluto))
+                                      (data_str, tipo_trans, desc_str, cat_inteligente, val_absoluto))
                             importados_contador += 1
                         except Exception:
                             continue
@@ -698,9 +781,8 @@ with aba10:
                             texto_pdf += extraido + "\n"
                 
                 st.text_area("Texto extraído do PDF (Pré-visualização):", texto_pdf[:1500], height=200)
-                st.info("O sistema mapeará as linhas de lançamentos do extrato do Itaú.")
                 
-                if st.button("Processar e Importar PDF do Itaú", use_container_width=True):
+                if st.button("Processar e Importar PDF do Itaú (Com IA de Categorias)", use_container_width=True):
                     linhas = texto_pdf.split("\n")
                     importados_pdf = 0
                     data_recente = date.today().strftime("%Y-%m-%d")
@@ -723,16 +805,18 @@ with aba10:
                                 
                                 tipo_trans = "Receita" if val_float > 0 else "Despesa"
                                 val_absoluto = abs(val_float)
-                                cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
+                                
+                                # Aplicação da Categorização Automática Inteligente
+                                cat_inteligente = categorizar_automaticamente(desc_str, tipo_trans)
                                 
                                 c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
-                                          (data_recente, tipo_trans, desc_str, cat_padrao_imp, val_absoluto))
+                                          (data_recente, tipo_trans, desc_str, cat_inteligente, val_absoluto))
                                 importados_pdf += 1
                             except Exception:
                                 continue
                     
                     conn.commit()
-                    st.success(f"{importados_pdf} lançamentos do PDF extraídos e importados com sucesso!")
+                    st.success(f"{importados_pdf} lançamentos do PDF extraídos e categorizados com sucesso!")
                     st.rerun()
             except Exception as e:
                 st.error(f"Erro ao processar o PDF: {e}")
