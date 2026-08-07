@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pdfplumber
 import difflib
 import re
@@ -218,8 +218,8 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
         if st.button("💳 Cartão de Crédito", use_container_width=True):
             mudar_pagina("💳 Cartão de Crédito")
             st.rerun()
-        if st.button("🔮 Projeção & Caixa", use_container_width=True):
-            mudar_pagina("🔮 Projeção & Caixa")
+        if st.button("💵 Fluxo de Caixa", use_container_width=True):
+            mudar_pagina("💵 Fluxo de Caixa")
             st.rerun()
             
     with col_b2:
@@ -228,6 +228,9 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
             st.rerun()
         if st.button("📈 Investimentos", use_container_width=True):
             mudar_pagina("📈 Investimentos")
+            st.rerun()
+        if st.button("🔮 Projeções Futuras", use_container_width=True):
+            mudar_pagina("🔮 Projeções Futuras")
             st.rerun()
             
     with col_b3:
@@ -765,30 +768,143 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
     botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 9: PROJEÇÃO & CAIXA ---
+# --- SEÇÃO 9A: FLUXO DE CAIXA ---
 # ==========================================
-elif st.session_state.pagina_atual == "🔮 Projeção & Caixa":
-    st.subheader("🔮 Projeção Financeira & Fluxo de Caixa Diário Acumulado")
-    st.write("Acompanhe o comportamento diário do seu caixa ao longo dos meses para prever eventuais gargalos.")
+elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
+    st.subheader("💵 Extrato e Acompanhamento do Fluxo de Caixa Diário Acumulado")
+    st.write("Monitore o comportamento diário do seu caixa ao longo dos meses para prever eventuais gargalos e saldo em tempo real.")
     
-    df_all_proj = pd.read_sql("SELECT * FROM transacoes", conn)
-    if not df_all_proj.empty:
-        df_all_proj['data'] = pd.to_datetime(df_all_proj['data'])
-        df_all_proj['ano_mes'] = df_all_proj['data'].dt.strftime('%Y-%m')
+    df_all_fluxo = pd.read_sql("SELECT * FROM transacoes", conn)
+    if not df_all_fluxo.empty:
+        df_all_fluxo['data'] = pd.to_datetime(df_all_fluxo['data'])
+        df_all_fluxo['ano_mes'] = df_all_fluxo['data'].dt.strftime('%Y-%m')
         
-        st.write("### 📅 Fluxo de Caixa Diário Acumulado")
-        meses_disp_caixa = sorted(df_all_proj['ano_mes'].unique(), reverse=True)
-        mes_caixa_sel = st.selectbox("Selecione o Mês Desejado para Auditoria Diária:", meses_disp_caixa)
+        meses_disp_caixa = sorted(df_all_fluxo['ano_mes'].unique(), reverse=True)
+        mes_caixa_sel = st.selectbox("Selecione o Mês Desejado para Auditoria do Fluxo:", meses_disp_caixa)
         
-        df_caixa_mes = df_all_proj[df_all_proj['ano_mes'] == mes_caixa_sel].sort_values('data').copy()
+        df_caixa_mes = df_all_fluxo[df_all_fluxo['ano_mes'] == mes_caixa_sel].sort_values('data').copy()
         if not df_caixa_mes.empty:
             df_caixa_mes['valor_ajustado'] = df_caixa_mes.apply(lambda x: x['valor'] if x['tipo'] == 'Receita' else -x['valor'], axis=1)
             df_caixa_mes['Saldo Diário Acumulado'] = df_caixa_mes['valor_ajustado'].cumsum()
+            
+            st.write("### 📈 Curva de Caixa Diária (Entradas menos Saídas)")
             st.line_chart(df_caixa_mes.set_index('data')[['Saldo Diário Acumulado']])
+            
+            st.markdown("---")
+            st.write("### 📋 Lançamentos do Mês no Fluxo")
+            st.dataframe(df_caixa_mes[['data', 'tipo', 'descricao', 'categoria', 'valor']], use_container_width=True, hide_index=True)
         else:
             st.info("Nenhum lançamento encontrado para o mês selecionado.")
     else:
-        st.info("Cadastre transações para gerar o fluxo de caixa diário.")
+        st.info("Cadastre transações para gerar o fluxo de caixa.")
+    botao_voltar()
+
+# ==========================================
+# --- SEÇÃO 9B: PROJEÇÕES FUTURAS ---
+# ==========================================
+elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
+    st.subheader("🔮 Central Avançada de Projeções e Simulações Preditivas")
+    st.write("Simule cenários futuros, projete o crescimento do seu patrimônio e analise tendências de gastos para os próximos meses.")
+    
+    df_trans_proj = pd.read_sql("SELECT * FROM transacoes", conn)
+    df_hol_proj = pd.read_sql("SELECT * FROM holerites", conn)
+    
+    # Cálculo da média de receitas e despesas recentes
+    if not df_trans_proj.empty:
+        df_trans_proj['data'] = pd.to_datetime(df_trans_proj['data'])
+        df_trans_proj['ano_mes'] = df_trans_proj['data'].dt.strftime('%Y-%m')
+        
+        resumo_meses = df_trans_proj.groupby(['ano_mes', 'tipo'])['valor'].sum().unstack(fill_value=0)
+        if 'Receita' not in resumo_meses.columns: resumo_meses['Receita'] = 0.0
+        if 'Despesa' not in resumo_meses.columns: resumo_meses['Despesa'] = 0.0
+        
+        media_receita_hist = resumo_meses['Receita'].mean() if len(resumo_meses) > 0 else 6800.0
+        media_despesa_hist = resumo_meses['Despesa'].mean() if len(resumo_meses) > 0 else 3500.0
+    else:
+        media_receita_hist = 6800.0
+        media_despesa_hist = 3500.0
+
+    st.markdown("---")
+    st.write("### 🛠️ Simulador de Cenários Personalizados (Próximos 6 Meses)")
+    
+    col_s1, col_s2, col_s3 = st.columns(3)
+    with col_s1:
+        proj_receita_base = st.number_input("Receita Mensal Média Estimada (R$)", value=float(media_receita_hist), step=100.0, format="%.2f")
+    with col_s2:
+        proj_despesa_base = st.number_input("Despesa Mensal Média Estimada (R$)", value=float(media_despesa_hist), step=100.0, format="%.2f")
+    with col_s3:
+        taxa_investimento_proj = st.slider("Taxa Anual de Retorno dos Investimentos (%)", min_value=0.0, max_value=25.0, value=10.0, step=0.5)
+
+    # Geração dos próximos 6 meses de projeção
+    meses_futuros = []
+    saldo_projetado = []
+    acumulado_proj = 0.0
+    
+    hoje_proj = date.today()
+    for i in range(1, 7):
+        data_fut = hoje_proj + timedelta(days=30 * i)
+        nome_m = data_fut.strftime('%m/%Y')
+        meses_futuros.append(nome_m)
+        
+        caixa_mes = proj_receita_base - proj_despesa_base
+        acumulado_proj += caixa_mes
+        saldo_projetado.append(acumulado_proj)
+
+    df_proj_futuro = pd.DataFrame({
+        'Mês / Ano': meses_futuros,
+        'Receita Projetada': [proj_receita_base] * 6,
+        'Despesa Projetada': [proj_despesa_base] * 6,
+        'Resultado Mensal': [proj_receita_base - proj_despesa_base] * 6,
+        'Patrimônio Acumulado Estimado': saldo_projetado
+    })
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.write("#### 📊 Tabela de Projeção Preditiva (Próximo Semestre)")
+    st.dataframe(df_proj_futuro.style.format({
+        'Receita Projetada': 'R$ {:,.2f}',
+        'Despesa Projetada': 'R$ {:,.2f}',
+        'Resultado Mensal': 'R$ {:,.2f}',
+        'Patrimônio Acumulado Estimado': 'R$ {:,.2f}'
+    }), use_container_width=True, hide_index=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.write("#### 📈 Gráfico de Projeção do Patrimônio Acumulado")
+    st.line_chart(df_proj_futuro.set_index('Mês / Ano')[['Patrimônio Acumulado Estimado']])
+
+    st.markdown("---")
+    st.write("### 🔍 Análise de Cenários: Otimista vs Conservador vs Estresse")
+    
+    col_c1, col_c2, col_c3 = st.columns(3)
+    with col_c1:
+        st.markdown("""
+        <div style="background-color: #1A3322; padding: 20px; border-radius: 10px; border: 1px solid #2E7D32;">
+            <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Cenário Otimista</h4>
+            <p>• Aumento de 10% nas Receitas</p>
+            <p>• Redução de 10% nos Gastos</p>
+            <p><b>Sobra Mensal:</b> R$ {:,.2f}</p>
+        </div>
+        """.format((proj_receita_base * 1.1) - (proj_despesa_base * 0.9)), unsafe_allow_html=True)
+        
+    with col_c2:
+        st.markdown("""
+        <div style="background-color: #1E222A; padding: 20px; border-radius: 10px; border: 1px solid #3F51B5;">
+            <h4 style="color: #9FA8DA; margin-top: 0;">🔵 Cenário Base (Atual)</h4>
+            <p>• Mantém média atual</p>
+            <p>• Sem imprevistos</p>
+            <p><b>Sobra Mensal:</b> R$ {:,.2f}</p>
+        </div>
+        """.format(proj_receita_base - proj_despesa_base), unsafe_allow_html=True)
+        
+    with col_c3:
+        st.markdown("""
+        <div style="background-color: #331A1A; padding: 20px; border-radius: 10px; border: 1px solid #C62828;">
+            <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Cenário de Estresse</h4>
+            <p>• Queda de 15% nas Receitas</p>
+            <p>• Aumento de 15% nos Gastos</p>
+            <p><b>Sobra Mensal:</b> R$ {:,.2f}</p>
+        </div>
+        """.format((proj_receita_base * 0.85) - (proj_despesa_base * 1.15)), unsafe_allow_html=True)
+
     botao_voltar()
 
 # ==========================================
