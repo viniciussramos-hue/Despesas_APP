@@ -42,7 +42,14 @@ with st.sidebar:
         st.rerun()
 
 # --- DEFINIÇÃO DAS ABAS ---
-aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard & Insights", "📅 Contas a Pagar & Edição", "📋 Extrato & Backup"])
+aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
+    "🔴 Lançar Despesa", 
+    "🟢 Entradas & Salários", 
+    "📊 Dashboard", 
+    "❤️ Saúde Financeira", 
+    "📅 Contas a Pagar", 
+    "📋 Extrato & Backup"
+])
 
 # --- ABA 1: LANÇAR DESPESA ---
 with aba1:
@@ -79,9 +86,9 @@ with aba2:
             conn.commit()
             st.success("Entrada registrada com sucesso!")
 
-# --- ABA 3: DASHBOARD, INSIGHTS & 50/30/20 ---
+# --- ABA 3: DASHBOARD ---
 with aba3:
-    st.subheader("📊 Painel de Controle & Análise Automática")
+    st.subheader("📊 Painel de Controle & Regra do 50/30/20")
     df = pd.read_sql("SELECT * FROM transacoes", conn)
     df_contas = pd.read_sql("SELECT * FROM contas", conn)
     
@@ -95,7 +102,6 @@ with aba3:
         if not df_contas.empty:
             total_contas_pendentes = df_contas[df_contas['pago'] == 0]['valor'].sum()
 
-        # Grid de Cards (Estilo GestorMoney)
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("💰 Saldo em Caixa", f"R$ {saldo_caixa:.2f}")
         col2.metric("🟢 Total Entradas", f"R$ {receitas:.2f}")
@@ -103,37 +109,9 @@ with aba3:
         col4.metric("📅 Contas Pendentes", f"R$ {total_contas_pendentes:.2f}")
 
         st.markdown("---")
-        
-        # --- SEÇÃO DE ANÁLISE AUTOMÁTICA (INSIGHTS) ---
-        st.subheader("🤖 Análise Automática de Inteligência Financeira")
-        
-        if receitas > 0:
-            taxa_poupanca = (inv / receitas) * 100 if 'inv' in locals() else 0
-            
-            # Alerta de saúde financeira geral
-            if despesas > receitas:
-                st.error("🚨 **Alerta Vermelho:** Suas despesas estão maiores do que as suas receitas neste período! Cuidado com o endividamento.")
-            elif saldo_caixa > (receitas * 0.3):
-                st.success("✨ **Parabéns:** Sua saúde financeira está excelente! Você está retendo uma boa margem da sua receita.")
-            else:
-                st.warning("⚠️ **Atenção:** Suas finanças estão equilibradas, mas observe os gastos para não comprometer o saldo.")
-
-            # Identificando a categoria que mais consome dinheiro
-            df_desp_analise = df[df['tipo'] == 'Despesa']
-            if not df_desp_analise.empty:
-                gasto_por_cat = df_desp_analise.groupby('categoria')['valor'].sum()
-                maior_gasto_cat = gasto_por_cat.idxmax()
-                valor_maior_gasto = gasto_por_cat.max()
-                st.info(f"💡 **Dica de Ouro:** A categoria que mais pesou no seu bolso foi **{maior_gasto_cat}**, totalizando **R$ {valor_maior_gasto:.2f}**.")
-        else:
-            st.info("ℹ️ Insira ao menos uma receita para habilitar a análise automática completa dos seus ganhos.")
-
-        st.markdown("---")
-        
-        # Projeção
         dia_hoje = datetime.now().day
         projecao_final = (despesas / max(dia_hoje, 1)) * 30
-        st.write(f"📈 **Projeção de Fechamento de Mês:** Mantendo o ritmo atual, suas despesas devem fechar em aprox. **R$ {projecao_final:.2f}**.")
+        st.info(f"💡 **Projeção de Fechamento de Mês:** R$ {projecao_final:.2f}")
 
         st.markdown("---")
         st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
@@ -161,7 +139,7 @@ with aba3:
                 st.write(f"Guardado: R$ {inv:.2f} / Meta: R$ {meta_inv:.2f}")
                 st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
         else:
-            st.warning("Cadastre ao menos uma entrada (Receita) para calcular as metas da regra 50/30/20.")
+            st.warning("Cadastre ao menos uma entrada (Receita) para calcular as metas.")
 
         st.markdown("---")
         st.write("### Despesas por Categoria")
@@ -171,8 +149,70 @@ with aba3:
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard.")
 
-# --- ABA 4: CONTAS A PAGAR & EDIÇÃO ---
+# --- ABA 4: SAÚDE FINANCEIRA (NOVA ABA ESTILO GESTORMONEY) ---
 with aba4:
+    st.subheader("❤️ Saúde Financeira")
+    st.write("Score de 0 a 1000 baseado em fatores de desempenho do seu perfil financeiro.")
+    
+    df = pd.read_sql("SELECT * FROM transacoes", conn)
+    receitas = df[df['tipo'] == 'Receita']['valor'].sum() if not df.empty else 0
+    despesas = df[df['tipo'] == 'Despesa']['valor'].sum() if not df.empty else 0
+    
+    # Lógica de cálculo do Score baseada nos seus dados reais
+    # Fator 1: Endividamento (Gastos vs Receitas) -> Max 250 pts
+    f_endividamento = 250 if receitas >= despesas else max(0, 250 - ((despesas - receitas) / max(receitas, 1)) * 250)
+    
+    # Fator 2: Taxa de Poupança/Investimento (Meta de 20%) -> Max 250 pts
+    inv = df[df['categoria'].str.contains("Investimentos", na=False)]['valor'].sum() if not df.empty else 0
+    taxa_poupanca = (inv / receitas) if receitas > 0 else 0
+    f_poupanca = min(250, (taxa_poupanca / 0.20) * 250)
+    
+    # Fator 3: Controle de Desejos (Meta de gastar até 30% em desejos) -> Max 250 pts
+    desejos = df[df['categoria'].str.contains("Desejos", na=False)]['valor'].sum() if not df.empty else 0
+    proporcao_desejos = (desejos / receitas) if receitas > 0 else 0
+    f_metas = 250 if proporcao_desejos <= 0.30 else max(0, 250 - ((proporcao_desejos - 0.30) * 500))
+    
+    # Fator 4: Disciplina Geral (Bônus fixo se houver lançamentos) -> Max 250 pts
+    f_disciplina = 250 if not df.empty and receitas > 0 else 50
+    
+    score_total = int(f_endividamento + f_poupanca + f_metas + (f_disciplina * 0.5)) # Normalizado até 1000
+    score_total = min(1000, max(0, score_total))
+    
+    # Classificação visual do Score
+    if score_total >= 750:
+        status_score, cor_status = "Excelente 🚀", "🟢"
+    elif score_total >= 500:
+        status_score, cor_status = "Bom 👍", "🔵"
+    else:
+        status_score, cor_status = "Atenção ⚠️", "🟠"
+
+    # Exibição do Card Principal
+    st.markdown(f"""
+    <div style="background-color: #1E1E1E; padding: 30px; border-radius: 10px; text-align: center; border: 1px solid #333;">
+        <h1 style="font-size: 60px; color: #FF4B4B; margin: 0;">{score_total}</h1>
+        <p style="color: #888; font-size: 18px; margin: 5px 0 15px 0;">de 1000</p>
+        <h3 style="color: #FFF; margin: 0;">{cor_status} {status_score}</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.subheader("Detalhamento por Fator")
+    st.write("Avaliação baseada no seu volume atual de transações e metas.")
+    
+    st.write(f"🛡️ **Controle de Endividamento:** {int(f_endividamento)} / 250 pts")
+    st.progress(min(f_endividamento / 250, 1.0))
+    
+    st.write(f"🎯 **Controle de Desejos (Regra 30%):** {int(f_metas)} / 250 pts")
+    st.progress(min(f_metas / 250, 1.0))
+    
+    st.write(f"📈 **Taxa de Poupança / Investimento (Regra 20%):** {int(f_poupanca)} / 250 pts")
+    st.progress(min(f_poupanca / 250, 1.0))
+    
+    st.write(f"📅 **Disciplina de Registros:** {int(f_disciplina * 0.5)} / 250 pts")
+    st.progress(min((f_disciplina * 0.5) / 250, 1.0))
+
+# --- ABA 5: CONTAS A PAGAR ---
+with aba5:
     st.subheader("📅 Calendário de Contas & Gerenciamento")
     
     with st.form("conta", clear_on_submit=True):
@@ -229,12 +269,12 @@ with aba4:
 
         st.markdown("---")
         st.subheader("Lista de Contas Cadastradas")
-        st.dataframe(contas, use_container_width=True)
+        st.dataframe(contas, use_container_width=Type := True)
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 5: EXTRATO & BACKUP ---
-with aba5:
+# --- ABA 6: EXTRATO & BACKUP ---
+with aba6:
     st.subheader("📋 Extrato, Edição e Backup")
     
     # Botão de Backup do Banco de Dados
