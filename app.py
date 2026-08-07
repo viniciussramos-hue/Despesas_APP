@@ -104,6 +104,15 @@ def categorizar_automaticamente(descricao, tipo):
         return "🏠 Contas Fixas (Necessidade)"
 
 # ==========================================
+# --- GERENCIAMENTO DE ESTADO DE NAVEGAÇÃO ---
+# ==========================================
+if "pagina_atual" not in st.session_state:
+    st.session_state.pagina_atual = "🏠 Início / Painel"
+
+def mudar_pagina(nome_pagina):
+    st.session_state.pagina_atual = nome_pagina
+
+# ==========================================
 # --- CABEÇALHO E BARRA LATERAL (SIDEBAR) ---
 # ==========================================
 st.title("💸 Gestor Financeiro Profissional")
@@ -111,11 +120,13 @@ st.markdown("Sistema avançado de controle orçamentário, investimentos, proje�
 
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/combo-chart.png", width=70)
-    st.subheader("Painel de Controle")
-    st.write("Gerencie suas finanças com rigor analítico e automações inteligentes.")
+    st.subheader("Menu de Navegação")
     
+    if st.button("🏠 Painel Principal / Início", use_container_width=True):
+        mudar_pagina("🏠 Início / Painel")
+        st.rerun()
+        
     st.markdown("---")
-    
     if st.button("🔒 Bloquear / Sair do Sistema", use_container_width=True):
         st.session_state.autenticado = False
         st.rerun()
@@ -123,28 +134,72 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("<p style='text-align: center; color: #888; font-size: 11px;'>Desenvolvido sob medida para Vinicius Ramos<br>© 2026</p>", unsafe_allow_html=True)
 
-# ==========================================
-# --- DEFINIÇÃO DAS 12 ABAS PRINCIPAIS ---
-# ==========================================
-aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9, aba10, aba11, aba12 = st.tabs([
-    "🔴 Lançar Despesa", 
-    "🟢 Entradas & Salários", 
-    "📊 Dashboard", 
-    "💳 Cartão de Crédito",
-    "📈 Investimentos", 
-    "🎯 Desafios", 
-    "🎯 Metas & Categorias", 
-    "❤️ Saúde Financeira", 
-    "🔮 Projeção & Caixa",
-    "📅 Contas a Pagar", 
-    "📋 Extrato & Backup",
-    "📄 Holerites"
-])
+# Função auxiliar para renderizar o botão de voltar ao início em cada seção
+def botao_voltar():
+    st.markdown("---")
+    if st.button("⬅️ Voltar para o Painel Principal", use_container_width=True):
+        mudar_pagina("🏠 Início / Painel")
+        st.rerun()
 
 # ==========================================
-# --- ABA 1: LANÇAR DESPESA ---
+# --- Roteamento Baseado na Página Selecionada ---
 # ==========================================
-with aba1:
+
+if st.session_state.pagina_atual == "🏠 Início / Painel":
+    st.markdown("### 🎛️ Painel de Indicadores & Acesso Rápido")
+    st.write("Clique em um dos botões abaixo para acessar a respectiva seção do sistema:")
+    
+    # Criando um layout em grade de botões estilo painel
+    col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+    
+    with col_b1:
+        if st.button("🔴 Lançar Despesa", use_container_width=True):
+            mudar_pagina("🔴 Lançar Despesa")
+            st.rerun()
+        if st.button("💳 Cartão de Crédito", use_container_width=True):
+            mudar_pagina("💳 Cartão de Crédito")
+            st.rerun()
+        if st.button("🔮 Projeção & Caixa", use_container_width=True):
+            mudar_pagina("🔮 Projeção & Caixa")
+            st.rerun()
+            
+    with col_b2:
+        if st.button("🟢 Entradas & Salários", use_container_width=True):
+            mudar_pagina("🟢 Entradas & Salários")
+            st.rerun()
+        if st.button("📈 Investimentos", use_container_width=True):
+            mudar_pagina("📈 Investimentos")
+            st.rerun()
+        if st.button("📅 Contas a Pagar", use_container_width=True):
+            mudar_pagina("📅 Contas a Pagar")
+            st.rerun()
+            
+    with col_b3:
+        if st.button("📊 Dashboard Geral", use_container_width=True):
+            mudar_pagina("📊 Dashboard")
+            st.rerun()
+        if st.button("🎯 Desafios", use_container_width=True):
+            mudar_pagina("🎯 Desafios")
+            st.rerun()
+        if st.button("📋 Extrato & Backup", use_container_width=True):
+            mudar_pagina("📋 Extrato & Backup")
+            st.rerun()
+            
+    with col_b4:
+        if st.button("🎯 Metas & Categorias", use_container_width=True):
+            mudar_pagina("🎯 Metas & Categorias")
+            st.rerun()
+        if st.button("❤️ Saúde Financeira", use_container_width=True):
+            mudar_pagina("❤️ Saúde Financeira")
+            st.rerun()
+        if st.button("📄 Holerites & PDF", use_container_width=True):
+            mudar_pagina("📄 Holerites")
+            st.rerun()
+
+# ==========================================
+# --- SEÇÃO 1: LANÇAR DESPESA ---
+# ==========================================
+elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
     st.subheader("Registrar Saída / Despesa Operacional")
     st.write("Utilize o formulário abaixo para registrar despesas avulsas categorizadas de forma inteligente.")
     
@@ -167,7 +222,7 @@ with aba1:
             valor = st.number_input("Valor da Despesa (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f")
         with col_d2:
             cat = st.selectbox("Categoria Orçamentária", lista_categorias)
-            data_desp = st.date_input("Data do Ocorridoso Gasto", value=date.today())
+            data_desp = st.date_input("Data do Ocorrido do Gasto", value=date.today())
             
         btn_salvar_desp = st.form_submit_button("Salvar Despesa no Banco de Dados", use_container_width=True)
         if btn_salvar_desp:
@@ -178,11 +233,12 @@ with aba1:
                 st.success("Despesa registrada e consolidada com sucesso!")
             else:
                 st.error("Preencha uma descrição válida e um valor superior a zero.")
+    botao_voltar()
 
 # ==========================================
-# --- ABA 2: ENTRADAS & SALÁRIOS ---
+# --- SEÇÃO 2: ENTRADAS & SALÁRIOS ---
 # ==========================================
-with aba2:
+elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
     st.subheader("Registrar Entrada / Receita Financeira")
     st.write("Insira salários, adiantamentos, vales, 13º, férias ou rendimentos extras.")
     
@@ -204,11 +260,12 @@ with aba2:
                 st.success("Entrada financeira registrada com sucesso!")
             else:
                 st.error("Informe uma descrição e um valor de receita válido.")
+    botao_voltar()
 
 # ==========================================
-# --- ABA 3: DASHBOARD ---
+# --- SEÇÃO 3: DASHBOARD ---
 # ==========================================
-with aba3:
+elif st.session_state.pagina_atual == "📊 Dashboard":
     st.subheader("📊 Painel de Controle Corporativo & Alertas Analíticos")
     
     df_all = pd.read_sql("SELECT * FROM transacoes", conn)
@@ -225,7 +282,6 @@ with aba3:
     else:
         df = df_all.copy()
 
-    # Bloco de Alertas Inteligentes (Gastos Anômalos e Metas Estouradas)
     if not df_all.empty and not df.empty:
         df_desp_all = df_all[df_all['tipo'] == 'Despesa']
         if len(df_desp_all['ano_mes'].unique()) > 1:
@@ -332,11 +388,12 @@ with aba3:
         st.line_chart(df_pivot[['Saldo Acumulado']])
     else:
         st.info("Inicie os lançamentos no sistema para construir o painel corporativo completo.")
+    botao_voltar()
 
 # ==========================================
-# --- ABA 4: CARTÃO DE CRÉDITO ---
+# --- SEÇÃO 4: CARTÃO DE CRÉDITO ---
 # ==========================================
-with aba4:
+elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
     st.subheader("💳 Gestão Avançada de Faturas de Cartão de Crédito")
     st.write("Acompanhe gastos detalhados por bandeira e controle o impacto das compras parceladas.")
     
@@ -386,11 +443,12 @@ with aba4:
             st.rerun()
     else:
         st.info("Nenhuma despesa de cartão de crédito registrada no momento.")
+    botao_voltar()
 
 # ==========================================
-# --- ABA 5: INVESTIMENTOS ---
+# --- SEÇÃO 5: INVESTIMENTOS ---
 # ==========================================
-with aba5:
+elif st.session_state.pagina_atual == "📈 Investimentos":
     st.subheader("📈 Painel Profissional de Investimentos & Ativos")
     st.write("Monitore a alocação de patrimônio em Renda Fixa, Ações, Fundo Imobiliários e Exterior.")
     
@@ -449,11 +507,12 @@ with aba5:
             st.rerun()
     else:
         st.info("Nenhum investimento cadastrado na carteira até o momento.")
+    botao_voltar()
 
 # ==========================================
-# --- ABA 6: DESAFIOS ---
+# --- SEÇÃO 6: DESAFIOS ---
 # ==========================================
-with aba6:
+elif st.session_state.pagina_atual == "🎯 Desafios":
     st.subheader("🎯 Desafio de Poupança Progressiva (R$ 20.100,00 em 200 Depósitos)")
     st.write("Acompanhe o preenchimento sistemático do seu desafio de disciplina financeira.")
     
@@ -492,11 +551,12 @@ with aba6:
             conn.commit()
             st.success("Todos os depósitos foram resetados para Pendente.")
             st.rerun()
+    botao_voltar()
 
 # ==========================================
-# --- ABA 7: METAS & CATEGORIAS ---
+# --- SEÇÃO 7: METAS & CATEGORIAS ---
 # ==========================================
-with aba7:
+elif st.session_state.pagina_atual == "🎯 Metas & Categorias":
     st.subheader("🎯 Gerenciamento de Metas de Gastos, Ícones e Categorias")
     col_m1, col_m2 = st.columns(2)
     
@@ -570,11 +630,12 @@ with aba7:
                 st.progress(0.0)
     else:
         st.info("Nenhuma meta de gasto definida até o momento.")
+    botao_voltar()
 
 # ==========================================
-# --- ABA 8: SAÚDE FINANCEIRA ---
+# --- SEÇÃO 8: SAÚDE FINANCEIRA ---
 # ==========================================
-with aba8:
+elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
     st.subheader("❤️ Score de Saúde Financeira & Auditoria de Perfil")
     st.write("Pontuação calculada de 0 a 1000 com base em endividamento, taxa de poupança, disciplina e cumprimento de tetos.")
     
@@ -621,11 +682,12 @@ with aba8:
     st.progress(min(f_poupanca / 250, 1.0))
     st.write(f"📅 **Disciplina de Registros & Frequência:** {int(f_disciplina * 0.5)} / 250 pts")
     st.progress(min((f_disciplina * 0.5) / 250, 1.0))
+    botao_voltar()
 
 # ==========================================
-# --- ABA 9: PROJEÇÃO & CAIXA ---
+# --- SEÇÃO 9: PROJEÇÃO & CAIXA ---
 # ==========================================
-with aba9:
+elif st.session_state.pagina_atual == "🔮 Projeção & Caixa":
     st.subheader("🔮 Projeção Financeira & Fluxo de Caixa Diário Acumulado")
     st.write("Acompanhe o comportamento diário do seu caixa ao longo dos meses para prever eventuais gargalos.")
     
@@ -647,11 +709,12 @@ with aba9:
             st.info("Nenhum lançamento encontrado para o mês selecionado.")
     else:
         st.info("Cadastre transações para gerar o fluxo de caixa diário.")
+    botao_voltar()
 
 # ==========================================
-# --- ABA 10: CONTAS A PAGAR ---
+# --- SEÇÃO 10: CONTAS A PAGAR ---
 # ==========================================
-with aba10:
+elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     st.subheader("📅 Calendário de Contas a Vencer & Gestão de Pagamentos")
     st.write("Organize boletos, contas fixas, IPVA e compromissos com vencimento programado.")
     
@@ -679,11 +742,12 @@ with aba10:
         st.dataframe(contas, use_container_width=True)
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
+    botao_voltar()
 
 # ==========================================
-# --- ABA 11: EXTRATO & BACKUP ---
+# --- SEÇÃO 11: EXTRATO & BACKUP ---
 # ==========================================
-with aba11:
+elif st.session_state.pagina_atual == "📋 Extrato & Backup":
     st.subheader("📋 Extrato Consolidado, Importação Inteligente de Extratos PDF/CSV & Backup")
     st.write("Faça download do banco de dados, exporte planilhas ou importe extratos bancários em PDF automaticamente.")
     
@@ -741,14 +805,16 @@ with aba11:
             st.error(f"Erro ao processar extrato bancário em PDF: {e}")
 
     st.markdown("---")
+    df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
     if not df_extrato_full.empty:
         st.write("### 📋 Extrato Geral Armazenado")
         st.dataframe(df_extrato_full, use_container_width=True)
+    botao_voltar()
 
 # ==========================================
-# --- ABA 12: HOLERITES ---
+# --- SEÇÃO 12: HOLERITES ---
 # ==========================================
-with aba12:
+elif st.session_state.pagina_atual == "📄 Holerites":
     st.subheader("📄 Análise, Comparativo Mês a Mês & Importação de Holerites via PDF")
     st.info("Faça o upload do contracheque em PDF para leitura automática ou preencha os dados principais para auditoria.")
     
@@ -818,3 +884,4 @@ with aba12:
             st.rerun()
     else:
         st.info("Nenhum holerite cadastrado no histórico analítico até o momento.")
+    botao_voltar()
