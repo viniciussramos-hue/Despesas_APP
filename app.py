@@ -6,7 +6,7 @@ from datetime import datetime
 # --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="💸 Gestor Financeiro Pro", layout="wide")
 
-# Conexão Banco
+# Conexão Banco (Persistente no arquivo gestor_financeiro.db)
 conn = sqlite3.connect("gestor_financeiro.db", check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS transacoes 
@@ -24,7 +24,7 @@ aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas &
 # --- ABA 1: LANÇAR DESPESA ---
 with aba1:
     st.subheader("Registrar Saída / Despesa")
-    with st.form("lancar_despesa"):
+    with st.form("lancar_despesa", clear_on_submit=True):
         desc = st.text_input("Descrição (Ex: Supermercado, Aluguel, Uber)")
         valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
         cat = st.selectbox("Categoria", [
@@ -45,7 +45,7 @@ with aba1:
 # --- ABA 2: ENTRADAS & SALÁRIOS ---
 with aba2:
     st.subheader("Registrar Entrada (Salário, Vale, Férias, 13º, etc.)")
-    with st.form("lancar_entrada"):
+    with st.form("lancar_entrada", clear_on_submit=True):
         desc_rec = st.text_input("Descrição (Ex: Salário Mensal, 13º Salário, Férias, Vale)")
         valor_rec = st.number_input("Valor da Entrada (R$)", min_value=0.0, format="%.2f")
         cat_rec = st.selectbox("Tipo de Receita", ["Salário", "Vale", "13º Salário", "Férias", "Freelance / Extra", "Outras Receitas"])
@@ -113,7 +113,7 @@ with aba3:
 with aba4:
     st.subheader("📅 Calendário de Contas & Gerenciamento")
     
-    with st.form("conta"):
+    with st.form("conta", clear_on_submit=True):
         col_c1, col_c2 = st.columns(2)
         with col_c1:
             venc = st.date_input("Data de Vencimento")
@@ -171,9 +171,15 @@ with aba4:
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 5: EXTRATO & EDIÇÃO ---
+# --- ABA 5: EXTRATO & BACKUP ---
 with aba5:
-    st.subheader("📋 Extrato e Gerenciamento de Lançamentos")
+    st.subheader("📋 Extrato, Edição e Backup")
+    
+    # Botão de Backup do Banco de Dados
+    with open("gestor_financeiro.db", "rb") as f:
+        st.download_button("💾 Baixar Backup do Banco de Dados (Segurança)", f, "gestor_financeiro.db", use_container_width=True)
+
+    st.markdown("---")
     df_extrato = pd.read_sql("SELECT * FROM transacoes", conn)
     
     if not df_extrato.empty:
