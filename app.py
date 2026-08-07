@@ -228,7 +228,7 @@ with aba3:
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard corporativo.")
 
-# --- ABA 4: INVESTIMENTOS (TABELA DE DEPÓSITOS & PROGRESSO R$ 200) ---
+# --- ABA 4: INVESTIMENTOS (TABELA DE DEPÓSITOS & PROGRESSO R$ 200 - MELHORADA) ---
 with aba4:
     st.subheader("📈 Meta de Depósitos & Cofrinho")
     
@@ -239,23 +239,37 @@ with aba4:
     st.markdown(f"<h3 style='color: #00FF7F; text-align: center;'>Progresso: R$ {total_concluido:,.2f} / R$ {meta_fixa:,.2f}</h3>", unsafe_allow_html=True)
     st.progress(min(total_concluido / meta_fixa, 1.0))
 
-    df_exibicao = pd.DataFrame()
-    df_exibicao['Nº do Depósito'] = df_deps['numero_deposito']
-    df_exibicao['Valor a Guardar'] = df_deps['valor'].apply(lambda x: f"R$ {x:,.2f}")
-    df_exibicao['Status'] = df_deps['status']
+    col_esq, col_dir = st.columns([2, 1])
 
-    st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
+    with col_esq:
+        st.write("### Lista de Depósitos")
+        df_exibicao = pd.DataFrame()
+        df_exibicao['Nº do Depósito'] = df_deps['numero_deposito']
+        df_exibicao['Valor a Guardar'] = df_deps['valor'].apply(lambda x: f"R$ {x:,.2f}")
+        df_exibicao['Status'] = df_deps['status']
+        
+        st.dataframe(df_exibicao, use_container_width=True, hide_index=True, height=350)
 
-    st.markdown("---")
-    st.subheader("⚙️ Atualizar Status do Depósito")
-    c1, c2 = st.columns(2)
-    sel = c1.selectbox("Selecione o Nº do Depósito:", df_deps['numero_deposito'].tolist())
-    status = c2.selectbox("Alterar Status:", ["Pendente", "Concluído"])
-    if st.button("Atualizar Status", use_container_width=True):
-        c.execute("UPDATE tabela_depositos SET status = ? WHERE numero_deposito = ?", (status, sel))
-        conn.commit()
-        st.success(f"Depósito {sel} atualizado para '{status}'!")
-        st.rerun()
+    with col_dir:
+        st.write("### ⚙️ Atualizar Status")
+        with st.form("form_atualizar_deposito"):
+            dep_sel = st.selectbox("Selecione o Nº do Depósito:", df_deps['numero_deposito'].tolist())
+            
+            status_atual_obj = df_deps[df_deps['numero_deposito'] == dep_sel]['status'].values
+            index_atual = 0 if len(status_atual_obj) > 0 and status_atual_obj[0] == "Pendente" else 1
+            
+            status_novo = st.selectbox("Novo Status:", ["Pendente", "Concluído"], index=index_atual)
+            
+            if st.form_submit_button("Salvar Alteração", use_container_width=True):
+                c.execute("UPDATE tabela_depositos SET status = ? WHERE numero_deposito = ?", (status_novo, dep_sel))
+                conn.commit()
+                st.success(f"Depósito {dep_sel} atualizado!")
+                st.rerun()
+
+        if st.button("🔄 Marcar todos como Pendentes", use_container_width=True):
+            c.execute("UPDATE tabela_depositos SET status = 'Pendente'")
+            conn.commit()
+            st.rerun()
 
 # --- ABA 5: METAS & CATEGORIAS ---
 with aba5:
