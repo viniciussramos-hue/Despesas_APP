@@ -895,51 +895,68 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 # --- SEÇÃO 12: HOLERITES ---
 # ==========================================
 elif st.session_state.pagina_atual == "📄 Holerites":
-    st.subheader("📄 Análise, Comparativo Mês a Mês & Importação de Holerites via PDF")
-    st.info("Faça o upload do contracheque em PDF para leitura automática ou preencha os dados principais para auditoria.")
+    st.subheader("📄 Análise, Comparativo Mês a Mês & Importação de Múltiplos Holerites via PDF")
+    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques para leitura simultânea, extração de detalhes e auditoria.")
     
-    pdf_holerite = st.file_uploader("Escolha o arquivo PDF do Holerite Corporativo", type=["pdf"], key="upload_holerite_pro")
+    # Permitindo múltiplos arquivos simultâneos
+    pdfs_holerites = st.file_uploader("Escolha os arquivos PDF dos Holerites Corporativos", type=["pdf"], accept_multiple_files=True, key="upload_multiplos_holerites")
     
-    val_mes_ano = "07/2026"
-    val_bruto = 7440.65
-    val_descontos = 6278.12
-    val_liquido = 1162.53
-    val_inss = 756.25
-    val_irrf = 531.68
-    
-    if pdf_holerite is not None:
-        try:
-            texto_holerite = ""
-            with pdfplumber.open(pdf_holerite) as pdf:
-                for pagina in pdf.pages:
-                    ext = pagina.extract_text()
-                    if ext:
-                        texto_holerite += ext + "\n"
-            st.success("PDF do holerite lido com sucesso pela inteligência de extração!")
-        except Exception as e:
-            st.error(f"Erro ao ler PDF do holerite: {e}")
+    if pdfs_holerites:
+        st.success(f"📦 {len(pdfs_holerites)} arquivo(s) carregado(s) com sucesso!")
+        
+        # Abas para visualizar os detalhes de cada arquivo importado individualmente
+        nomes_arquivos = [f.name for f in pdfs_holerites]
+        abas_holerites = st.tabs(nomes_arquivos)
+        
+        for idx, arquivo_pdf in enumerate(pdfs_holerites):
+            with abas_holerites[idx]:
+                st.write(f"### 📑 Detalhes do Holerite: **{arquivo_pdf.name}**")
+                
+                texto_holerite = ""
+                try:
+                    with pdfplumber.open(arquivo_pdf) as pdf:
+                        for pagina in pdf.pages:
+                            ext = pagina.extract_text()
+                            if ext:
+                                texto_holerite += ext + "\n"
+                    
+                    st.success("PDF lido e processado com sucesso!")
+                    
+                    # Exibe os detalhes brutos extraídos do PDF para inspeção detalhada
+                    with st.expander("🔍 Ver Texto Completo Extraído (Detalhes do Holerite)"):
+                        st.text_area("Conteúdo do PDF:", texto_holerite, height=200, key=f"texto_detalhe_{idx}")
+                        
+                except Exception as e:
+                    st.error(f"Erro ao ler o PDF {arquivo_pdf.name}: {e}")
 
-    with st.form("form_holerite_completo"):
-        col_h1, col_h2, col_h3 = st.columns(3)
-        with col_h1:
-            mes_ano_hol = st.text_input("Mês/Ano de Referência", value=val_mes_ano)
-            bruto_hol = st.number_input("Salário Bruto (R$)", min_value=0.0, value=float(val_bruto), format="%.2f")
-        with col_h2:
-            desc_hol = st.number_input("Total de Descontos (R$)", min_value=0.0, value=float(val_descontos), format="%.2f")
-            liquido_hol = st.number_input("Salário Líquido (R$)", min_value=0.0, value=float(val_liquido), format="%.2f")
-        with col_h3:
-            inss_hol = st.number_input("Desconto INSS (R$)", min_value=0.0, value=float(val_inss), format="%.2f")
-            irrf_hol = st.number_input("Desconto IRRF (R$)", min_value=0.0, value=float(val_irrf), format="%.2f")
-            
-        if st.form_submit_button("Salvar Holerite no Histórico Analítico", use_container_width=True):
-            if mes_ano_hol.strip():
-                c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf) VALUES (?,?,?,?,?,?)",
-                          (mes_ano_hol.strip(), bruto_hol, desc_hol, liquido_hol, inss_hol, irrf_hol))
-                conn.commit()
-                st.success("Holerite salvo com sucesso no histórico!")
-                st.rerun()
-            else:
-                st.error("Informe o Mês/Ano de referência.")
+                # Valores padrão sugeridos (podem ser ajustados antes de salvar)
+                val_mes_ano = "07/2026"
+                val_bruto = 7440.65
+                val_descontos = 6278.12
+                val_liquido = 1162.53
+                val_inss = 756.25
+                val_irrf = 531.68
+
+                with st.form(f"form_holerite_{idx}"):
+                    col_h1, col_h2, col_h3 = st.columns(3)
+                    with col_h1:
+                        mes_ano_hol = st.text_input("Mês/Ano de Referência", value=val_mes_ano, key=f"mes_{idx}")
+                        bruto_hol = st.number_input("Salário Bruto (R$)", min_value=0.0, value=float(val_bruto), format="%.2f", key=f"bruto_{idx}")
+                    with col_h2:
+                        desc_hol = st.number_input("Total de Descontos (R$)", min_value=0.0, value=float(val_descontos), format="%.2f", key=f"desc_{idx}")
+                        liquido_hol = st.number_input("Salário Líquido (R$)", min_value=0.0, value=float(val_liquido), format="%.2f", key=f"liq_{idx}")
+                    with col_h3:
+                        inss_hol = st.number_input("Desconto INSS (R$)", min_value=0.0, value=float(val_inss), format="%.2f", key=f"inss_{idx}")
+                        irrf_hol = st.number_input("Desconto IRRF (R$)", min_value=0.0, value=float(val_irrf), format="%.2f", key=f"irrf_{idx}")
+                        
+                    if st.form_submit_button(f"Salvar Este Holerite ({arquivo_pdf.name}) no Histórico", use_container_width=True):
+                        if mes_ano_hol.strip():
+                            c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf) VALUES (?,?,?,?,?,?)",
+                                      (mes_ano_hol.strip(), bruto_hol, desc_hol, liquido_hol, inss_hol, irrf_hol))
+                            conn.commit()
+                            st.success(f"Holerite de {arquivo_pdf.name} salvo com sucesso no histórico!")
+                        else:
+                            st.error("Informe o Mês/Ano de referência.")
 
     st.markdown("---")
     df_holerites = pd.read_sql("SELECT * FROM holerites", conn)
