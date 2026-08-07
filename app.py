@@ -51,11 +51,14 @@ conn.commit()
 # --- TÍTULO ---
 st.title("💸 Gestor Financeiro Profissional")
 
-# Botão de Sair (Logout) na barra lateral
+# Barra Lateral (Logout & Assinatura)
 with st.sidebar:
     if st.button("🔒 Bloquear / Sair"):
         st.session_state.autenticado = False
         st.rerun()
+    
+    st.markdown("---")
+    st.markdown("<p style='text-align: center; color: #888; font-size: 12px;'>Elaborado por Vinicius Ramos</p>", unsafe_allow_html=True)
 
 # --- DEFINIÇÃO DAS ABAS ---
 aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9 = st.tabs([
