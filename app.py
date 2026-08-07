@@ -302,7 +302,7 @@ with aba5:
     
     df_deps = pd.read_sql("SELECT * FROM tabela_depositos", conn)
     total_concluido = df_deps[df_deps['status'] == 'Concluído']['valor'].sum()
-    meta_total_desafio = df_deps['valor'].sum() # Agora totaliza exatamente R$ 20.100,00
+    meta_total_desafio = df_deps['valor'].sum() # Totaliza exatamente R$ 20.100,00
     
     st.markdown(f"<h3 style='color: #00FF7F; text-align: center;'>Progresso do Desafio: R$ {total_concluido:,.2f} / R$ {meta_total_desafio:,.2f}</h3>", unsafe_allow_html=True)
     st.progress(min(total_concluido / meta_total_desafio if meta_total_desafio > 0 else 0, 1.0))
@@ -415,7 +415,7 @@ with aba6:
             if v_meta > 0:
                 st.progress(min(gasto_atual / v_meta, 1.0))
                 if gasto_atual > v_meta:
-                    st.error(f"⚠️ Você ultrapassou a meta de cat_nome em R$ {(gasto_atual - v_meta):,.2f}!")
+                    st.error(f"⚠️ Você ultrapassou a meta de {cat_nome} em R$ {(gasto_atual - v_meta):,.2f}!")
             else:
                 st.progress(0.0)
     else:
@@ -608,7 +608,7 @@ with aba9:
             st.success(f"Transação ID {id_excluir} excluída com sucesso!")
             st.rerun()
 
-        st.markdown---()
+        st.markdown("---")
         
         st.write("### ✏️ Editar Lançamento")
         id_editar = st.selectbox("Selecione o ID para editar:", df_extrato_full['id'].tolist(), key="select_edit")
