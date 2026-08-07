@@ -36,7 +36,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS metas
              (id INTEGER PRIMARY KEY, categoria TEXT, valor_meta REAL)''')
 c.execute('''CREATE TABLE IF NOT EXISTS tabela_depositos 
              (id INTEGER PRIMARY KEY, numero_deposito INTEGER, valor REAL, status TEXT)''')
-# Nova tabela para o Dashboard profissional de Investimentos (Aportes/Ativos)
 c.execute('''CREATE TABLE IF NOT EXISTS carteira_investimentos 
              (id INTEGER PRIMARY KEY, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)''')
 conn.commit()
@@ -56,7 +55,7 @@ with st.sidebar:
         st.session_state.autenticado = False
         st.rerun()
 
-# --- DEFINIÇÃO DAS ABAS (Total: 9 com a nova aba de Desafios) ---
+# --- DEFINIÇÃO DAS ABAS ---
 aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9 = st.tabs([
     "🔴 Lançar Despesa", 
     "🟢 Entradas & Salários", 
@@ -129,7 +128,6 @@ with aba3:
     else:
         df = df_all.copy()
 
-    # Alerta 90% da meta
     metas_check = pd.read_sql("SELECT * FROM metas", conn)
     if not df.empty and not metas_check.empty:
         for _, m in metas_check.iterrows():
@@ -262,13 +260,11 @@ with aba4:
 
     st.markdown("---")
     
-    # Leitura da carteira para o Dashboard Profissional
     df_carteira = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
     if not df_carteira.empty:
         df_carteira['Valor Total'] = df_carteira['quantidade'] * df_carteira['preco_medio']
         patrimonio_total = df_carteira['Valor Total'].sum()
         
-        # Métricas de topo do dashboard de investimentos
         col_m1, col_m2, col_m3 = st.columns(3)
         col_m1.metric("💎 Patrimônio Alocado", f"R$ {patrimonio_total:,.2f}")
         col_m2.metric("📦 Total de Ativos Cadastrados", len(df_carteira['ativo'].unique()))
@@ -287,7 +283,6 @@ with aba4:
                 'ativo': 'Ativo', 'classe': 'Classe', 'quantidade': 'Qtd', 'preco_medio': 'Preço Médio'
             }), use_container_width=True, hide_index=True)
             
-        # Opção para excluir ativo da carteira
         st.markdown("---")
         id_ativo_del = st.selectbox("Selecione o ID do ativo para remover da carteira:", df_carteira['id'].tolist(), key="del_ativo")
         if st.button("Remover Ativo Selecionado", use_container_width=True):
@@ -298,7 +293,7 @@ with aba4:
     else:
         st.info("Nenhum investimento cadastrado na carteira profissional ainda. Adicione acima para ver o dashboard avançado.")
 
-# --- ABA 5: DESAFIOS (EX-INVESTIMENTOS/COFRINHO) ---
+# --- ABA 5: DESAFIOS ---
 with aba5:
     st.subheader("🎯 Desafios de Depósito & Cofrinho")
     st.info("Acompanhe o seu desafio de micro-poupança e metas progressivas de depósito!")
@@ -563,7 +558,6 @@ with aba9:
 
     st.markdown("---")
     
-    # --- SEÇÃO DE IMPORTAÇÃO DE EXTRATO BANCÁRIO (CSV) ---
     st.write("### 📥 Importar Extrato Bancário (CSV)")
     st.info("O arquivo CSV deve conter colunas para **Data**, **Descrição** e **Valor** (valores negativos para despesas e positivos para receitas).")
     
@@ -586,7 +580,7 @@ with aba9:
                         desc_str = str(row[col_desc])
                         val_float = float(row[col_val])
                         
-                        tipo_trans = "Receita" if val_float > 0 else "Despesa"px
+                        tipo_trans = "Receita" if val_float > 0 else "Despesa"
                         val_absoluto = abs(val_float)
                         cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
                         
