@@ -804,11 +804,17 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
 # ==========================================
 elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
     st.subheader("🔮 Central Avançada de Projeções e Simulações Preditivas")
-    st.write("Simule cenários futuros, projete o crescimento do seu patrimônio e analise tendências de gastos para os próximos meses.")
+    st.write("Simule cenários futuros, projete o crescimento do seu patrimônio com juros compostos e analise tendências de gastos para os próximos meses.")
     
     df_trans_proj = pd.read_sql("SELECT * FROM transacoes", conn)
-    df_hol_proj = pd.read_sql("SELECT * FROM holerites", conn)
+    df_inv_proj = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
     
+    # Calcular patrimônio inicial real baseado na tabela de investimentos cadastrados
+    patrimonio_inicial = 0.0
+    if not df_inv_proj.empty:
+        df_inv_proj['Total'] = df_inv_proj['quantidade'] * df_inv_proj['preco_medio']
+        patrimonio_inicial = df_inv_proj['Total'].sum()
+
     if not df_trans_proj.empty:
         df_trans_proj['data'] = pd.to_datetime(df_trans_proj['data'])
         df_trans_proj['ano_mes'] = df_trans_proj['data'].dt.strftime('%Y-%m')
@@ -868,10 +874,13 @@ elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
         </div>
         """.format((proj_receita_base * 0.85) - (proj_despesa_base * 1.15)), unsafe_allow_html=True)
 
-    # Geração dos próximos 6 meses de projeção
+    # Geração dos próximos 6 meses com cálculo real de Juros Compostos aplicados à taxa escolhida
     meses_futuros = []
-    saldo_projetado = []
-    acumulado_proj = 0.0
+    patrimonio_serie = []
+    
+    taxa_mensal = (1 + (taxa_investimento_proj / 100.0)) ** (1/12) - 1
+    patrimonio_atual_sim = patrimonio_inicial
+    caixa_mensal_proj = proj_receita_base - proj_despesa_base
     
     hoje_proj = date.today()
     for i in range(1, 7):
@@ -879,20 +888,20 @@ elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
         nome_m = data_fut.strftime('%m/%Y')
         meses_futuros.append(nome_m)
         
-        caixa_mes = proj_receita_base - proj_despesa_base
-        acumulado_proj += caixa_mes
-        saldo_projetado.append(acumulado_proj)
+        # Aplica o rendimento do mês sobre o patrimônio anterior + adiciona a sobra do mês
+        patrimonio_atual_sim = (patrimonio_atual_sim * (1 + taxa_mensal)) + caixa_mensal_proj
+        patrimonio_serie.append(patrimonio_atual_sim)
 
     df_proj_futuro = pd.DataFrame({
         'Mês / Ano': meses_futuros,
         'Receita Projetada': [proj_receita_base] * 6,
         'Despesa Projetada': [proj_despesa_base] * 6,
-        'Resultado Mensal': [proj_receita_base - proj_despesa_base] * 6,
-        'Patrimônio Acumulado Estimado': saldo_projetado
+        'Resultado Mensal': [caixa_mensal_proj] * 6,
+        'Patrimônio Acumulado Estimado': patrimonio_serie
     })
 
     st.markdown("---")
-    st.write("#### 📊 Tabela de Projeção Preditiva (Próximo Semestre)")
+    st.write("#### 📊 Tabela de Projeção Preditiva com Rendimento Composto (Próximo Semestre)")
     st.dataframe(df_proj_futuro.style.format({
         'Receita Projetada': 'R$ {:,.2f}',
         'Despesa Projetada': 'R$ {:,.2f}',
@@ -901,7 +910,7 @@ elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
     }), use_container_width=True, hide_index=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.write("#### 📈 Gráfico de Projeção do Patrimônio Acumulado")
+    st.write("#### 📈 Gráfico de Projeção do Patrimônio Acumulado (Considerando a Taxa Informada)")
     st.line_chart(df_proj_futuro.set_index('Mês / Ano')[['Patrimônio Acumulado Estimado']])
 
     botao_voltar()
