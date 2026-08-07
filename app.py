@@ -27,7 +27,6 @@ with aba1:
     with st.form("lancar_despesa"):
         desc = st.text_input("Descrição (Ex: Supermercado, Aluguel, Uber)")
         valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
-        # Categorias divididas para facilitar o 50/30/20
         cat = st.selectbox("Categoria", [
             "🏠 Contas Fixas (Necessidade)", 
             "🛒 Supermercado (Necessidade)", 
@@ -79,7 +78,6 @@ with aba3:
         st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
         
         if receitas > 0:
-            # Separando os blocos com base nas categorias cadastradas
             nec = df[df['categoria'].str.contains("Necessidade", na=False)]['valor'].sum()
             des = df[df['categoria'].str.contains("Desejos", na=False)]['valor'].sum()
             inv = df[df['categoria'].str.contains("Investimentos", na=False)]['valor'].sum()
@@ -91,17 +89,17 @@ with aba3:
             c_50, c_30, c_20 = st.columns(3)
             
             with c_50:
-                st.write(f"**50% Necessidades**")
-                st.write(Gasto: R$ {nec:.2f} / Meta: R$ {meta_nec:.2f})
+                st.write("**50% Necessidades**")
+                st.write(f"Gasto: R$ {nec:.2f} / Meta: R$ {meta_nec:.2f}")
                 st.progress(min(nec / meta_nec if meta_nec > 0 else 0, 1.0))
                 
             with c_30:
-                st.write(f"**30% Desejos**")
+                st.write("**30% Desejos**")
                 st.write(f"Gasto: R$ {des:.2f} / Meta: R$ {meta_des:.2f}")
                 st.progress(min(des / meta_des if meta_des > 0 else 0, 1.0))
                 
             with c_20:
-                st.write(f"**20% Investimentos**")
+                st.write("**20% Investimentos**")
                 st.write(f"Guardado: R$ {inv:.2f} / Meta: R$ {meta_inv:.2f}")
                 st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
         else:
