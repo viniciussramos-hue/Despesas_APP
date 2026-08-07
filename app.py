@@ -828,6 +828,7 @@ with aba11:
 
     st.markdown("---")
     
+    df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
     if not df_extrato_full.empty:
         st.write("### ❌ Excluir Lançamento Específico")
         id_excluir = st.selectbox("Selecione o ID da transação para apagar:", df_extrato_full['id'].tolist())
