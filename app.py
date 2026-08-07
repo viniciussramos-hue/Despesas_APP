@@ -30,6 +30,10 @@ c.execute('''CREATE TABLE IF NOT EXISTS transacoes
              (id INTEGER PRIMARY KEY, data TEXT, tipo TEXT, descricao TEXT, categoria TEXT, valor REAL)''')
 c.execute('''CREATE TABLE IF NOT EXISTS contas 
              (id INTEGER PRIMARY KEY, vencimento TEXT, descricao TEXT, valor REAL, pago INTEGER)''')
+c.execute('''CREATE TABLE IF NOT EXISTS categorias 
+             (id INTEGER PRIMARY KEY, nome TEXT)''')
+c.execute('''CREATE TABLE IF NOT EXISTS metas 
+             (id INTEGER PRIMARY KEY, categoria TEXT, valor_meta REAL)''')
 conn.commit()
 
 # --- TÍTULO ---
@@ -42,10 +46,11 @@ with st.sidebar:
         st.rerun()
 
 # --- DEFINIÇÃO DAS ABAS ---
-aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
+aba1, aba2, aba3, aba4, aba5, aba6, aba7 = st.tabs([
     "🔴 Lançar Despesa", 
     "🟢 Entradas & Salários", 
     "📊 Dashboard", 
+    "🎯 Metas & Categorias", 
     "❤️ Saúde Financeira", 
     "📅 Contas a Pagar", 
     "📋 Extrato & Backup"
@@ -54,18 +59,25 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
 # --- ABA 1: LANÇAR DESPESA ---
 with aba1:
     st.subheader("Registrar Saída / Despesa")
+    
+    # Busca categorias padrão + categorias cadastradas pelo usuário
+    cats_padrao = [
+        "🏠 Contas Fixas (Necessidade)", 
+        "🛒 Supermercado (Necessidade)", 
+        "🚗 Transporte (Necessidade)", 
+        "💊 Saúde (Necessidade)", 
+        "🍔 Lazer & Alimentação Fora (Desejos)", 
+        "🎉 Outros Desejos (Desejos)", 
+        "📈 Investimentos / Poupança (20%)"
+    ]
+    df_cats_db = pd.read_sql("SELECT nome FROM categorias", conn)
+    lista_categorias = cats_padrao + df_cats_db['nome'].tolist() if not df_cats_db.empty else cats_padrao
+
     with st.form("lancar_despesa", clear_on_submit=True):
         desc = st.text_input("Descrição (Ex: Supermercado, Aluguel, Uber)")
         valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
-        cat = st.selectbox("Categoria", [
-            "🏠 Contas Fixas (Necessidade)", 
-            "🛒 Supermercado (Necessidade)", 
-            "🚗 Transporte (Necessidade)", 
-            "💊 Saúde (Necessidade)", 
-            "🍔 Lazer & Alimentação Fora (Desejos)", 
-            "🎉 Outros Desejos (Desejos)", 
-            "📈 Investimentos / Poupança (20%)"
-        ])
+        cat = st.selectbox("Categoria", lista_categorias)
+        
         if st.form_submit_button("Salvar Despesa", use_container_width=True):
             c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
                       (datetime.now().strftime("%Y-%m-%d"), "Despesa", desc, cat, valor))
@@ -149,8 +161,77 @@ with aba3:
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard.")
 
-# --- ABA 4: SAÚDE FINANCEIRA (NOVA ABA ESTILO GESTORMONEY) ---
+# --- ABA 4: METAS & CATEGORIAS (NOVA ABA) ---
 with aba4:
+    st.subheader("🎯 Gerenciamento de Metas de Gastos & Novas Categorias")
+    
+    col_m1, col_m2 = st.columns(2)
+    
+    with col_m1:
+        st.write("### ➕ Adicionar Nova Categoria")
+        with st.form("form_nova_cat", clear_on_submit=True):
+            nova_cat_nome = st.text_input("Nome da Nova Categoria (Ex: Pet, Educação)")
+            if st.form_submit_button("Salvar Categoria", use_container_width=True):
+                if nova_cat_nome.strip():
+                    c.execute("INSERT INTO categorias (nome) VALUES (?)", (nova_cat_nome.strip(),))
+                    conn.commit()
+                    st.success(f"Categoria '{nova_cat_nome}' adicionada com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Digite um nome válido para a categoria.")
+                    
+    with col_m2:
+        st.write("### 🎯 Definir Meta de Gasto por Categoria")
+        # Pega todas as categorias disponíveis para associar à meta
+        cats_padrao = [
+            "🏠 Contas Fixas (Necessidade)", 
+            "🛒 Supermercado (Necessidade)", 
+            "🚗 Transporte (Necessidade)", 
+            "💊 Saúde (Necessidade)", 
+            "🍔 Lazer & Alimentação Fora (Desejos)", 
+            "🎉 Outros Desejos (Desejos)", 
+            "📈 Investimentos / Poupança (20%)"
+        ]
+        df_cats_db = pd.read_sql("SELECT nome FROM categorias", conn)
+        lista_todas_cats = cats_padrao + df_cats_db['nome'].tolist() if not df_cats_db.empty else cats_padrao
+
+        with st.form("form_meta", clear_on_submit=True):
+            cat_meta = st.selectbox("Escolha a Categoria", lista_todas_cats)
+            valor_meta_input = st.number_input("Valor Máximo de Meta (R$)", min_value=0.0, format="%.2f")
+            
+            if st.form_submit_button("Salvar Meta", use_container_width=True):
+                # Verifica se já existe meta para essa categoria, se sim atualiza, senão insere
+                c.execute("DELETE FROM metas WHERE categoria = ?", (cat_meta,))
+                c.execute("INSERT INTO metas (categoria, valor_meta) VALUES (?, ?)", (cat_meta, valor_meta_input))
+                conn.commit()
+                st.success(f"Meta para '{cat_meta}' definida com sucesso!")
+                st.rerun()
+
+    st.markdown("---")
+    st.subheader("📋 Acompanhamento das Metas Cadastradas")
+    df_metas = pd.read_sql("SELECT * FROM metas", conn)
+    df_trans = pd.read_sql("SELECT * FROM transacoes WHERE tipo = 'Despesa'", conn)
+    
+    if not df_metas.empty:
+        for index, row in df_metas.iterrows():
+            cat_nome = row['categoria']
+            v_meta = row['valor_meta']
+            
+            # Soma quanto foi gasto nessa categoria
+            gasto_atual = df_trans[df_trans['categoria'] == cat_nome]['valor'].sum() if not df_trans.empty else 0.0
+            
+            st.write(f"**{cat_nome}** — Gasto: R$ {gasto_atual:.2f} / Meta: R$ {v_meta:.2f}")
+            if v_meta > 0:
+                st.progress(min(gasto_atual / v_meta, 1.0))
+                if gasto_atual > v_meta:
+                    st.error(f"⚠️ Você ultrapassou a meta de {cat_nome} em R$ {(gasto_atual - v_meta):.2f}!")
+            else:
+                st.progress(0.0)
+    else:
+        st.info("Nenhuma meta de gasto cadastrada ainda.")
+
+# --- ABA 5: SAÚDE FINANCEIRA ---
+with aba5:
     st.subheader("❤️ Saúde Financeira")
     st.write("Score de 0 a 1000 baseado em fatores de desempenho do seu perfil financeiro.")
     
@@ -158,27 +239,21 @@ with aba4:
     receitas = df[df['tipo'] == 'Receita']['valor'].sum() if not df.empty else 0
     despesas = df[df['tipo'] == 'Despesa']['valor'].sum() if not df.empty else 0
     
-    # Lógica de cálculo do Score baseada nos seus dados reais
-    # Fator 1: Endividamento (Gastos vs Receitas) -> Max 250 pts
     f_endividamento = 250 if receitas >= despesas else max(0, 250 - ((despesas - receitas) / max(receitas, 1)) * 250)
     
-    # Fator 2: Taxa de Poupança/Investimento (Meta de 20%) -> Max 250 pts
     inv = df[df['categoria'].str.contains("Investimentos", na=False)]['valor'].sum() if not df.empty else 0
     taxa_poupanca = (inv / receitas) if receitas > 0 else 0
     f_poupanca = min(250, (taxa_poupanca / 0.20) * 250)
     
-    # Fator 3: Controle de Desejos (Meta de gastar até 30% em desejos) -> Max 250 pts
     desejos = df[df['categoria'].str.contains("Desejos", na=False)]['valor'].sum() if not df.empty else 0
     proporcao_desejos = (desejos / receitas) if receitas > 0 else 0
     f_metas = 250 if proporcao_desejos <= 0.30 else max(0, 250 - ((proporcao_desejos - 0.30) * 500))
     
-    # Fator 4: Disciplina Geral (Bônus fixo se houver lançamentos) -> Max 250 pts
     f_disciplina = 250 if not df.empty and receitas > 0 else 50
     
-    score_total = int(f_endividamento + f_poupanca + f_metas + (f_disciplina * 0.5)) # Normalizado até 1000
+    score_total = int(f_endividamento + f_poupanca + f_metas + (f_disciplina * 0.5))
     score_total = min(1000, max(0, score_total))
     
-    # Classificação visual do Score
     if score_total >= 750:
         status_score, cor_status = "Excelente 🚀", "🟢"
     elif score_total >= 500:
@@ -186,7 +261,6 @@ with aba4:
     else:
         status_score, cor_status = "Atenção ⚠️", "🟠"
 
-    # Exibição do Card Principal
     st.markdown(f"""
     <div style="background-color: #1E1E1E; padding: 30px; border-radius: 10px; text-align: center; border: 1px solid #333;">
         <h1 style="font-size: 60px; color: #FF4B4B; margin: 0;">{score_total}</h1>
@@ -211,8 +285,8 @@ with aba4:
     st.write(f"📅 **Disciplina de Registros:** {int(f_disciplina * 0.5)} / 250 pts")
     st.progress(min((f_disciplina * 0.5) / 250, 1.0))
 
-# --- ABA 5: CONTAS A PAGAR ---
-with aba5:
+# --- ABA 6: CONTAS A PAGAR ---
+with aba6:
     st.subheader("📅 Calendário de Contas & Gerenciamento")
     
     with st.form("conta", clear_on_submit=True):
@@ -269,15 +343,14 @@ with aba5:
 
         st.markdown("---")
         st.subheader("Lista de Contas Cadastradas")
-        st.dataframe(contas, use_container_width=Type := True)
+        st.dataframe(contas, use_container_width=True)
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 6: EXTRATO & BACKUP ---
-with aba6:
+# --- ABA 7: EXTRATO & BACKUP ---
+with aba7:
     st.subheader("📋 Extrato, Edição e Backup")
     
-    # Botão de Backup do Banco de Dados
     with open("gestor_financeiro.db", "rb") as f:
         st.download_button("💾 Baixar Backup do Banco de Dados (Segurança)", f, "gestor_financeiro.db", use_container_width=True)
 
