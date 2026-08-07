@@ -1043,8 +1043,8 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
         mes_ativo_ext, bruto_ativo, desc_ativo, liquido_ativo, inss_ativo, irrf_ativo, vale_ativo = processar_texto_holerite(texto_holerite_ativo, arquivo_ativo.name)
         
-        # Pagamento Líquido real separado do vale para o display em azul
-        pagamento_liquido_real = max(0.0, bruto_ativo - desc_ativo)
+        # Receita Líquida real (Salário Bruto menos Total de Descontos do contracheque)
+        receita_liquida_real = max(0.0, bruto_ativo - desc_ativo)
         
         st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px; margin-top: 15px;'>Arquivo ativo: <b>{arquivo_ativo.name}</b> | Referência identificada: <b>{mes_ativo_ext}</b></p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1081,8 +1081,8 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         
         st.markdown(f"""
         <div style="background-color: #1E222A; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #3F51B5;">
-            <h4 style="color: #9FA8DA; margin: 0;">💵 Pagamento Líquido ({mes_ativo_ext})</h4>
-            <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ {pagamento_liquido_real:,.2f}</h2>
+            <h4 style="color: #9FA8DA; margin: 0;">💵 Receita Líquida ({mes_ativo_ext})</h4>
+            <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ {receita_liquida_real:,.2f}</h2>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1093,7 +1093,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
     st.markdown("---")
     st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
     
-    # Recarrega o DataFrame diretamente do banco com commit garantido para refletir exclusões
     df_holerites = pd.read_sql("SELECT * FROM holerites ORDER BY mes_ano DESC", conn)
     
     if not df_holerites.empty:
