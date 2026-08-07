@@ -3,7 +3,6 @@ import pandas as pd
 import sqlite3
 from datetime import datetime, date
 import pdfplumber
-import io
 
 # --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="💸 Gestor Financeiro Pro", layout="wide")
@@ -623,18 +622,14 @@ with aba9:
                     importados_pdf = 0
                     
                     for linha in linhas:
-                        # Exemplo de lógica de extração automatizada por padrões de texto de extratos
-                        # Linhas que contêm datas (ex: DD/MM/YYYY ou DD/MM) e valores numéricos
                         if any(char.isdigit() for char in linha):
                             try:
-                                # Tratamento básico de exemplo para extração
                                 partes = linha.split()
                                 if len(partes) >= 2:
-                                    # Procura um valor em dinheiro na linha (ex com R$ ou formato 0,00)
                                     val_str = partes[-1].replace("R$", "").replace(".", "").replace(",", ".")
                                     val_float = float(val_str)
                                     
-                                    data_str = date.today().strftime("%Y-%m-%d") # Padrão data atual se não achar
+                                    data_str = date.today().strftime("%Y-%m-%d")
                                     desc_str = " ".join(partes[:-1])
                                     
                                     tipo_trans = "Receita" if val_float > 0 else "Despesa"
@@ -681,7 +676,7 @@ with aba9:
                           (novo_tipo, nova_desc, nova_cat, novo_valor, id_editar))
                 conn.commit()
                 st.success(f"Transação ID {id_editar} atualizada com sucesso!")
-                    st.rerun()
+                st.rerun()
 
         st.markdown("---")
         st.subheader("Visualização Completa do Extrato")
