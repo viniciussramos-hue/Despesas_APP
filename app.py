@@ -19,7 +19,7 @@ conn.commit()
 st.title("💸 Gestor Financeiro Profissional")
 
 # --- DEFINIÇÃO DAS ABAS ---
-aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard & 50/30/20", "📅 Contas a Pagar", "📋 Extrato & Edição"])
+aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard & 50/30/20", "📅 Contas a Pagar & Edição", "📋 Extrato & Edição"])
 
 # --- ABA 1: LANÇAR DESPESA ---
 with aba1:
@@ -65,7 +65,6 @@ with aba3:
         receitas = df[df['tipo'] == 'Receita']['valor'].sum()
         despesas = df[df['tipo'] == 'Despesa']['valor'].sum()
         
-        # Projeção de Gastos
         dia_hoje = datetime.now().day
         projecao_final = (despesas / max(dia_hoje, 1)) * 30
         
@@ -87,23 +86,20 @@ with aba3:
             meta_inv = receitas * 0.20
             
             c_50, c_30, c_20 = st.columns(3)
-            
             with c_50:
                 st.write("**50% Necessidades**")
                 st.write(f"Gasto: R$ {nec:.2f} / Meta: R$ {meta_nec:.2f}")
                 st.progress(min(nec / meta_nec if meta_nec > 0 else 0, 1.0))
-                
             with c_30:
                 st.write("**30% Desejos**")
                 st.write(f"Gasto: R$ {des:.2f} / Meta: R$ {meta_des:.2f}")
                 st.progress(min(des / meta_des if meta_des > 0 else 0, 1.0))
-                
             with c_20:
                 st.write("**20% Investimentos**")
                 st.write(f"Guardado: R$ {inv:.2f} / Meta: R$ {meta_inv:.2f}")
                 st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
         else:
-            st.info("Cadastre ao menos uma entrada (Receita) para calcular as metas da regra 50/30/20.")
+            st.info("Cadastre ao menos uma entrada (Receita) para calcular as metas.")
 
         st.markdown("---")
         st.write("### Despesas por Categoria")
@@ -113,9 +109,10 @@ with aba3:
     else:
         st.info("Comece registrando entradas e despesas para visualizar o dashboard.")
 
-# --- ABA 4: CONTAS A PAGAR ---
+# --- ABA 4: CONTAS A PAGAR & EDIÇÃO ---
 with aba4:
-    st.subheader("📅 Calendário de Contas Anuais / Mensais")
+    st.subheader("📅 Calendário de Contas & Gerenciamento")
+    
     with st.form("conta"):
         col_c1, col_c2 = st.columns(2)
         with col_c1:
@@ -125,13 +122,51 @@ with aba4:
             val_conta = st.number_input("Valor Estimado", min_value=0.0, format="%.2f")
         
         if st.form_submit_button("Adicionar ao Calendário", use_container_width=True):
-            c.execute("INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)", (venc, nome_conta, val_conta, 0))
+            c.execute("INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)", (venc, str(nome_conta), val_conta, 0))
             conn.commit()
+            st.success("Conta adicionada com sucesso!")
             st.rerun()
             
     st.markdown("---")
     contas = pd.read_sql("SELECT * FROM contas", conn)
+    
     if not contas.empty:
+        st.write("### ❌ Excluir ou Marcar Conta")
+        id_conta_del = st.selectbox("Selecione o ID da conta para gerenciar:", contas['id'].tolist(), key="del_conta")
+        
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("Excluir Conta Selecionada", use_container_width=True):
+                c.execute("DELETE FROM contas WHERE id = ?", (id_conta_del,))
+                conn.commit()
+                st.success(f"Conta ID {id_conta_del} excluída!")
+                st.rerun()
+        with col_btn2:
+            if st.button("Alternar Status (Pago / Pendente)", use_container_width=True):
+                status_atual = contas[contas['id'] == id_conta_del]['pago'].values[0]
+                novo_status = 0 if status_atual == 1 else 1
+                c.execute("UPDATE contas SET pago = ? WHERE id = ?", (novo_status, id_conta_del))
+                conn.commit()
+                st.success("Status atualizado!")
+                st.rerun()
+
+        st.markdown("---")
+        st.write("### ✏️ Editar Conta")
+        conta_atual = contas[contas['id'] == id_conta_del].iloc[0]
+        
+        with st.form("form_editar_conta"):
+            nova_desc_conta = st.text_input("Descrição da Conta", value=conta_atual['descricao'])
+            novo_val_conta = st.number_input("Valor Estimado (R$)", value=float(conta_atual['valor']), format="%.2f")
+            
+            if st.form_submit_button("Atualizar Conta", use_container_width=True):
+                c.execute("UPDATE contas SET descricao = ?, valor = ? WHERE id = ?",
+                          (nova_desc_conta, novo_val_conta, id_conta_del))
+                conn.commit()
+                st.success(f"Conta ID {id_conta_del} atualizada com sucesso!")
+                st.rerun()
+
+        st.markdown("---")
+        st.subheader("Lista de Contas Cadastradas")
         st.dataframe(contas, use_container_width=True)
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
@@ -142,7 +177,6 @@ with aba5:
     df_extrato = pd.read_sql("SELECT * FROM transacoes", conn)
     
     if not df_extrato.empty:
-        # Seção de Exclusão individual
         st.write("### ❌ Excluir Lançamento Específico")
         id_excluir = st.selectbox("Selecione o ID da transação para apagar:", df_extrato['id'].tolist())
         if st.button("Excluir Lançamento Selecionado"):
@@ -153,11 +187,8 @@ with aba5:
 
         st.markdown("---")
         
-        # Seção de Edição
         st.write("### ✏️ Editar Lançamento")
         id_editar = st.selectbox("Selecione o ID para editar:", df_extrato['id'].tolist(), key="select_edit")
-        
-        # Pega os dados atuais do ID selecionado
         item_atual = df_extrato[df_extrato['id'] == id_editar].iloc[0]
         
         with st.form("form_editar"):
