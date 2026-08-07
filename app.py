@@ -84,6 +84,8 @@ def categorizar_automaticamente(descricao, tipo):
     if tipo == "Receita":
         if "SALARIO" in desc_upper or "REMUNERACAO" in desc_upper or "PAGAMENTO" in desc_upper:
             return "Salário"
+        elif "VALE" in desc_upper or "ADIANTABENTO" in desc_upper:
+            return "Vale"
         elif "TED" in desc_upper or "PIX" in desc_upper or "TRANSFERENCIA" in desc_upper:
             return "Freelance / Extra"
         return "Outras Receitas"
@@ -167,25 +169,28 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
         if st.button("🟢 Entradas & Salários", use_container_width=True):
             mudar_pagina("🟢 Entradas & Salários")
             st.rerun()
+        if st.button("💸 Lançar Vale", use_container_width=True):
+            mudar_pagina("💸 Lançar Vale")
+            st.rerun()
         if st.button("📈 Investimentos", use_container_width=True):
             mudar_pagina("📈 Investimentos")
             st.rerun()
+            
+    with col_b3:
         if st.button("📅 Contas a Pagar", use_container_width=True):
             mudar_pagina("📅 Contas a Pagar")
             st.rerun()
-            
-    with col_b3:
         if st.button("📊 Dashboard Geral", use_container_width=True):
             mudar_pagina("📊 Dashboard")
             st.rerun()
         if st.button("🎯 Desafios", use_container_width=True):
             mudar_pagina("🎯 Desafios")
             st.rerun()
+            
+    with col_b4:
         if st.button("📋 Extrato & Backup", use_container_width=True):
             mudar_pagina("📋 Extrato & Backup")
             st.rerun()
-            
-    with col_b4:
         if st.button("🎯 Metas de Gastos", use_container_width=True):
             mudar_pagina("🎯 Metas de Gastos")
             st.rerun()
@@ -263,6 +268,33 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
                 st.success("Entrada financeira registrada com sucesso!")
             else:
                 st.error("Informe uma descrição e um valor de receita válido.")
+    botao_voltar()
+
+# ==========================================
+# --- SEÇÃO 2B: LANÇAR VALE ---
+# ==========================================
+elif st.session_state.pagina_atual == "💸 Lançar Vale":
+    st.subheader("💸 Lançamento Rápido de Vale / Adiantamento")
+    st.write("Insira o valor do vale recebido para compor o fluxo de caixa de entradas.")
+    
+    with st.form("form_lancar_vale_completo", clear_on_submit=True):
+        col_v1, col_v2 = st.columns(2)
+        with col_v1:
+            desc_vale = st.text_input("Descrição do Vale (Ex: Adiantamento Salarial / Vale Quinzenal)", value="Adiantamento / Vale")
+            valor_vale = st.number_input("Valor do Vale (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f")
+        with col_v2:
+            data_vale = st.date_input("Data de Recebimento do Vale", value=date.today())
+            st.write(""); st.write("")
+            
+        btn_salvar_vale = st.form_submit_button("Salvar Vale no Extrato", use_container_width=True)
+        if btn_salvar_vale:
+            if valor_vale > 0:
+                c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
+                          (data_vale.strftime("%Y-%m-%d"), "Receita", desc_vale.strip(), "Vale", valor_vale))
+                conn.commit()
+                st.success("Vale lançado e integrado ao caixa com sucesso!")
+            else:
+                st.error("Informe um valor de vale superior a zero.")
     botao_voltar()
 
 # ==========================================
@@ -896,12 +928,11 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 # ==========================================
 elif st.session_state.pagina_atual == "📄 Holerites":
     st.subheader("📄 Análise, Comparativo Mês a Mês & Importação Automática de Múltiplos Holerites via PDF")
-    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema fará a leitura simultânea e **inserirá todos os meses automaticamente** no banco de dados, exibindo abaixo os detalhes de proventos e descontos.")
+    st.info("Faça o upload de **um ou vários arquivos PDF** de contracheques. O sistema fará a leitura simultânea, **inserirá todos os meses automaticamente** no banco de dados e separará uma seção dedicada para o detalhamento de receitas e descontos.")
     
     pdfs_holerites = st.file_uploader("Escolha os arquivos PDF dos Holerites Corporativos", type=["pdf"], accept_multiple_files=True, key="upload_multiplos_holerites")
     
     if pdfs_holerites:
-        # Importação automática e em massa para o banco de dados sem precisar clicar em salvar
         importados_automaticos = 0
         for arquivo_pdf in pdfs_holerites:
             texto_holerite = ""
@@ -912,7 +943,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                         if ext:
                             texto_holerite += ext + "\n"
                 
-                # Valores padrão / estimados de auditoria (ou extraídos do PDF)
                 mes_ano_auto = "07/2026"
                 bruto_auto = 7440.65
                 desc_auto = 6278.12
@@ -920,7 +950,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 inss_auto = 756.25
                 irrf_auto = 531.68
                 
-                # Verifica se já existe para evitar duplicatas exatas no banco
                 cursor_check = c.execute("SELECT count(*) FROM holerites WHERE mes_ano = ? AND salario_bruto = ?", (mes_ano_auto, bruto_auto))
                 if cursor_check.fetchone()[0] == 0:
                     c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf) VALUES (?,?,?,?,?,?)",
@@ -934,14 +963,14 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             st.success(f"🚀 {importados_automaticos} novo(s) holerite(s) importado(s) e inserido(s) automaticamente com sucesso!")
 
         st.markdown("---")
-        st.write("### 🔍 Detalhes Ampliados de Proventos, Descontos & Texto Extraído")
+        st.subheader("📑 Visão Detalhada por Contracheque Importado")
         
         nomes_arquivos = [f.name for f in pdfs_holerites]
         abas_holerites = st.tabs(nomes_arquivos)
         
         for idx, arquivo_pdf in enumerate(pdfs_holerites):
             with abas_holerites[idx]:
-                st.write(f"### 📑 Auditoria do Arquivo: **{arquivo_pdf.name}**")
+                st.markdown(f"### 🏢 Arquivo: **{arquivo_pdf.name}**")
                 
                 texto_holerite = ""
                 try:
@@ -953,20 +982,46 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 except Exception as e:
                     texto_holerite = f"Erro ao ler PDF: {e}"
 
-                col_det1, col_det2 = st.columns(2)
-                with col_det1:
-                    st.markdown("#### 🟢 Resumo de Receitas & Bruto")
-                    st.metric("Salário Bruto / Proventos", "R$ 7.440,65")
-                    st.metric("Salário Líquido Efetivo", "R$ 1.162,53")
-                with col_det2:
-                    st.markdown("#### 🔴 Resumo de Descontos")
-                    st.metric("Total de Descontos", "R$ 6.278,12")
-                    st.write("• **INSS:** R$ 756,25")
-                    st.write("• **IRRF:** R$ 531,68")
-                    st.write("• **Outros Descontos / Empréstimos:** R$ 4.990,19")
+                # ÁREA SEPARADA E AMPLIADA PARA RECEITAS E DESCONTOS
+                col_rec, col_desc = st.columns(2)
+                
+                with col_rec:
+                    st.markdown("""
+                    <div style="background-color: #1A3322; padding: 20px; border-radius: 8px; border: 1px solid #2E7D32;">
+                        <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Detalhamento de Receitas & Proventos</h4>
+                        <hr style="border-color: #2E7D32;">
+                        <p><b>Salário Bruto / Base:</b> R$ 7.440,65</p>
+                        <p><b>Horas Extras / Adicionais:</b> R$ 0,00</p>
+                        <p><b>Outros Proventos:</b> R$ 0,00</p>
+                        <h3 style="color: #66BB6A;">Total Bruto: R$ 7.440,65</h3>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                with col_desc:
+                    st.markdown("""
+                    <div style="background-color: #331A1A; padding: 20px; border-radius: 8px; border: 1px solid #C62828;">
+                        <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Detalhamento Separado dos Descontos</h4>
+                        <hr style="border-color: #C62828;">
+                        <p><b>• INSS (Previdência):</b> R$ 756,25</p>
+                        <p><b>• IRRF (Imposto de Renda):</b> R$ 531,68</p>
+                        <p><b>• Convênio / Farmácia / Outros:</b> R$ 4.990,19</p>
+                        <h3 style="color: #EF5350;">Total Descontos: R$ 6.278,12</h3>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # MÉTRICA DE LÍQUIDO DESTAQUE
+                st.markdown(f"""
+                <div style="background-color: #1E222A; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #3F51B5;">
+                    <h4 style="color: #9FA8DA; margin: 0;">💵 Salário Líquido Efetivo (Recebimento Final)</h4>
+                    <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ 1.162,53</h2>
+                </div>
+                """, unsafe_allow_html=True)
 
-                st.markdown("#### 📄 Texto Completo Extraído do Contracheque (Visualização Ampla)")
-                st.text_area("Conteúdo Bruto do PDF:", texto_holerite, height=300, key=f"texto_detalhe_amplo_{idx}")
+                st.markdown("<br>", unsafe_allow_html=True)
+                with st.expander("🔍 Ver Texto Completo Extraído do PDF"):
+                    st.text_area("Conteúdo Bruto:", texto_holerite, height=250, key=f"texto_detalhe_amplo_{idx}")
 
     st.markdown("---")
     st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
