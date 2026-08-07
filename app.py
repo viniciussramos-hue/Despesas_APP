@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 from datetime import datetime, date
+import pdfplumber
+import io
 
 # --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="💸 Gestor Financeiro Pro", layout="wide")
@@ -40,7 +42,7 @@ c.execute('''CREATE TABLE IF NOT EXISTS tabela_depositos
              (id INTEGER PRIMARY KEY, numero_deposito INTEGER, valor REAL, status TEXT)''')
 conn.commit()
 
-# Inicializa a tabela de 200 depósitos apenas se estiver vazia (preserva os dados salvos)
+# Inicializa a tabela de 200 depósitos apenas se estiver vazia
 if pd.read_sql("SELECT count(*) FROM tabela_depositos", conn).iloc[0,0] == 0:
     for i in range(1, 201):
         c.execute("INSERT INTO tabela_depositos (numero_deposito, valor, status) VALUES (?, ?, ?)", (i, float(i), "Pendente"))
@@ -303,7 +305,7 @@ with aba5:
     
     df_deps = pd.read_sql("SELECT * FROM tabela_depositos", conn)
     total_concluido = df_deps[df_deps['status'] == 'Concluído']['valor'].sum()
-    meta_total_desafio = df_deps['valor'].sum() # Totaliza exatamente R$ 20.100,00
+    meta_total_desafio = df_deps['valor'].sum() 
     
     st.markdown(f"<h3 style='color: #00FF7F; text-align: center;'>Progresso do Desafio: R$ {total_concluido:,.2f} / R$ {meta_total_desafio:,.2f}</h3>", unsafe_allow_html=True)
     st.progress(min(total_concluido / meta_total_desafio if meta_total_desafio > 0 else 0, 1.0))
@@ -539,9 +541,9 @@ with aba8:
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 9: EXTRATO, IMPORTAÇÃO, EXPORTAÇÃO & BACKUP ---
+# --- ABA 9: EXTRATO, IMPORTAÇÃO (CSV/PDF), EXPORTAÇÃO & BACKUP ---
 with aba9:
-    st.subheader("📋 Extrato Corporativo, Importação e Backup")
+    st.subheader("📋 Extrato Corporativo, Importação (CSV / PDF) e Backup")
     
     col_exp1, col_exp2 = st.columns(2)
     with col_exp1:
@@ -561,42 +563,95 @@ with aba9:
 
     st.markdown("---")
     
-    st.write("### 📥 Importar Extrato Bancário (CSV)")
-    st.info("O arquivo CSV deve conter colunas para **Data**, **Descrição** e **Valor** (valores negativos para despesas e positivos para receitas).")
+    # --- SEÇÃO DE IMPORTAÇÃO (CSV E PDF) ---
+    st.write("### 📥 Importar Extrato Bancário (CSV ou PDF)")
+    st.info("Faça o upload do seu extrato bancário em formato **CSV** ou **PDF** para cadastrar as transações automaticamente.")
     
-    arquivo_importado = st.file_uploader("Escolha o arquivo CSV do banco", type=["csv"])
+    arquivo_importado = st.file_uploader("Escolha o arquivo do banco", type=["csv", "pdf"])
+    
     if arquivo_importado is not None:
-        try:
-            df_imp = pd.read_csv(arquivo_importado)
-            st.write("Pré-visualização do arquivo importado:")
-            st.dataframe(df_imp.head(3), use_container_width=True)
-            
-            col_data = st.selectbox("Coluna da Data:", df_imp.columns)
-            col_desc = st.selectbox("Coluna da Descrição:", df_imp.columns)
-            col_val = st.selectbox("Coluna do Valor:", df_imp.columns)
-            
-            if st.button("Confirmar e Importar Transações", use_container_width=True):
-                importados_contador = 0
-                for _, row in df_imp.iterrows():
-                    try:
-                        data_str = str(row[col_data])[:10]
-                        desc_str = str(row[col_desc])
-                        val_float = float(row[col_val])
-                        
-                        tipo_trans = "Receita" if val_float > 0 else "Despesa"
-                        val_absoluto = abs(val_float)
-                        cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
-                        
-                        c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
-                                  (data_str, tipo_trans, desc_str, cat_padrao_imp, val_absoluto))
-                        importados_contador += 1
-                    except Exception:
-                        continue
-                conn.commit()
-                st.success(f"{importados_contador} transações importadas com sucesso!")
-                st.rerun()
-        except Exception as e:
-            st.error(f"Erro ao ler o arquivo: {e}")
+        extensao = arquivo_importado.name.split('.')[-1].lower()
+        
+        if extensao == "csv":
+            try:
+                df_imp = pd.read_csv(arquivo_importado)
+                st.write("Pré-visualização do CSV:")
+                st.dataframe(df_imp.head(3), use_container_width=True)
+                
+                col_data = st.selectbox("Coluna da Data:", df_imp.columns, key="csv_data")
+                col_desc = st.selectbox("Coluna da Descrição:", df_imp.columns, key="csv_desc")
+                col_val = st.selectbox("Coluna do Valor:", df_imp.columns, key="csv_val")
+                
+                if st.button("Confirmar e Importar CSV", use_container_width=True):
+                    importados_contador = 0
+                    for _, row in df_imp.iterrows():
+                        try:
+                            data_str = str(row[col_data])[:10]
+                            desc_str = str(row[col_desc])
+                            val_float = float(row[col_val])
+                            
+                            tipo_trans = "Receita" if val_float > 0 else "Despesa"
+                            val_absoluto = abs(val_float)
+                            cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
+                            
+                            c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
+                                      (data_str, tipo_trans, desc_str, cat_padrao_imp, val_absoluto))
+                            importados_contador += 1
+                        except Exception:
+                            continue
+                    conn.commit()
+                    st.success(f"{importados_contador} transações importadas do CSV com sucesso!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao ler o CSV: {e}")
+                
+        elif extensao == "pdf":
+            try:
+                st.write("📄 Lendo o conteúdo do PDF...")
+                texto_pdf = ""
+                with pdfplumber.open(arquivo_importado) as pdf:
+                    for pagina in pdf.pages:
+                        extraido = pagina.extract_text()
+                        if extraido:
+                            texto_pdf += extraido + "\n"
+                
+                st.text_area("Texto extraído do PDF (Pré-visualização):", texto_pdf[:1500], height=200)
+                st.info("O leitor tentará identificar linhas com datas e valores monetários para inserção automática.")
+                
+                if st.button("Processar e Importar PDF", use_container_width=True):
+                    linhas = texto_pdf.split("\n")
+                    importados_pdf = 0
+                    
+                    for linha in linhas:
+                        # Exemplo de lógica de extração automatizada por padrões de texto de extratos
+                        # Linhas que contêm datas (ex: DD/MM/YYYY ou DD/MM) e valores numéricos
+                        if any(char.isdigit() for char in linha):
+                            try:
+                                # Tratamento básico de exemplo para extração
+                                partes = linha.split()
+                                if len(partes) >= 2:
+                                    # Procura um valor em dinheiro na linha (ex com R$ ou formato 0,00)
+                                    val_str = partes[-1].replace("R$", "").replace(".", "").replace(",", ".")
+                                    val_float = float(val_str)
+                                    
+                                    data_str = date.today().strftime("%Y-%m-%d") # Padrão data atual se não achar
+                                    desc_str = " ".join(partes[:-1])
+                                    
+                                    tipo_trans = "Receita" if val_float > 0 else "Despesa"
+                                    val_absoluto = abs(val_float)
+                                    cat_padrao_imp = "🏠 Contas Fixas (Necessidade)" if tipo_trans == "Despesa" else "Salário"
+                                    
+                                    c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
+                                              (data_str, tipo_trans, desc_str, cat_padrao_imp, val_absoluto))
+                                    importados_pdf += 1
+                            except Exception:
+                                continue
+                    
+                    conn.commit()
+                    st.success(f"{importados_pdf} lançamentos extraídos e importados do PDF com sucesso!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao processar o PDF: {e}")
 
     st.markdown("---")
     
@@ -626,7 +681,7 @@ with aba9:
                           (novo_tipo, nova_desc, nova_cat, novo_valor, id_editar))
                 conn.commit()
                 st.success(f"Transação ID {id_editar} atualizada com sucesso!")
-                st.rerun()
+                    st.rerun()
 
         st.markdown("---")
         st.subheader("Visualização Completa do Extrato")
