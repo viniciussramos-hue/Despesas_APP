@@ -408,7 +408,7 @@ with aba9:
 # --- ABA 10: CONTAS A PAGAR ---
 with aba10:
     st.subheader("📅 Calendário de Contas & Gerenciamento")
-    with aba10_form := st.form("conta", clear_on_submit=True):
+    with st.form("conta", clear_on_submit=True):
         col_c1, col_c2 = st.columns(2)
         with col_c1:
             venc = st.date_input("Data de Vencimento")
