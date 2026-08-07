@@ -730,7 +730,7 @@ with aba11:
     st.markdown("---")
     
     st.write("### 📥 Importar Extrato Bancário com Categorização Automática (CSV ou PDF)")
-    st.info("Faça o upload do extrato em **CSV** ou **PDF** (ex: Itaú). O app identificará os lançamentos e categorizará automaticamente.")
+    st.info("Faça o upload do extrato em **CSV** ou **PDF** (ex: Itaú). O app identificará os lançamentos (ignorando saldos diários) e categorizará automaticamente.")
     
     arquivo_importado = st.file_uploader("Escolha o arquivo do banco", type=["csv", "pdf"])
     
@@ -782,12 +782,17 @@ with aba11:
                 
                 st.text_area("Texto extraído do PDF (Pré-visualização):", texto_pdf[:1500], height=200)
                 
-                if st.button("Processar e Importar PDF do Itaú (Com IA de Categorias)", use_container_width=True):
+                if st.button("Processar e Importar PDF do Itaú (Com Filtro de Saldo)", use_container_width=True):
                     linhas = texto_pdf.split("\n")
                     importados_pdf = 0
                     data_recente = date.today().strftime("%Y-%m-%d")
                     
                     for linha in linhas:
+                        linha_upper = linha.upper()
+                        # FILTRO CRUCIAL: Ignora linhas que contenham "SALDO" (como "SALDO DO DIA")
+                        if "SALDO" in linha_upper:
+                            continue
+                            
                         partes = linha.split()
                         if len(partes) >= 3 and "/" in partes[0] and len(partes[0]) == 10:
                             try:
@@ -816,7 +821,7 @@ with aba11:
                                 continue
                     
                     conn.commit()
-                    st.success(f"{importados_pdf} lançamentos do PDF extraídos e categorizados com sucesso!")
+                    st.success(f"{importados_pdf} lançamentos do PDF extraídos e categorizados com sucesso (saldos ignorados)!")
                     st.rerun()
             except Exception as e:
                 st.error(f"Erro ao processar o PDF: {e}")
