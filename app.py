@@ -178,8 +178,7 @@ with aba3:
     df_contas_check = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
     if not df_contas_check.empty:
         hoje = date.today()
-        vencidas = []
-        proximas = []
+        vencidas, proximas = [], []
         for _, row in df_contas_check.iterrows():
             data_venc = datetime.strptime(row['vencimento'], "%Y-%m-%d").date()
             dias_diff = (data_venc - hoje).days
@@ -408,7 +407,7 @@ with aba9:
 # --- ABA 10: CONTAS A PAGAR ---
 with aba10:
     st.subheader("📅 Calendário de Contas & Gerenciamento")
-    with st.form("conta", clear_on_submit=True):
+    with st.form("conta_form_unique", clear_on_submit=True):
         col_c1, col_c2 = st.columns(2)
         with col_c1:
             venc = st.date_input("Data de Vencimento")
