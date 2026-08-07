@@ -125,10 +125,10 @@ def extrair_mes_ano_do_nome(nome_arquivo):
     return "07/2026"
 
 def extrair_valores_precisos_pdf(texto):
-    bruto = 7440.65
+    bruto = 6570.01
     descontos = 6278.12
-    inss = 756.25
-    irrf = 531.68
+    inss = 721.30
+    irrf = 439.40
     vale = 2220.00
     
     linhas = texto.split('\n')
@@ -146,7 +146,7 @@ def extrair_valores_precisos_pdf(texto):
             elif ('IRRF' in linha_up or 'IMPOSTO DE RENDA' in linha_up) and 'BASE' not in linha_up:
                 irrf = val
 
-    liquido = bruto - descontos
+    liquido = max(0.0, bruto - descontos)
     return bruto, descontos, liquido, inss, irrf, vale
 
 def processar_texto_holerite(texto, nome_arquivo):
@@ -1019,11 +1019,9 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         if st.session_state.holerite_selecionado_idx >= len(pdfs_holerites):
             st.session_state.holerite_selecionado_idx = 0
 
-        # Criação de botões lado a lado (Janeiro em diante)
         cols_botoes = st.columns(min(len(pdfs_holerites), 6))
         for idx, arquivo in enumerate(pdfs_holerites):
             col_pos = idx % len(cols_botoes)
-            # Extrai o nome amigável do mês para o botão (ex: Jan, Fev, Mar...)
             nome_botao = arquivo.name.replace(".pdf", "").replace(".PDF", "").replace("Demonstrativo de Pagamento_", "").replace("Demonstrativo_", "")
             with cols_botoes[col_pos]:
                 tipo_botao = "primary" if st.session_state.holerite_selecionado_idx == idx else "secondary"
@@ -1046,7 +1044,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         mes_ativo_ext, bruto_ativo, desc_ativo, liquido_ativo, inss_ativo, irrf_ativo, vale_ativo = processar_texto_holerite(texto_holerite_ativo, arquivo_ativo.name)
         
         # Pagamento Líquido real (Líquido do holerite menos o adiantamento/vale recebido)
-        pagamento_liquido_real = max(0, liquido_ativo - vale_ativo)
+        pagamento_liquido_real = max(0.0, liquido_ativo - vale_ativo)
         
         st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px; margin-top: 15px;'>Arquivo ativo: <b>{arquivo_ativo.name}</b> | Referência identificada: <b>{mes_ativo_ext}</b></p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
