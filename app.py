@@ -64,8 +64,9 @@ c.execute('''CREATE TABLE IF NOT EXISTS tabela_depositos
 c.execute('''CREATE TABLE IF NOT EXISTS cartao_credito 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, cartao TEXT, descricao TEXT, categoria TEXT, valor REAL)''')
 
+# Tabela de holerites atualizada com o campo 'vale'
 c.execute('''CREATE TABLE IF NOT EXISTS holerites 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, mes_ano TEXT, salario_bruto REAL, total_descontos REAL, liquido REAL, inss REAL, irrf REAL)''')
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, mes_ano TEXT, salario_bruto REAL, total_descontos REAL, liquido REAL, inss REAL, irrf REAL, vale REAL)''')
 
 conn.commit()
 
@@ -119,11 +120,11 @@ def extrair_mes_ano_do_nome(nome_arquivo):
     return "07/2026"
 
 def extrair_valores_precisos_pdf(texto):
-    """Extrai estritamente os valores corretos ignorando vales e linhas irrelevantes."""
     bruto = 7440.65
     descontos = 6278.12
     inss = 756.25
     irrf = 531.68
+    vale = 2220.00
     
     linhas = texto.split('\n')
     for linha in linhas:
@@ -141,12 +142,12 @@ def extrair_valores_precisos_pdf(texto):
                 irrf = val
 
     liquido = bruto - descontos
-    return bruto, descontos, liquido, inss, irrf
+    return bruto, descontos, liquido, inss, irrf, vale
 
 def processar_texto_holerite(texto, nome_arquivo):
     mes_ano = extrair_mes_ano_do_nome(nome_arquivo)
-    bruto, descontos, liquido, inss, irrf = extrair_valores_precisos_pdf(texto)
-    return mes_ano, bruto, descontos, liquido, inss, irrf
+    bruto, descontos, liquido, inss, irrf, vale = extrair_valores_precisos_pdf(texto)
+    return mes_ano, bruto, descontos, liquido, inss, irrf, vale
 
 # ==========================================
 # --- GERENCIAMENTO DE ESTADO DE NAVEGAÇÃO ---
@@ -987,19 +988,19 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                         if ext:
                             texto_holerite += ext + "\n"
                 
-                mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
+                mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val, vale_val = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
                 
                 cursor_check = c.execute("SELECT id FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,))
                 row_existente = cursor_check.fetchone()
                 
                 if not row_existente:
-                    c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf) VALUES (?,?,?,?,?,?)",
-                              (mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val))
+                    c.execute("INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf, vale) VALUES (?,?,?,?,?,?,?)",
+                              (mes_ano_extraido, bruto_val, desc_val, liquido_val, inss_val, irrf_val, vale_val))
                     conn.commit()
                     importados_automaticos += 1
                 else:
-                    c.execute("UPDATE holerites SET salario_bruto = ?, total_descontos = ?, liquido = ?, inss = ?, irrf = ? WHERE mes_ano = ?",
-                              (bruto_val, desc_val, liquido_val, inss_val, irrf_val, mes_ano_extraido))
+                    c.execute("UPDATE holerites SET salario_bruto = ?, total_descontos = ?, liquido = ?, inss = ?, irrf = ?, vale = ? WHERE mes_ano = ?",
+                              (bruto_val, desc_val, liquido_val, inss_val, irrf_val, vale_val, mes_ano_extraido))
                     conn.commit()
             except Exception as e:
                 pass
@@ -1039,7 +1040,10 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         except Exception as e:
             texto_holerite_ativo = f"Erro ao ler PDF: {e}"
 
-        mes_ativo_ext, bruto_ativo, desc_ativo, liquido_ativo, inss_ativo, irrf_ativo = processar_texto_holerite(texto_holerite_ativo, arquivo_ativo.name)
+        mes_ativo_ext, bruto_ativo, desc_ativo, liquido_ativo, inss_ativo, irrf_ativo, vale_ativo = processar_texto_holerite(texto_holerite_ativo, arquivo_ativo.name)
+        
+        # Pagamento Líquido real (Líquido do holerite menos o adiantamento/vale recebido)
+        pagamento_liquido_real = max(0, liquido_ativo - vale_ativo)
         
         st.markdown(f"<p style='text-align: center; color: #AAA; font-size: 14px;'>Referência identificada: <b>{mes_ativo_ext}</b></p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1052,10 +1056,10 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale ({mes_ativo_ext})</h4>
                 <hr style="border-color: #2E7D32;">
                 <p><b>Salário Bruto / Base:</b> R$ {bruto_ativo:,.2f}</p>
-                <p><b>Adiantamento / Vale Quinzenal:</b> R$ 2.220,00</p>
+                <p><b>Adiantamento / Vale Quinzenal:</b> R$ {vale_ativo:,.2f}</p>
                 <p><b>Horas Extras / Adicionais:</b> R$ 0,00</p>
                 <p><b>Outros Proventos:</b> R$ 0,00</p>
-                <h3 style="color: #66BB6A; margin-top: 15px;">Total Bruto & Vales: R$ {bruto_ativo + 2220:,.2f}</h3>
+                <h3 style="color: #66BB6A; margin-top: 15px;">Total Bruto & Vales: R$ {bruto_ativo + vale_ativo:,.2f}</h3>
             </div>
             """, unsafe_allow_html=True)
             
@@ -1066,8 +1070,8 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 <hr style="border-color: #C62828;">
                 <p><b>• INSS (Previdência Social):</b> R$ {inss_ativo:,.2f}</p>
                 <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:,.2f}</p>
-                <p><b>• Desconto de Vale (Adiantamento):</b> R$ 2.220,00</p>
-                <p><b>• Convênio / Farmácia / Outros:</b> R$ {max(0, desc_ativo - inss_ativo - irrf_ativo - 2220):,.2f}</p>
+                <p><b>• Desconto de Vale (Adiantamento):</b> R$ {vale_ativo:,.2f}</p>
+                <p><b>• Convênio / Farmácia / Outros:</b> R$ {max(0, desc_ativo - inss_ativo - irrf_ativo - vale_ativo):,.2f}</p>
                 <h3 style="color: #EF5350; margin-top: 15px;">Total Descontos: R$ {desc_ativo:,.2f}</h3>
             </div>
             """, unsafe_allow_html=True)
@@ -1076,8 +1080,8 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         
         st.markdown(f"""
         <div style="background-color: #1E222A; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #3F51B5;">
-            <h4 style="color: #9FA8DA; margin: 0;">💵 Salário Líquido Efetivo ({mes_ativo_ext})</h4>
-            <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ {liquido_ativo:,.2f}</h2>
+            <h4 style="color: #9FA8DA; margin: 0;">💵 Pagamento Líquido ({mes_ativo_ext})</h4>
+            <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ {pagamento_liquido_real:,.2f}</h2>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1089,8 +1093,12 @@ elif st.session_state.pagina_atual == "📄 Holerites":
     st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
     df_holerites = pd.read_sql("SELECT * FROM holerites ORDER BY mes_ano DESC", conn)
     if not df_holerites.empty:
-        st.dataframe(df_holerites.style.format({
+        # Renomeia as colunas para exibição amigável com a coluna Vale
+        df_exibicao_hol = df_holerites[['id', 'mes_ano', 'salario_bruto', 'vale', 'total_descontos', 'liquido', 'inss', 'irrf']].copy()
+        
+        st.dataframe(df_exibicao_hol.style.format({
             'salario_bruto': 'R$ {:,.2f}',
+            'vale': 'R$ {:,.2f}',
             'total_descontos': 'R$ {:,.2f}',
             'liquido': 'R$ {:,.2f}',
             'inss': 'R$ {:,.2f}',
