@@ -6,7 +6,25 @@ from datetime import datetime
 # --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="💸 Gestor Financeiro Pro", layout="wide")
 
-# Conexão Banco (Persistente no arquivo gestor_financeiro.db)
+# --- SISTEMA DE SENHA / AUTENTICAÇÃO ---
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+
+if not st.session_state.autenticado:
+    st.title("🔒 Acesso Restrito - Gestor Financeiro")
+    senha_digitada = st.text_input("Digite a senha de acesso:", type="password")
+    
+    # Defina a senha que você quiser aqui (atualmente configurada como '1234')
+    if st.button("Entrar", use_container_width=True):
+        if senha_digitada == "1234":
+            st.session_state.autenticado = True
+            st.success("Acesso liberado!")
+            st.rerun()
+        else:
+            st.error("Senha incorreta! Tente novamente.")
+    st.stop()  # Para a execução do app aqui se não estiver logado
+
+# --- CONEXÃO BANCO DE DADOS (PERSISTENTE) ---
 conn = sqlite3.connect("gestor_financeiro.db", check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS transacoes 
@@ -18,8 +36,14 @@ conn.commit()
 # --- TÍTULO ---
 st.title("💸 Gestor Financeiro Profissional")
 
+# Botão de Sair (Logout) na barra lateral
+with st.sidebar:
+    if st.button("🔒 Bloquear / Sair"):
+        st.session_state.autenticado = False
+        st.rerun()
+
 # --- DEFINIÇÃO DAS ABAS ---
-aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard & 50/30/20", "📅 Contas a Pagar & Edição", "📋 Extrato & Edição"])
+aba1, aba2, aba3, aba4, aba5 = st.tabs(["🔴 Lançar Despesa", "🟢 Entradas & Salários", "📊 Dashboard & 50/30/20", "📅 Contas a Pagar & Edição", "📋 Extrato & Backup"])
 
 # --- ABA 1: LANÇAR DESPESA ---
 with aba1:
