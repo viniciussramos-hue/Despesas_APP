@@ -76,10 +76,11 @@ with aba1:
         desc = st.text_input("Descrição (Ex: Supermercado, Aluguel, Uber)")
         valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
         cat = st.selectbox("Categoria", lista_categorias)
+        data_desp = st.date_input("Data do Gasto", value=date.today())
         
         if st.form_submit_button("Salvar Despesa", use_container_width=True):
             c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
-                      (datetime.now().strftime("%Y-%m-%d"), "Despesa", desc, cat, valor))
+                      (data_desp.strftime("%Y-%m-%d"), "Despesa", desc, cat, valor))
             conn.commit()
             st.success("Despesa salva com sucesso!")
 
@@ -90,18 +91,34 @@ with aba2:
         desc_rec = st.text_input("Descrição (Ex: Salário Mensal, 13º Salário, Férias, Vale)")
         valor_rec = st.number_input("Valor da Entrada (R$)", min_value=0.0, format="%.2f")
         cat_rec = st.selectbox("Tipo de Receita", ["Salário", "Vale", "13º Salário", "Férias", "Freelance / Extra", "Outras Receitas"])
-        data_rec = st.date_input("Data de Recebimento")
+        data_rec = st.date_input("Data de Recebimento", value=date.today())
         if st.form_submit_button("Salvar Entrada", use_container_width=True):
             c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor) VALUES (?,?,?,?,?)",
                       (data_rec.strftime("%Y-%m-%d"), "Receita", desc_rec, cat_rec, valor_rec))
             conn.commit()
             st.success("Entrada registrada com sucesso!")
 
-# --- ABA 3: DASHBOARD & NOTIFICAÇÕES DE CONTAS ---
+# --- ABA 3: DASHBOARD COM FILTRO DE PERÍODO & GRÁFICOS PROFISSIONAIS ---
 with aba3:
-    st.subheader("📊 Painel de Controle & Alertas de Vencimento")
+    st.subheader("📊 Painel de Controle Corporativo & Alertas")
     
-    # --- SISTEMA DE NOTIFICAÇÃO INTELIGENTE DE CONTAS ---
+    # --- FILTRO GLOBAL DE MÊS/ANO ---
+    df_all = pd.read_sql("SELECT * FROM transacoes", conn)
+    if not df_all.empty:
+        df_all['data'] = pd.to_datetime(df_all['data'])
+        df_all['ano_mes'] = df_all['data'].dt.strftime('%Y-%m')
+        meses_disponiveis = sorted(df_all['ano_mes'].unique(), reverse=True)
+        
+        col_f1, col_f2 = st.columns([2, 4])
+        with col_f1:
+            mes_selecionado = st.selectbox("Filtrar por Mês/Ano:", meses_disponiveis)
+        
+        # Filtra o dataframe pelo mês escolhido
+        df = df_all[df_all['ano_mes'] == mes_selecionado].copy()
+    else:
+        df = df_all.copy()
+
+    # --- NOTIFICAÇÕES DE CONTAS PENDENTES ---
     df_contas_check = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
     if not df_contas_check.empty:
         hoje = date.today()
@@ -118,11 +135,10 @@ with aba3:
                 proximas.append(f"• **{row['descricao']}** (Vence em {row['vencimento']} - R$ {row['valor']:.2f})")
                 
         if vencidas:
-            st.error("🚨 **Atenção! Você possui contas VENCIDAS:**\n\n" + "\n".join(vencidas))
+            st.error("🚨 **Atenção! Contas VENCIDAS:**\n\n" + "\n".join(vencidas))
         if proximas:
-            st.warning("⚠️ **Aviso: Contas próximas do vencimento (próximos 3 dias):**\n\n" + "\n".join(proximas))
+            st.warning("⚠️ **Aviso: Contas próximas do vencimento (3 dias):**\n\n" + "\n".join(proximas))
 
-    df = pd.read_sql("SELECT * FROM transacoes", conn)
     df_contas = pd.read_sql("SELECT * FROM contas", conn)
     
     if not df.empty or not df_contas.empty:
@@ -136,19 +152,15 @@ with aba3:
             total_contas_pendentes = df_contas[df_contas['pago'] == 0]['valor'].sum()
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("💰 Saldo em Caixa", f"R$ {saldo_caixa:.2f}")
-        col2.metric("🟢 Total Entradas", f"R$ {receitas:.2f}")
-        col3.metric("🔴 Total Despesas", f"R$ {despesas:.2f}")
+        col1.metric("💰 Saldo do Período", f"R$ {saldo_caixa:.2f}")
+        col2.metric("🟢 Entradas", f"R$ {receitas:.2f}")
+        col3.metric("🔴 Despesas", f"R$ {despesas:.2f}")
         col4.metric("📅 Contas Pendentes", f"R$ {total_contas_pendentes:.2f}")
 
         st.markdown("---")
-        dia_hoje = datetime.now().day
-        projecao_final = (despesas / max(dia_hoje, 1)) * 30
-        st.info(f"💡 **Projeção de Fechamento de Mês:** R$ {projecao_final:.2f}")
-
-        st.markdown("---")
-        st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
         
+        # --- REGRA 50/30/20 ---
+        st.subheader("🎯 Acompanhamento da Regra 50 / 30 / 20")
         if receitas > 0:
             nec = df[df['categoria'].str.contains("Necessidade", na=False)]['valor'].sum()
             des = df[df['categoria'].str.contains("Desejos", na=False)]['valor'].sum()
@@ -172,15 +184,27 @@ with aba3:
                 st.write(f"Guardado: R$ {inv:.2f} / Meta: R$ {meta_inv:.2f}")
                 st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
         else:
-            st.warning("Cadastre ao menos uma entrada (Receita) para calcular as metas.")
+            st.warning("Cadastre ao menos uma entrada (Receita) neste período para calcular as metas.")
 
         st.markdown("---")
-        st.write("### Despesas por Categoria")
+        
+        # --- GRÁFICOS PROFISSIONAIS ---
+        st.subheader("📈 Distribuição Analítica de Despesas")
         df_desp = df[df['tipo'] == 'Despesa']
         if not df_desp.empty:
-            st.bar_chart(df_desp.groupby('categoria')['valor'].sum())
+            gasto_cat = df_desp.groupby('categoria')['valor'].sum()
+            
+            col_g1, col_g2 = st.columns(2)
+            with col_g1:
+                st.write("**Gráfico de Barras por Categoria**")
+                st.bar_chart(gasto_cat)
+            with col_g2:
+                st.write("**Resumo Percentual de Gastos**")
+                st.dataframe(gasto_cat.reset_index().rename(columns={'valor': 'Total Gasto (R$)'}), use_container_width=True)
+        else:
+            st.info("Nenhuma despesa registrada para este mês.")
     else:
-        st.info("Comece registrando entradas e despesas para visualizar o dashboard.")
+        st.info("Comece registrando entradas e despesas para visualizar o dashboard corporativo.")
 
 # --- ABA 4: METAS & CATEGORIAS ---
 with aba4:
@@ -365,19 +389,33 @@ with aba6:
     else:
         st.info("Nenhuma conta cadastrada no calendário.")
 
-# --- ABA 7: EXTRATO & BACKUP ---
+# --- ABA 7: EXTRATO, EXPORTAÇÃO EXCEL & BACKUP ---
 with aba7:
-    st.subheader("📋 Extrato, Edição e Backup")
+    st.subheader("📋 Extrato Corporativo, Exportação e Backup")
     
-    with open("gestor_financeiro.db", "rb") as f:
-        st.download_button("💾 Baixar Backup do Banco de Dados (Segurança)", f, "gestor_financeiro.db", use_container_width=True)
+    col_exp1, col_exp2 = st.columns(2)
+    with col_exp1:
+        # Botão de Backup do Banco de Dados
+        with open("gestor_financeiro.db", "rb") as f:
+            st.download_button("💾 Baixar Backup do Banco (.db)", f, "gestor_financeiro.db", use_container_width=True)
+    with col_exp2:
+        # Botão de Exportação para CSV / Excel
+        df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
+        if not df_extrato_full.empty:
+            csv_data = df_extrato_full.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📊 Exportar Extrato para Excel (CSV)",
+                data=csv_data,
+                file_name="extrato_financeiro.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
 
     st.markdown("---")
-    df_extrato = pd.read_sql("SELECT * FROM transacoes", conn)
     
-    if not df_extrato.empty:
+    if not df_extrato_full.empty:
         st.write("### ❌ Excluir Lançamento Específico")
-        id_excluir = st.selectbox("Selecione o ID da transação para apagar:", df_extrato['id'].tolist())
+        id_excluir = st.selectbox("Selecione o ID da transação para apagar:", df_extrato_full['id'].tolist())
         if st.button("Excluir Lançamento Selecionado"):
             c.execute("DELETE FROM transacoes WHERE id = ?", (id_excluir,))
             conn.commit()
@@ -387,8 +425,8 @@ with aba7:
         st.markdown("---")
         
         st.write("### ✏️ Editar Lançamento")
-        id_editar = st.selectbox("Selecione o ID para editar:", df_extrato['id'].tolist(), key="select_edit")
-        item_atual = df_extrato[df_extrato['id'] == id_editar].iloc[0]
+        id_editar = st.selectbox("Selecione o ID para editar:", df_extrato_full['id'].tolist(), key="select_edit")
+        item_atual = df_extrato_full[df_extrato_full['id'] == id_editar].iloc[0]
         
         with st.form("form_editar"):
             novo_tipo = st.selectbox("Tipo", ["Despesa", "Receita"], index=0 if item_atual['tipo'] == "Despesa" else 1)
@@ -405,7 +443,7 @@ with aba7:
 
         st.markdown("---")
         st.subheader("Visualização Completa do Extrato")
-        st.dataframe(df_extrato, use_container_width=True)
+        st.dataframe(df_extrato_full, use_container_width=True)
         
         if st.button("🗑️ Limpar TODO o Extrato", use_container_width=True):
             c.execute("DELETE FROM transacoes")
