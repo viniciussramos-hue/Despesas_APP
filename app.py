@@ -1014,6 +1014,8 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
   )
 
   df_deps = pd.read_sql("SELECT * FROM tabela_depositos", conn)
+  
+  # Cálculo acumulado correto: soma todos os valores dos depósitos cujo status é 'Concluído'
   total_concluido = df_deps[df_deps["status"] == "Concluído"]["valor"].sum()
   meta_total_desafio = df_deps["valor"].sum()
 
@@ -1040,31 +1042,28 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
   with col_dir:
     st.write("### ⚙️ Atualizar Status do Depósito")
     with st.form("form_atualizar_deposito_completo"):
-      dep_sel = st.selectbox(
-          "Selecione o Número do Depósito:", df_deps["numero_deposito"].tolist()
-      )
-      status_atual_obj = df_deps[df_deps["numero_deposito"] == dep_sel][
-          "status"
-      ].values
-      index_atual = (
-          0
-          if len(status_atual_obj) > 0 and status_atual_obj[0] == "Pendente"
-          else 1
+      # Seleção múltipla permitindo escolher vários depósitos simultaneamente
+      deps_sel = st.multiselect(
+          "Selecione os Números dos Depósitos:", df_deps["numero_deposito"].tolist()
       )
       status_novo = st.selectbox(
-          "Novo Status:", ["Pendente", "Concluído"], index=index_atual
+          "Novo Status:", ["Pendente", "Concluído"], index=1
       )
 
-      if st.form_submit_button("Salvar Status do Depósito", use_container_width=True):
-        c.execute(
-            "UPDATE tabela_depositos SET status = ? WHERE numero_deposito = ?",
-            (status_novo, dep_sel),
-        )
-        conn.commit()
-        st.success(
-            f"Depósito {dep_sel} atualizado para '{status_novo}' com sucesso!"
-        )
-        st.rerun()
+      if st.form_submit_button("Salvar Status dos Depósitos", use_container_width=True):
+        if deps_sel:
+          for d_num in deps_sel:
+            c.execute(
+                "UPDATE tabela_depositos SET status = ? WHERE numero_deposito = ?",
+                (status_novo, d_num),
+            )
+          conn.commit()
+          st.success(
+              f"Depósito(s) {', '.join(map(str, deps_sel))} atualizado(s) para '{status_novo}' com sucesso!"
+          )
+          st.rerun()
+        else:
+          st.warning("Selecione ao menos um depósito.")
 
     if st.button("🔄 Resetar Todos para Pendentes", use_container_width=True):
       c.execute("UPDATE tabela_depositos SET status = 'Pendente'")
