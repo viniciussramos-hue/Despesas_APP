@@ -623,12 +623,17 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 3: DASHBOARD ---
+# --- SEÇÃO 3: DASHBOARD (REFORMULADA & PROFISSIONAL) ---
 # ==========================================
 elif st.session_state.pagina_atual == "📊 Dashboard":
-  st.subheader("📊 Painel de Controle Corporativo & Alertas Analíticos")
+  st.subheader("📊 Executive Dashboard & Inteligência Financeira")
+  st.write("Painel gerencial consolidado com indicadores de desempenho, fluxo e eficiência patrimonial.")
 
   df_all = pd.read_sql("SELECT * FROM transacoes", conn)
+  df_inv_dash = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
+  df_cartao_dash = pd.read_sql("SELECT * FROM cartao_credito", conn)
+  df_contas_dash = pd.read_sql("SELECT * FROM contas", conn)
+
   if not df_all.empty:
     df_all["data"] = pd.to_datetime(df_all["data"])
     df_all["ano_mes"] = df_all["data"].dt.strftime("%Y-%m")
@@ -637,13 +642,14 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
     col_f1, col_f2 = st.columns([2, 4])
     with col_f1:
       mes_selecionado = st.selectbox(
-          "Filtrar Visão por Mês/Ano:", meses_disponiveis
+          "📅 Filtrar Visão Analítica por Mês/Ano:", meses_disponiveis
       )
 
     df = df_all[df_all["ano_mes"] == mes_selecionado].copy()
   else:
     df = df_all.copy()
 
+  # Alertas de orçamento e contas
   if not df_all.empty and not df.empty:
     df_desp_all = df_all[df_all["tipo"] == "Despesa"]
     if len(df_desp_all["ano_mes"].unique()) > 1:
@@ -679,7 +685,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
             f" {gasto_cat_mes:,.2f} / Meta: R$ {m['valor_meta']:,.2f})"
         )
 
-  df_contas_check = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
+  df_contas_check = df_contas_dash[df_contas_dash["pago"] == 0]
   if not df_contas_check.empty:
     hoje = date.today()
     vencidas, proximas = [], []
@@ -706,47 +712,53 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
           + "\n".join(proximas)
       )
 
-  df_contas = pd.read_sql("SELECT * FROM contas", conn)
-
   if not df_all.empty:
     df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
     receitas = df[df["tipo"] == "Receita"]["valor"].sum()
     despesas = df[df["tipo"] == "Despesa"]["valor"].sum()
     saldo_caixa = receitas - despesas
-    total_contas_pendentes = (
-        df_contas[df_contas["pago"] == 0]["valor"].sum()
-        if not df_contas.empty
-        else 0
-    )
+    
+    patrimonio_investido = (df_inv_dash["quantidade"] * df_inv_dash["preco_medio"]).sum() if not df_inv_dash.empty else 0.0
+    total_faturas_cartao = df_cartao_dash["valor"].sum() if not df_cartao_dash.empty else 0.0
+    total_contas_pendentes = df_contas_dash[df_contas_dash["pago"] == 0]["valor"].sum() if not df_contas_dash.empty else 0.0
+    patrimonio_liquido_global = patrimonio_investido + max(0, saldo_caixa)
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("💰 Saldo do Período", f"R$ {saldo_caixa:,.2f}")
-    col2.metric("🟢 Entradas Totais", f"R$ {receitas:,.2f}")
-    col3.metric("🔴 Despesas Totais", f"R$ {despesas:,.2f}")
-    col4.metric("📅 Contas Pendentes", f"R$ {total_contas_pendentes:,.2f}")
+    # --- LINHA 1 DE MÉTRICAS EXECUTIVAS ---
+    st.markdown("### 💼 Visão Geral do Período Selecionado")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("💰 Saldo do Período", f"R$ {saldo_caixa:,.2f}", delta=f"{(saldo_caixa):,.2f}")
+    m2.metric("🟢 Entradas Totais", f"R$ {receitas:,.2f}")
+    m3.metric("🔴 Despesas Totais", f"R$ {despesas:,.2f}")
+    m4.metric("📈 Taxa de Poupança", f"{(inv_tax := (df[df['categoria'].str.contains('Investimentos', na=False)]['valor'].sum() / receitas * 100) if receitas > 0 else 0.0):.1f}%")
 
-    # --- RECURSO PROFISSIONAL 2: Indicador de Runway / Autonomia Financeira ---
+    # --- LINHA 2 DE MÉTRICAS EXECUTIVAS ---
+    st.markdown("### 🏛️ Indicadores Patrimoniais & Passivos")
+    p1, p2, p3, p4 = st.columns(4)
+    p1.metric("💎 Patrimônio Líquido Global", f"R$ {patrimonio_liquido_global:,.2f}")
+    p2.metric("📈 Total Investido", f"R$ {patrimonio_investido:,.2f}")
+    p3.metric("💳 Faturas de Cartão", f"R$ {total_faturas_cartao:,.2f}")
+    p4.metric("📅 Contas a Pagar", f"R$ {total_contas_pendentes:,.2f}")
+
+    # --- CARD DE RUNWAY / AUTONOMIA FINANCEIRA ---
     st.markdown("---")
-    st.subheader("🛡️ Indicador de Runway / Autonomia Financeira (Reserva)")
-    df_inv_runway = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
-    patrimonio_liquido_total = 0.0
-    if not df_inv_runway.empty:
-      patrimonio_liquido_total = (df_inv_runway["quantidade"] * df_inv_runway["preco_medio"]).sum()
-    patrimonio_liquido_total += max(0, saldo_caixa)
-
     media_despesa_mensal = df_all[df_all["tipo"] == "Despesa"]["valor"].mean() if not df_all.empty else 0.0
     if len(df_all["ano_mes"].unique()) > 0:
-      despesa_por_mes = df_all[df_all["tipo"] == "Despesa"].groupby("ano_mes")["valor"].sum()
-      media_despesa_mensal = despesa_por_mes.mean() if not despesa_por_mes.empty else 3000.0
+      desp_por_mes = df_all[df_all["tipo"] == "Despesa"].groupby("ano_mes")["valor"].sum()
+      media_despesa_mensal = desp_por_mes.mean() if not desp_por_mes.empty else 3000.0
+    
+    meses_runway = (patrimonio_liquido_global / media_despesa_mensal) if media_despesa_mensal > 0 else 0.0
 
-    meses_runway = (patrimonio_liquido_total / media_despesa_mensal) if media_despesa_mensal > 0 else 0.0
-
-    col_r1, col_r2 = st.columns(2)
-    with col_r1:
-      st.metric("⏳ Autonomia Estimada (Runway)", f"{meses_runway:.1f} meses", help="Quantos meses o seu patrimônio atual bancaria o seu padrão de vida médio.")
-    with col_r2:
-      st.info(f"💡 Com base na sua despesa média mensal de **R$ {media_despesa_mensal:,.2f}**, o seu patrimônio atual de **R$ {patrimonio_liquido_total:,.2f}** garante total cobertura por **{meses_runway:.1f} meses** sem novas entradas.")
-    # ------------------------------------------------------------------------
+    st.markdown(
+        f"""
+        <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+            <h4 style="color: #60a5fa; margin-top: 0; display: flex; align-items: center; gap: 8px;">🛡️ Índice de Autonomia Financeira (Runway)</h4>
+            <p style="color: #f8fafc; font-size: 15px; margin-bottom: 5px;">
+                O seu patrimônio atual garante <b>{meses_runway:.1f} meses</b> de autonomia completa com base na sua despesa média mensal (<b>R$ {media_despesa_mensal:,.2f}</b>).
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown("---")
     st.subheader("🎯 Acompanhamento Rigoroso da Regra 50 / 30 / 20")
@@ -1786,13 +1798,11 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
     except Exception as e:
       st.error(f"Erro ao processar extrato bancário em PDF: {e}")
 
-  # --- RECURSO PROFISSIONAL 1: Módulo de Reconciliação Bancária Automatizada ---
   st.markdown("---")
   st.subheader("📑 Módulo de Reconciliação Bancária Automatizada")
   st.write("Verifique divergências entre os lançamentos manuais do sistema e o extrato importado mais recentemente.")
 
   if arquivo_importado is not None and arquivo_importado.name.endswith(".pdf"):
-    # Extrai os dados do PDF em memória para conciliação sem duplicar inserções
     transacoes_pdf_temp = []
     for linha in texto_pdf_extrato.split("\n"):
       if "SALDO" in linha.upper():
@@ -1817,7 +1827,6 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
       df_pdf_temp = pd.DataFrame(transacoes_pdf_temp)
       df_banco_atual = pd.read_sql("SELECT data, descricao, valor, tipo FROM transacoes", conn)
       
-      # Cruza dados para achar itens no PDF que não estão no banco cadastrados exatamente igual
       if not df_banco_atual.empty:
         merged_rec = pd.merge(df_pdf_temp, df_banco_atual, on=["data", "valor", tipo_trans := "tipo"], how="left", indicator=True)
         divergentes = merged_rec[merged_rec["_merge"] == "left_only"]
@@ -1833,7 +1842,6 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
       st.info("Nenhuma transação válida lida no PDF atual para reconciliação.")
   else:
     st.info("Faça o upload de um extrato bancário em PDF acima para habilitar o painel de Reconciliação Automatizada.")
-  # --------------------------------------------------------------------------
 
   st.markdown("---")
   st.write("### 🔍 Pesquisa Avançada & Filtros Inteligentes no Extrato")
