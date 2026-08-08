@@ -1534,8 +1534,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
 elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
   st.subheader("🏷️ Gerenciamento de Categorias Personalizadas & Ícones")
   st.write(
-      "Cadastre novas categorias customizadas para o seu ecossistema"
-      " financeiro."
+      "Cadastre novas categorias customizadas, edite ou exclua as existentes."
   )
 
   col_m1, col_m2 = st.columns(2)
@@ -1573,23 +1572,56 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
           st.error("Digite um nome válido para a categoria.")
 
   with col_m2:
-    st.write("### 🗑️ Excluir Categoria Personalizada")
-    df_cats_excluir = pd.read_sql("SELECT * FROM categorias", conn)
-    if not df_cats_excluir.empty:
-      with st.form("form_excluir_cat_completo"):
-        cat_para_deletar = st.selectbox(
-            "Selecione a categoria para apagar:",
-            df_cats_excluir["nome"].tolist(),
+    st.write("### ✏️ Editar ou 🗑️ Excluir Categoria")
+    df_cats_gerenciar = pd.read_sql("SELECT * FROM categorias", conn)
+    if not df_cats_gerenciar.empty:
+      cat_selecionada_para_gerenciar = st.selectbox(
+          "Selecione a categoria para gerenciar:",
+          df_cats_gerenciar["nome"].tolist(),
+          key="sel_cat_gerenciar"
+      )
+      
+      # Encontrar o ID da categoria selecionada
+      id_cat_atual = df_cats_gerenciar[df_cats_gerenciar["nome"] == cat_selecionada_para_gerenciar]["id"].values[0]
+
+      with st.form("form_editar_excluir_cat"):
+        st.write(f"Editando: **{cat_selecionada_para_gerenciar}**")
+        novo_icone = st.selectbox(
+            "Novo Ícone:",
+            [
+                "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", 
+                "🪙", "🏷️", "💼", "📈", "📉", "🔒", "🔑", "💡", "⚡", "💧", 
+                "🔥", "📶", "📡", "📱", "💻", "📺", "📬", "🗑️", "⚙️", "🛠️",
+                "🏠", "🏡", "🏢", "🛒", "🛍️", "🍔", "🍕", "☕", "🍺", "🍷", 
+                "🚗", "🚕", "🚌", "🚆", "⛽", "🅿️", "💊", "🏥", "🩺", "🏋️‍♂️", 
+                "✈️", "🏖️", "🏨", "🐕", "🐈", "🐾", "🎮", "🎲", "📚", "🎧", 
+                "🎬", "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
+            ],
+            key="novo_icone_sel"
         )
-        if st.form_submit_button(
-            "Excluir Categoria Selecionada", use_container_width=True
-        ):
-          c.execute("DELETE FROM categorias WHERE nome = ?", (cat_para_deletar,))
+        novo_nome_texto = st.text_input("Novo Nome da Categoria:", value="", placeholder="Digite se quiser alterar o texto")
+
+        col_btn_ed1, col_btn_ed2 = st.columns(2)
+        with col_btn_ed1:
+          btn_atualizar = st.form_submit_button("Atualizar Categoria", use_container_width=True)
+        with col_btn_ed2:
+          btn_excluir = st.form_submit_button("Excluir Categoria", use_container_width=True)
+
+        if btn_atualizar:
+          texto_base = novo_nome_texto.strip() if novo_nome_texto.strip() else cat_selecionada_para_gerenciar.split(" ", 1)[-1]
+          nome_atualizado_final = f"{novo_icone} {texto_base}"
+          c.execute("UPDATE categorias SET nome = ? WHERE id = ?", (nome_atualizado_final, int(id_cat_atual)))
           conn.commit()
-          st.success(f"Categoria '{cat_para_deletar}' excluída com sucesso!")
+          st.success(f"Categoria atualizada para '{nome_atualizado_final}' com sucesso!")
+          st.rerun()
+
+        if btn_excluir:
+          c.execute("DELETE FROM categorias WHERE id = ?", (int(id_cat_atual),))
+          conn.commit()
+          st.success(f"Categoria '{cat_selecionada_para_gerenciar}' excluída com sucesso!")
           st.rerun()
     else:
-      st.info("Nenhuma categoria personalizada cadastrada para exclusão.")
+      st.info("Nenhuma categoria personalizada cadastrada para gerenciar.")
 
   st.markdown("---")
   st.subheader("📋 Relação de Categorias Personalizadas Cadastradas")
