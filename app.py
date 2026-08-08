@@ -1414,7 +1414,7 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
   with col_esq:
     st.write("### Tabela Geral do Desafio")
     df_exibicao = pd.DataFrame()
-    df_exibicao["Nº do Depósito"] = df_deps["numero_deposito"]
+    df_exibicao["Nº do Depósito"] = df_deps["numero_depósito"]
     df_exibicao["Valor a Guardar"] = df_deps["valor"].apply(
         lambda x: f"R$ {x:,.2f}"
     )
@@ -1427,7 +1427,7 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
     st.write("### ⚙️ Atualizar Status do Depósito")
     with st.form("form_atualizar_deposito_completo"):
       deps_sel = st.multiselect(
-          "Selecione os Números dos Depósitos:", df_deps["numero_deposito"].tolist()
+          "Selecione os Números dos Depósitos:", df_deps["numero_depósito"].tolist()
       )
       status_novo = st.selectbox(
           "Novo Status:", ["Pendente", "Concluído"], index=1
@@ -1770,11 +1770,11 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
 # ==========================================
 elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   
-  # Inicializar data no session_state se não existir
+  # Inicializar data no session_state de forma robusta
   if "data_calendario_ref" not in st.session_state:
     st.session_state.data_calendario_ref = date.today()
 
-  # Cabeçalho flexível com o título à esquerda e o calendário em formato real com opção de retornar a hoje ao lado
+  # Cabeçalho flexível com o título à esquerda e o calendário em formato real com botão "Hoje" funcional fora de formulários
   col_tit_h, col_cal_h = st.columns([3, 2])
   with col_tit_h:
     st.subheader("📅 Calendário de Contas & Gestão de Pagamentos / Recebimentos")
@@ -1880,10 +1880,9 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
               datas_para_inserir.append(venc + timedelta(weeks=i))
           elif tipo_recorrencia == "Recorrência Mensal (próximos 12 meses)":
             for i in range(1, 13):
-              # Adicionar aproximando 30 dias por mês ou avançando o mês com segurança
               ano_m = venc.year + (venc.month - 1 + i) // 12
               mes_m = (venc.month - 1 + i) % 12 + 1
-              dia_m = min(venc.day, 28) # Evitar estouro de dias em meses curtos
+              dia_m = min(venc.day, 28)
               datas_para_inserir.append(date(ano_m, mes_m, dia_m))
           elif tipo_recorrencia == "Replicar datas específicas customizadas":
             for d_rep in replicar_datas_cp:
@@ -2632,7 +2631,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         </div>
         """,
         unsafe_allow_html=True,
-    )
+      )
 
   st.markdown("---")
   st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
@@ -2692,7 +2691,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
       st.write("")
       st.write("")
       if st.button(
-          "🗑️ EXCLUIR TODO O HISTÓRICO DE HOLERITES",
+          "🗑️ EXCLUIR TODO HISTÓRICO DE HOLERITES",
           use_container_width=True,
           type="primary",
       ):
