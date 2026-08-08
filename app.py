@@ -1414,7 +1414,7 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
   with col_esq:
     st.write("### Tabela Geral do Desafio")
     df_exibicao = pd.DataFrame()
-    df_exibicao["Nº do Depósito"] = df_deps["numero_depósito"]
+    df_exibicao["Nº do Depósito"] = df_deps["numero_deposito"]
     df_exibicao["Valor a Guardar"] = df_deps["valor"].apply(
         lambda x: f"R$ {x:,.2f}"
     )
@@ -1427,7 +1427,7 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
     st.write("### ⚙️ Atualizar Status do Depósito")
     with st.form("form_atualizar_deposito_completo"):
       deps_sel = st.multiselect(
-          "Selecione os Números dos Depósitos:", df_deps["numero_depósito"].tolist()
+          "Selecione os Números dos Depósitos:", df_deps["numero_deposito"].tolist()
       )
       status_novo = st.selectbox(
           "Novo Status:", ["Pendente", "Concluído"], index=1
@@ -1770,14 +1770,27 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
 # ==========================================
 elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   
-  # Cabeçalho flexível com o título à esquerda e o calendário em formato de calendário real ao lado
+  # Inicializar data no session_state se não existir
+  if "data_calendario_ref" not in st.session_state:
+    st.session_state.data_calendario_ref = date.today()
+
+  # Cabeçalho flexível com o título à esquerda e o calendário em formato real com opção de retornar a hoje ao lado
   col_tit_h, col_cal_h = st.columns([3, 2])
   with col_tit_h:
     st.subheader("📅 Calendário de Contas & Gestão de Pagamentos / Recebimentos")
     st.write("Organize boletos, contas a pagar, contas a receber e compromissos com vencimento programado.")
   with col_cal_h:
     st.markdown("##### 🗓️ Agenda / Calendário Interativo")
-    data_calendario_topo = st.date_input("Selecionar Data de Referência:", value=date.today(), key="calendario_topo_geral")
+    
+    col_c_input, col_c_btn = st.columns([3, 1])
+    with col_c_input:
+      st.session_state.data_calendario_ref = st.date_input("Selecionar Data de Referência:", value=st.session_state.data_calendario_ref, key="calendario_topo_geral", label_visibility="collapsed")
+    with col_c_btn:
+      if st.button("Hoje 📍", use_container_width=True, help="Retornar para o dia de hoje"):
+        st.session_state.data_calendario_ref = date.today()
+        st.rerun()
+
+  data_calendario_topo = st.session_state.data_calendario_ref
 
   # Gerenciamento de abas estilo botões modernos via session_state
   if "aba_contas_ativa" not in st.session_state:
@@ -1831,7 +1844,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   st.markdown("---")
 
   if st.session_state.aba_contas_ativa == "pagar":
-    st.write("### ➕ Nova Conta a Pagar (com Opção de Replicar para Outras Datas)")
+    st.subheader("➕ Nova Conta a Pagar (com Opção de Recorrência Mensal, Semanal ou Replicar datas)")
     with st.form("form_conta_pagar_completo", clear_on_submit=True):
       col_c1, col_c2 = st.columns(2)
       with col_c1:
@@ -1843,8 +1856,16 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         val_conta = st.number_input(
             "Valor da Conta (R$)", min_value=0.0, format="%.2f", key="val_cp"
         )
+        tipo_recorrencia = st.selectbox(
+            "Tipo de Recorrência / Lançamento:",
+            ["Apenas esta data (Sem recorrência)", "Recorrência Semanal (próximas 4 semanas)", "Recorrência Mensal (próximos 12 meses)", "Replicar datas específicas customizadas"],
+            key="recorrencia_cp"
+        )
+
+      replicar_datas_cp = []
+      if tipo_recorrencia == "Replicar datas específicas customizadas":
         replicar_datas_cp = st.multiselect(
-            "Replicar esta mesma conta para outras datas de vencimento (opcional):",
+            "Selecione as datas adicionais de vencimento:",
             options=[date.today() + timedelta(days=d) for d in range(1, 365)],
             format_func=lambda x: x.strftime("%d/%m/%Y"),
             key="rep_datas_cp"
@@ -1852,18 +1873,30 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
       if st.form_submit_button("Adicionar Conta(s) a Pagar", use_container_width=True):
         if nome_conta.strip() and val_conta > 0:
-          c.execute(
-              "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)",
-              (venc.strftime("%Y-%m-%d"), str(nome_conta).strip(), val_conta, 0),
-          )
-          for d_rep in replicar_datas_cp:
+          datas_para_inserir = [venc]
+          
+          if tipo_recorrencia == "Recorrência Semanal (próximas 4 semanas)":
+            for i in range(1, 5):
+              datas_para_inserir.append(venc + timedelta(weeks=i))
+          elif tipo_recorrencia == "Recorrência Mensal (próximos 12 meses)":
+            for i in range(1, 13):
+              # Adicionar aproximando 30 dias por mês ou avançando o mês com segurança
+              ano_m = venc.year + (venc.month - 1 + i) // 12
+              mes_m = (venc.month - 1 + i) % 12 + 1
+              dia_m = min(venc.day, 28) # Evitar estouro de dias em meses curtos
+              datas_para_inserir.append(date(ano_m, mes_m, dia_m))
+          elif tipo_recorrencia == "Replicar datas específicas customizadas":
+            for d_rep in replicar_datas_cp:
+              if d_rep not in datas_para_inserir:
+                datas_para_inserir.append(d_rep)
+
+          for d_ins in datas_para_inserir:
             c.execute(
                 "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)",
-                (d_rep.strftime("%Y-%m-%d"), str(nome_conta).strip(), val_conta, 0),
+                (d_ins.strftime("%Y-%m-%d"), str(nome_conta).strip(), val_conta, 0),
             )
           conn.commit()
-          total_inseridas = 1 + len(replicar_datas_cp)
-          st.success(f"{total_inseridas} conta(s) a pagar cadastrada(s) com sucesso!")
+          st.success(f"{len(datas_para_inserir)} conta(s) a pagar cadastrada(s) com sucesso!")
           st.rerun()
         else:
           st.error("Informe a descrição e o valor da conta.")
@@ -1889,7 +1922,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             st.warning(f"🔔 **Vence Hoje:** '{r_hoje['descricao']}' vence **hoje** ({hoje.strftime('%d/%m/%Y')}) no valor de **R$ {r_hoje['valor']:,.2f}**!")
         st.markdown("---")
 
-    st.write("### 🔍 Pesquisa Aprimorada & Relação de Contas a Pagar")
+    st.subheader("🔍 Pesquisa Aprimorada & Relação de Contas a Pagar")
     
     col_pesq_cp, col_fil_agenda_cp = st.columns([3, 2])
     with col_pesq_cp:
@@ -1969,7 +2002,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             st.success(f"Conta ID {c_id} excluída com sucesso!")
             st.rerun()
 
-        # Formulário inline de edição caso o usuário clique em Editar (para contas que variam de valor/vencimento)
+        # Formulário inline de edição para contas que podem ter variação
         if st.session_state.get(f"editando_cp_{c_id}", False):
           with st.form(f"form_editar_cp_{c_id}"):
             st.write(f"**Editando Conta ID {c_id}** (Ajuste de variação de valor ou data)")
@@ -1996,7 +2029,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
       st.info("Nenhuma conta a pagar encontrada.")
 
   else:
-    st.write("### ➕ Nova Conta a Receber (com Opção de Replicar para Outras Datas)")
+    st.subheader("➕ Nova Conta a Receber (com Opção de Recorrência Mensal, Semanal ou Replicar datas)")
     with st.form("form_conta_receber_completo", clear_on_submit=True):
       col_cr1, col_cr2 = st.columns(2)
       with col_cr1:
@@ -2008,8 +2041,16 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         val_conta_r = st.number_input(
             "Valor a Receber (R$)", min_value=0.0, format="%.2f", key="val_cr"
         )
+        tipo_recorrencia_r = st.selectbox(
+            "Tipo de Recorrência / Lançamento:",
+            ["Apenas esta data (Sem recorrência)", "Recorrência Semanal (próximas 4 semanas)", "Recorrência Mensal (próximos 12 meses)", "Replicar datas específicas customizadas"],
+            key="recorrencia_cr"
+        )
+
+      replicar_datas_cr = []
+      if tipo_recorrencia_r == "Replicar datas específicas customizadas":
         replicar_datas_cr = st.multiselect(
-            "Replicar esta mesma conta para outras datas de vencimento (opcional):",
+            "Selecione as datas adicionais de vencimento:",
             options=[date.today() + timedelta(days=d) for d in range(1, 365)],
             format_func=lambda x: x.strftime("%d/%m/%Y"),
             key="rep_datas_cr"
@@ -2017,24 +2058,35 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
       if st.form_submit_button("Adicionar Conta(s) a Receber", use_container_width=True):
         if nome_conta_r.strip() and val_conta_r > 0:
-          c.execute(
-              "INSERT INTO contas_receber (vencimento, descricao, valor, recebido) VALUES (?,?,?,?)",
-              (venc_r.strftime("%Y-%m-%d"), str(nome_conta_r).strip(), val_conta_r, 0),
-          )
-          for d_rep_r in replicar_datas_cr:
+          datas_para_inserir_r = [venc_r]
+          
+          if tipo_recorrencia_r == "Recorrência Semanal (próximas 4 semanas)":
+            for i in range(1, 5):
+              datas_para_inserir_r.append(venc_r + timedelta(weeks=i))
+          elif tipo_recorrencia_r == "Recorrência Mensal (próximos 12 meses)":
+            for i in range(1, 13):
+              ano_m = venc_r.year + (venc_r.month - 1 + i) // 12
+              mes_m = (venc_r.month - 1 + i) % 12 + 1
+              dia_m = min(venc_r.day, 28)
+              datas_para_inserir_r.append(date(ano_m, mes_m, dia_m))
+          elif tipo_recorrencia_r == "Replicar datas específicas customizadas":
+            for d_rep_r in replicar_datas_cr:
+              if d_rep_r not in datas_para_inserir_r:
+                datas_para_inserir_r.append(d_rep_r)
+
+          for d_ins_r in datas_para_inserir_r:
             c.execute(
                 "INSERT INTO contas_receber (vencimento, descricao, valor, recebido) VALUES (?,?,?,?)",
-                (d_rep_r.strftime("%Y-%m-%d"), str(nome_conta_r).strip(), val_conta_r, 0),
+                (d_ins_r.strftime("%Y-%m-%d"), str(nome_conta_r).strip(), val_conta_r, 0),
             )
           conn.commit()
-          total_inseridas_r = 1 + len(replicar_datas_cr)
-          st.success(f"{total_inseridas_r} conta(s) a receber cadastrada(s) com sucesso!")
+          st.success(f"{len(datas_para_inserir_r)} conta(s) a receber cadastrada(s) com sucesso!")
           st.rerun()
         else:
           st.error("Informe a descrição e o valor da conta a receber.")
 
     st.markdown("---")
-    st.write("### 🔍 Pesquisa Aprimorada & Relação de Contas a Receber")
+    st.subheader("🔍 Pesquisa Aprimorada & Relação de Contas a Receber")
     
     col_pesq_cr, col_fil_agenda_cr = st.columns([3, 2])
     with col_pesq_cr:
