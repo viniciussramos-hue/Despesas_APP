@@ -127,6 +127,9 @@ c.execute("""CREATE TABLE IF NOT EXISTS transacoes
 c.execute("""CREATE TABLE IF NOT EXISTS contas 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, vencimento TEXT, descricao TEXT, valor REAL, pago INTEGER)""")
 
+c.execute("""CREATE TABLE IF NOT EXISTS contas_receber 
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, vencimento TEXT, descricao TEXT, valor REAL, recebido INTEGER)""")
+
 c.execute("""CREATE TABLE IF NOT EXISTS categorias 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT)""")
 
@@ -1763,103 +1766,262 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 10: CONTAS A PAGAR ---
+# --- SEÇÃO 10: CONTAS A PAGAR & RECEBER ---
 # ==========================================
 elif st.session_state.pagina_atual == "📅 Contas a Pagar":
-  st.subheader("📅 Calendário de Contas a Vencer & Gestão de Pagamentos")
+  st.subheader("📅 Calendário de Contas & Gestão de Pagamentos / Recebimentos")
   st.write(
-      "Organize boletos, contas fixas, IPVA e compromissos com vencimento"
-      " programado."
+      "Organize boletos, contas a pagar, contas a receber e compromissos com vencimento programado."
   )
 
-  with st.form("form_conta_pagar_completo", clear_on_submit=True):
-    col_c1, col_c2 = st.columns(2)
-    with col_c1:
-      venc = st.date_input("Data de Vencimento da Conta")
-      nome_conta = st.text_input(
-          "Nome / Descrição da Conta (Ex: Conta de Luz, Seguro Auto)"
-      )
-    with col_c2:
-      val_conta = st.number_input(
-          "Valor Estimado ou Exato (R$)", min_value=0.0, format="%.2f"
-      )
+  aba_cp, aba_cr = st.tabs(["📉 Contas a Pagar", "📈 Contas a Receber"])
 
-    if st.form_submit_button("Adicionar Conta ao Calendário", use_container_width=True):
-      if nome_conta.strip() and val_conta > 0:
-        c.execute(
-            "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES"
-            " (?,?,?,?)",
-            (venc.strftime("%Y-%m-%d"), str(nome_conta).strip(), val_conta, 0),
+  with aba_cp:
+    st.write("### ➕ Nova Conta a Pagar")
+    with st.form("form_conta_pagar_completo", clear_on_submit=True):
+      col_c1, col_c2 = st.columns(2)
+      with col_c1:
+        venc = st.date_input("Data de Vencimento da Conta", value=date.today(), key="venc_cp")
+        nome_conta = st.text_input(
+            "Nome / Descrição da Conta (Ex: Conta de Luz, Seguro Auto)"
         )
-        conn.commit()
-        st.success("Conta cadastrada no calendário com sucesso!")
-        st.rerun()
+      with col_c2:
+        val_conta = st.number_input(
+            "Valor Estimado ou Exato (R$)", min_value=0.0, format="%.2f", key="val_cp"
+        )
+        replicar_cr = st.checkbox("Replicar automaticamente para Contas a Receber (mesmo valor e vencimento)")
+
+      if st.form_submit_button("Adicionar Conta ao Calendário (Pagar)", use_container_width=True):
+        if nome_conta.strip() and val_conta > 0:
+          c.execute(
+              "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)",
+              (venc.strftime("%Y-%m-%d"), str(nome_conta).strip(), val_conta, 0),
+          )
+          if replicar_cr:
+            c.execute(
+                "INSERT INTO contas_receber (vencimento, descricao, valor, recebido) VALUES (?,?,?,?)",
+                (venc.strftime("%Y-%m-%d"), str(nome_conta).strip(), val_conta, 0),
+            )
+          conn.commit()
+          st.success("Conta a pagar cadastrada com sucesso!" + (" Também replicada para contas a receber!" if replicar_cr else ""))
+          st.rerun()
+        else:
+          st.error("Informe a descrição e o valor da conta.")
+
+    st.markdown("---")
+
+    # --- ALERTA VISUAL DE CONTAS VENCIDAS OU VENCENDO HOJE ---
+    df_contas_alerta = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
+    if not df_contas_alerta.empty:
+      hoje = date.today()
+      df_contas_alerta["venc_dt"] = pd.to_datetime(df_contas_alerta["vencimento"]).dt.date
+      
+      vencidas = df_contas_alerta[df_contas_alerta["venc_dt"] < hoje]
+      vencem_hoje = df_contas_alerta[df_contas_alerta["venc_dt"] == hoje]
+
+      if not vencidas.empty or not vencem_hoje.empty:
+        st.markdown("### 🚨 Alertas de Vencimento (Pagar)")
+        if not vencidas.empty:
+          for _, r_venc in vencidas.iterrows():
+            st.error(f"⚠️ **Conta Vencida:** '{r_venc['descricao']}' vencia em **{pd.to_datetime(r_venc['vencimento']).strftime('%d/%m/%Y')}** no valor de **R$ {r_venc['valor']:,.2f}**!")
+        if not vencem_hoje.empty:
+          for _, r_hoje in vencem_hoje.iterrows():
+            st.warning(f"🔔 **Vence Hoje:** '{r_hoje['descricao']}' vence **hoje** ({hoje.strftime('%d/%m/%Y')}) no valor de **R$ {r_hoje['valor']:,.2f}**!")
+        st.markdown("---")
+
+    st.write("### 🔍 Pesquisa & Calendário de Contas a Pagar")
+    
+    col_pesq_cp, col_agenda_cp = st.columns([3, 2])
+    with col_pesq_cp:
+      termo_busca_contas = st.text_input(
+          "Pesquisar contas a pagar:", "", key="busca_contas_input"
+      )
+    with col_agenda_cp:
+      filtro_data_agenda = st.date_input("🗓️ Agenda / Filtrar por Data Específica:", value=None, key="agenda_cp")
+
+    df_contas_all = pd.read_sql("SELECT * FROM contas", conn)
+
+    if not df_contas_all.empty:
+      if filtro_data_agenda:
+        df_contas_all["venc_dt_cmp"] = pd.to_datetime(df_contas_all["vencimento"]).dt.date
+        df_contas_all = df_contas_all[df_contas_all["venc_dt_cmp"] == filtro_data_agenda]
+
+      if termo_busca_contas.strip():
+        termo_limpo = termo_busca_contas.strip().lower()
+        descricoes = df_contas_all["descricao"].tolist()
+        similares = difflib.get_close_matches(
+            termo_limpo, [d.lower() for d in descricoes], n=10, cutoff=0.3
+        )
+
+        mask = (
+            df_contas_all["descricao"]
+            .str.lower()
+            .str.contains(termo_limpo, na=False)
+            | df_contas_all["descricao"].str.lower().isin(similares)
+        )
+        contas_filtradas = df_contas_all[mask]
       else:
-        st.error("Informe a descrição e o valor da conta.")
+        contas_filtradas = df_contas_all
+    else:
+      contas_filtradas = df_contas_all
 
-  st.markdown("---")
+    if not contas_filtradas.empty:
+      st.write("### 📋 Lista de Contas a Pagar")
+      for _, row_cp in contas_filtradas.iterrows():
+        c_id = row_cp["id"]
+        c_venc = pd.to_datetime(row_cp["vencimento"]).strftime("%d/%m/%Y")
+        c_desc = row_cp["descricao"]
+        c_val = row_cp["valor"]
+        c_pago = row_cp["pago"]
 
-  # --- ALERTA VISUAL DE CONTAS VENCIDAS OU VENCENDO HOJE ---
-  df_contas_alerta = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
-  if not df_contas_alerta.empty:
-    hoje = date.today()
-    df_contas_alerta["venc_dt"] = pd.to_datetime(df_contas_alerta["vencimento"]).dt.date
-    
-    vencidas = df_contas_alerta[df_contas_alerta["venc_dt"] < hoje]
-    vencem_hoje = df_contas_alerta[df_contas_alerta["venc_dt"] == hoje]
-
-    if not vencidas.empty or not vencem_hoje.empty:
-      st.markdown("### 🚨 Alertas de Vencimento")
-      if not vencidas.empty:
-        for _, r_venc in vencidas.iterrows():
-          st.error(f"⚠️ **Conta Vencida:** '{r_venc['descricao']}' vencia em **{pd.to_datetime(r_venc['vencimento']).strftime('%d/%m/%Y')}** no valor de **R$ {r_venc['valor']:,.2f}**!")
-      if not vencem_hoje.empty:
-        for _, r_hoje in vencem_hoje.iterrows():
-          st.warning(f"🔔 **Vence Hoje:** '{r_hoje['descricao']}' vence **hoje** ({hoje.strftime('%d/%m/%Y')}) no valor de **R$ {r_hoje['valor']:,.2f}**!")
+        col_row1, col_row2, col_row3, col_row4 = st.columns([1, 2, 2, 1])
+        with col_row1:
+          st.write(f"**ID:** {c_id}")
+        with col_row2:
+          st.write(f"📅 {c_venc} | **{c_desc}**")
+        with col_row3:
+          st.write(f"R$ {c_val:,.2f} ({'Pago ✅' if c_pago == 1 else 'Pendente ⏳'})")
+        with col_row4:
+          if c_pago == 0:
+            if st.button("Pagar 💳", key=f"btn_pagar_{c_id}", use_container_width=True):
+              c.execute("UPDATE contas SET pago = 1 WHERE id = ?", (c_id,))
+              c.execute(
+                  "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                  (date.today().strftime("%Y-%m-%d"), "Despesa", f"Pgto: {c_desc}", "🏠 Contas Fixas (Necessidade)", c_val, "Manual")
+              )
+              conn.commit()
+              st.success(f"Conta '{c_desc}' paga com sucesso!")
+              st.rerun()
+          else:
+            if st.button("Estornar 🔄", key=f"btn_estornar_{c_id}", use_container_width=True):
+              c.execute("UPDATE contas SET pago = 0 WHERE id = ?", (c_id,))
+              conn.commit()
+              st.success(f"Conta '{c_desc}' marcada como pendente!")
+              st.rerun()
+      
       st.markdown("---")
+      id_del_cp = st.selectbox("Selecione o ID da conta a pagar para exclusão:", contas_filtradas["id"].tolist(), key="del_cp_sel")
+      if st.button("Excluir Conta a Pagar Selecionada", use_container_width=True):
+        c.execute("DELETE FROM contas WHERE id = ?", (id_del_cp,))
+        conn.commit()
+        st.success("Conta a pagar removida com sucesso!")
+        st.rerun()
+    else:
+      st.info("Nenhuma conta a pagar encontrada.")
 
-  st.write("### 🔍 Pesquisa Inteligente de Contas (com Similaridade)")
-  termo_busca_contas = st.text_input(
-      "Digite o nome ou descrição da conta:", "", key="busca_contas_input"
-  )
+  with aba_cr:
+    st.write("### ➕ Nova Conta a Receber")
+    with st.form("form_conta_receber_completo", clear_on_submit=True):
+      col_cr1, col_cr2 = st.columns(2)
+      with col_cr1:
+        venc_r = st.date_input("Data de Vencimento / Recebimento", value=date.today(), key="venc_cr")
+        nome_conta_r = st.text_input(
+            "Nome / Descrição da Receita (Ex: Aluguel a Receber, Prestação de Serviço)"
+        )
+      with col_cr2:
+        val_conta_r = st.number_input(
+            "Valor a Receber (R$)", min_value=0.0, format="%.2f", key="val_cr"
+        )
+        replicar_cp = st.checkbox("Replicar automaticamente para Contas a Pagar (mesmo valor e vencimento)", key="rep_cp")
 
-  df_contas_all = pd.read_sql("SELECT * FROM contas", conn)
+      if st.form_submit_button("Adicionar Conta ao Calendário (Receber)", use_container_width=True):
+        if nome_conta_r.strip() and val_conta_r > 0:
+          c.execute(
+              "INSERT INTO contas_receber (vencimento, descricao, valor, recebido) VALUES (?,?,?,?)",
+              (venc_r.strftime("%Y-%m-%d"), str(nome_conta_r).strip(), val_conta_r, 0),
+          )
+          if replicar_cp:
+            c.execute(
+                "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)",
+                (venc_r.strftime("%Y-%m-%d"), str(nome_conta_r).strip(), val_conta_r, 0),
+            )
+          conn.commit()
+          st.success("Conta a receber cadastrada com sucesso!" + (" Também replicada para contas a pagar!" if replicar_cp else ""))
+          st.rerun()
+        else:
+          st.error("Informe a descrição e o valor da conta a receber.")
 
-  if termo_busca_contas.strip() and not df_contas_all.empty:
-    termo_limpo = termo_busca_contas.strip().lower()
-    descricoes = df_contas_all["descricao"].tolist()
-    similares = difflib.get_close_matches(
-        termo_limpo, [d.lower() for d in descricoes], n=10, cutoff=0.3
-    )
-
-    mask = (
-        df_contas_all["descricao"]
-        .str.lower()
-        .str.contains(termo_limpo, na=False)
-        | df_contas_all["descricao"].str.lower().isin(similares)
-    )
-    contas_filtradas = df_contas_all[mask]
-  else:
-    contas_filtradas = df_contas_all
-
-  if not contas_filtradas.empty:
-    st.write("### 📋 Relação de Compromissos (Resultados da Busca)")
+    st.markdown("---")
+    st.write("### 🔍 Pesquisa & Calendário de Contas a Receber")
     
-    # Exibição customizada ou formatada para destacar dias restantes / status de vencimento
-    df_exib_contas = contas_filtradas.copy()
-    df_exib_contas["vencimento_fmt"] = pd.to_datetime(df_exib_contas["vencimento"]).dt.strftime("%d/%m/%Y")
-    df_exib_contas["valor_fmt"] = df_exib_contas["valor"].apply(lambda x: f"R$ {x:,.2f}")
-    df_exib_contas["status_pagamento"] = df_exib_contas["pago"].apply(lambda x: "Pago ✅" if x == 1 else "Pendente ⏳")
-    
-    st.dataframe(
-        df_exib_contas[["id", "vencimento_fmt", "descricao", "valor_fmt", "status_pagamento"]].rename(
-            columns={"id": "ID", "vencimento_fmt": "Vencimento", "descricao": "Descrição", "valor_fmt": "Valor", "status_pagamento": "Status"}
-        ),
-        use_container_width=True,
-        hide_index=True
-    )
-  else:
-    st.info("Nenhuma conta encontrada com o termo pesquisado.")
+    col_pesq_cr, col_agenda_cr = st.columns([3, 2])
+    with col_pesq_cr:
+      termo_busca_receber = st.text_input(
+          "Pesquisar contas a receber:", "", key="busca_receber_input"
+      )
+    with col_agenda_cr:
+      filtro_data_agenda_r = st.date_input("🗓️ Agenda / Filtrar por Data Específica:", value=None, key="agenda_cr")
+
+    df_receber_all = pd.read_sql("SELECT * FROM contas_receber", conn)
+
+    if not df_receber_all.empty:
+      if filtro_data_agenda_r:
+        df_receber_all["venc_dt_cmp"] = pd.to_datetime(df_receber_all["vencimento"]).dt.date
+        df_receber_all = df_receber_all[df_receber_all["venc_dt_cmp"] == filtro_data_agenda_r]
+
+      if termo_busca_receber.strip():
+        termo_limpo_r = termo_busca_receber.strip().lower()
+        desc_r = df_receber_all["descricao"].tolist()
+        sim_r = difflib.get_close_matches(
+            termo_limpo_r, [d.lower() for d in desc_r], n=10, cutoff=0.3
+        )
+
+        mask_r = (
+            df_receber_all["descricao"]
+            .str.lower()
+            .str.contains(termo_limpo_r, na=False)
+            | df_receber_all["descricao"].str.lower().isin(sim_r)
+        )
+        receber_filtradas = df_receber_all[mask_r]
+      else:
+        receber_filtradas = df_receber_all
+    else:
+      receber_filtradas = df_receber_all
+
+    if not receber_filtradas.empty:
+      st.write("### 📋 Lista de Contas a Receber")
+      for _, row_cr in receber_filtradas.iterrows():
+        cr_id = row_cr["id"]
+        cr_venc = pd.to_datetime(row_cr["vencimento"]).strftime("%d/%m/%Y")
+        cr_desc = row_cr["descricao"]
+        cr_val = row_cr["valor"]
+        cr_recebido = row_cr["recebido"]
+
+        col_r1, col_r2, col_r3, col_r4 = st.columns([1, 2, 2, 1])
+        with col_r1:
+          st.write(f"**ID:** {cr_id}")
+        with col_r2:
+          st.write(f"📅 {cr_venc} | **{cr_desc}**")
+        with col_r3:
+          st.write(f"R$ {cr_val:,.2f} ({'Recebido ✅' if cr_recebido == 1 else 'Pendente ⏳'})")
+        with col_r4:
+          if cr_recebido == 0:
+            if st.button("Receber 💰", key=f"btn_receber_{cr_id}", use_container_width=True):
+              c.execute("UPDATE contas_receber SET recebido = 1 WHERE id = ?", (cr_id,))
+              c.execute(
+                  "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                  (date.today().strftime("%Y-%m-%d"), "Receita", f"Recebimento: {cr_desc}", "Freelance / Extra", cr_val, "Manual")
+              )
+              conn.commit()
+              st.success(f"Recebimento '{cr_desc}' confirmado com sucesso!")
+              st.rerun()
+          else:
+            if st.button("Estornar 🔄", key=f"btn_estornar_cr_{cr_id}", use_container_width=True):
+              c.execute("UPDATE contas_receber SET recebido = 0 WHERE id = ?", (cr_id,))
+              conn.commit()
+              st.success(f"Recebimento '{cr_desc}' marcado como pendente!")
+              st.rerun()
+
+      st.markdown("---")
+      id_del_cr = st.selectbox("Selecione o ID da conta a receber para exclusão:", receber_filtradas["id"].tolist(), key="del_cr_sel")
+      if st.button("Excluir Conta a Receber Selecionada", use_container_width=True):
+        c.execute("DELETE FROM contas_receber WHERE id = ?", (id_del_cr,))
+        conn.commit()
+        st.success("Conta a receber removida com sucesso!")
+        st.rerun()
+    else:
+      st.info("Nenhuma conta a receber encontrada.")
+
   botao_voltar()
 
 # ==========================================
@@ -1908,6 +2070,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
       if senha_exclusao_geral == "1234":
         c.execute("DELETE FROM transacoes")
         c.execute("DELETE FROM contas")
+        c.execute("DELETE FROM contas_receber")
         c.execute("DELETE FROM cartao_credito")
         c.execute("DELETE FROM carteira_investimentos")
         c.execute("DELETE FROM veiculos")
@@ -2310,7 +2473,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         "mes_ano",
         "salario_bruto",
         "vale",
-        "total_descontos",
+        "total_desconsos" if "total_desconsos" in df_holerites.columns else "total_descontos",
         "liquido",
         "inss",
         "irrf",
