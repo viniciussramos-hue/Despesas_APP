@@ -623,11 +623,11 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 3: DASHBOARD (COM NOVAS SUGESTÕES) ---
+# --- SEÇÃO 3: DASHBOARD (COM NOVAS SUGESTÕES DE ANÁLISE) ---
 # ==========================================
 elif st.session_state.pagina_atual == "📊 Dashboard":
   st.subheader("📊 Executive Dashboard & Inteligência Financeira")
-  st.write("Painel gerencial consolidado com indicadores avançados, metas e controle de maiores despesas.")
+  st.write("Painel gerencial consolidado com indicadores avançados, Burn Rate diário e Saldo Livre Pós-Contas.")
 
   df_all = pd.read_sql("SELECT * FROM transacoes", conn)
   df_inv_dash = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
@@ -723,13 +723,18 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
     total_contas_pendentes = df_contas_dash[df_contas_dash["pago"] == 0]["valor"].sum() if not df_contas_dash.empty else 0.0
     patrimonio_liquido_global = patrimonio_investido + max(0, saldo_caixa)
 
-    # --- LINHA 1 DE MÉTRICAS EXECUTIVAS ---
-    st.markdown("### 💼 Visão Geral do Período Selecionado")
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("💰 Saldo do Período", f"R$ {saldo_caixa:,.2f}")
-    m2.metric("🟢 Entradas Totais", f"R$ {receitas:,.2f}")
-    m3.metric("🔴 Despesas Totais", f"R$ {despesas:,.2f}")
-    m4.metric("📈 Taxa de Poupança", f"{(inv_tax := (df[df['categoria'].str.contains('Investimentos', na=False)]['valor'].sum() / receitas * 100) if receitas > 0 else 0.0):.1f}%")
+    # --- NOVO RECURSO 1: BURN RATE DIÁRIO E RECURSO 2: SALDO LIVRE PÓS-CONTAS ---
+    dias_no_mes = 30 # Referência padrão mensal para cálculo do Burn Rate
+    burn_rate_diario = despesas / dias_no_mes if dias_no_mes > 0 else 0.0
+    saldo_livre_pos_compromissos = saldo_caixa - total_contas_pendentes - total_faturas_cartao
+
+    st.markdown("### 💼 Visão Geral & Indicadores de Análise Rápida")
+    b1, b2, b3, b4 = st.columns(4)
+    b1.metric("⚡ Burn Rate Diário", f"R$ {burn_rate_diario:,.2f} / dia", help="Média de gasto diário com base nas despesas do mês selecionado.")
+    b2.metric("💵 Saldo Livre Pós-Contas", f"R$ {saldo_livre_pos_compromissos:,.2f}", help="Saldo do período deduzido de contas pendentes e faturas de cartão.")
+    b3.metric("🟢 Entradas Totais", f"R$ {receitas:,.2f}")
+    b4.metric("🔴 Despesas Totais", f"R$ {despesas:,.2f}")
+    # --------------------------------------------------------------------------
 
     # --- LINHA 2 DE MÉTRICAS EXECUTIVAS ---
     st.markdown("### 🏛️ Indicadores Patrimoniais & Passivos")
@@ -760,9 +765,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
         unsafe_allow_html=True,
     )
 
-    # ==========================================
-    # --- NOVO RECURSO 3: TOP 3 MAIORES VILÕES DO MÊS ---
-    # ==========================================
+    # --- TOP 3 MAIORES VILÕES DO MÊS ---
     st.markdown("### 🚨 Top 3 Maiores Vilões de Despesa do Mês")
     df_desp_mes = df[df["tipo"] == "Despesa"].copy()
     if not df_desp_mes.empty:
@@ -786,7 +789,6 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
             )
     else:
       st.info("Nenhuma despesa registrada para o mês selecionado para calcular os vilões.")
-    # --------------------------------------------------
 
     st.markdown("---")
     st.subheader("🎯 Acompanhamento Rigoroso da Regra 50 / 30 / 20")
@@ -827,9 +829,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
           " regra 50/30/20."
       )
 
-    # ==========================================
-    # --- NOVO RECURSO 2: TERMÔMETRO VISUAL DE METAS DE GASTOS ---
-    # ==========================================
+    # --- TERMÔMETRO VISUAL DE METAS DE GASTOS ---
     st.markdown("---")
     st.subheader("🎯 Termômetro de Metas por Categoria")
     if not df_metas_dash.empty:
@@ -843,7 +843,6 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
         st.progress(min(pct_atingido, 1.0))
     else:
       st.info("Nenhuma meta teto cadastrada. Configure suas metas na aba 'Metas de Gastos'.")
-    # -------------------------------------------------------------
 
     st.markdown("---")
     st.subheader("📈 Distribuição Analítica de Despesas por Categoria")
@@ -885,13 +884,10 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
     st.write("**Curva de Crescimento do Saldo Acumulado em Caixa**")
     st.line_chart(df_pivot[["Saldo Acumulado"]])
 
-    # ==========================================
-    # --- NOVO RECURSO 1: GRÁFICO DE ÁREA EMPILHADA DA REGRA 50/30/20 ---
-    # ==========================================
+    # --- GRÁFICO DE ÁREA EMPILHADA DA REGRA 50/30/20 ---
     st.markdown("---")
     st.subheader("📊 Gráfico de Área Empilhada: Dinâmica 50/30/20 ao Longo dos Meses")
     
-    # Prepara dados agrupados por mês e pilares da regra
     df_empilhado = df_all[df_all["tipo"] == "Despesa"].copy()
     if not df_empilhado.empty:
       def mapear_pilar(cat):
@@ -907,7 +903,6 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
       st.area_chart(df_area_pivot)
     else:
       st.info("Cadastre mais despesas históricas em meses diferentes para habilitar o gráfico de área empilhada.")
-    # -------------------------------------------------------------------
 
   else:
     st.info(
@@ -1770,7 +1765,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 11: EXTRATO & BACKUP ---
+# --- SEÇÃO 11: EXTRATO & BACKUP (COM FILTRO DE DIAS DE PICO DE GASTOS) ---
 # ==========================================
 elif st.session_state.pagina_atual == "📋 Extrato & Backup":
   st.subheader(
@@ -1915,7 +1910,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
     st.info("Faça o upload de um extrato bancário em PDF acima para habilitar o painel de Reconciliação Automatizada.")
 
   st.markdown("---")
-  st.write("### 🔍 Pesquisa Avançada & Filtros Inteligentes no Extrato")
+  st.subheader("🔍 Pesquisa Avançada & Filtros Inteligentes no Extrato")
 
   col_s1, col_s2, col_s3 = st.columns([2, 1, 1])
   with col_s1:
@@ -1977,7 +1972,19 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
           by="valor", ascending=True
       )
 
+    # --- NOVO RECURSO 3: DESTAQUE DE DIAS DE PICO DE GASTOS ---
     if not df_extrato_filtrado.empty:
+      st.markdown("#### 🔥 Dias de Pico de Saídas (Top Dias com Maior Volume de Gastos)")
+      df_desp_apenas = df_extrato_filtrado[df_extrato_filtrado["tipo"] == "Despesa"]
+      if not df_desp_apenas.empty:
+        picos_dias = df_desp_apenas.groupby("data")["valor"].sum().reset_index().sort_values(by="valor", ascending=False).head(3)
+        cols_picos = st.columns(3)
+        for p_idx, (_, p_row) in enumerate(picos_dias.iterrows()):
+          if p_idx < len(cols_picos):
+            with cols_picos[p_idx]:
+              st.metric(f"📅 Dia {p_row['data']}", f"R$ {p_row['valor']:,.2f}", help="Total de saídas concentradas neste dia específico.")
+      
+      st.markdown("---")
       st.write(
           f"### 📋 Resultados Encontrados ({len(df_extrato_filtrado)} registros)"
       )
