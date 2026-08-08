@@ -1336,16 +1336,37 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
 
       c_50, c_30, c_20 = st.columns(3)
       with c_50:
-        st.write("**50% Necessidades (Teto)**")
-        st.write(f"Gasto: R$ {nec:,.2f} / Meta: R$ {meta_nec:,.2f}")
+        st.markdown(
+            f"""
+            <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">50% NECESSIDADES (TETO)</span>
+                <p style="color: #f8fafc; font-size: 14px; margin: 6px 0;">Gasto: R$ {nec:,.2f} / Meta: R$ {meta_nec:,.2f}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.progress(min(nec / meta_nec if meta_nec > 0 else 0, 1.0))
       with c_30:
-        st.write("**30% Desejos (Teto)**")
-        st.write(f"Gasto: R$ {des:,.2f} / Meta: R$ {meta_des:,.2f}")
+        st.markdown(
+            f"""
+            <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">30% DESEJOS (TETO)</span>
+                <p style="color: #f8fafc; font-size: 14px; margin: 6px 0;">Gasto: R$ {des:,.2f} / Meta: R$ {meta_des:,.2f}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.progress(min(des / meta_des if meta_des > 0 else 0, 1.0))
       with c_20:
-        st.write("**20% Investimentos (Mínimo)**")
-        st.write(f"Guardado: R$ {inv:,.2f} / Meta: R$ {meta_inv:,.2f}")
+        st.markdown(
+            f"""
+            <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">20% INVESTIMENTOS (MÍNIMO)</span>
+                <p style="color: #f8fafc; font-size: 14px; margin: 6px 0;">Guardado: R$ {inv:,.2f} / Meta: R$ {meta_inv:,.2f}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
 
     st.markdown("---")
@@ -1356,7 +1377,15 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
         teto_meta = meta_row["valor_meta"]
         gasto_cat_real = df[(df["categoria"] == c_nome) & (df["tipo"] == "Despesa")]["valor"].sum()
         pct_atingido = (gasto_cat_real / teto_meta) if teto_meta > 0 else 0.0
-        st.write(f"**{c_nome}** — Real: R$ {gasto_cat_real:,.2f} / Teto: R$ {teto_meta:,.2f} ({(pct_atingido*100):.1f}%)")
+        st.markdown(
+            f"""
+            <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">{c_nome}</span>
+                <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Real: R$ {gasto_cat_real:,.2f} / Teto: R$ {teto_meta:,.2f} ({(pct_atingido*100):.1f}%)</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.progress(min(pct_atingido, 1.0))
 
     st.markdown("---")
@@ -1416,9 +1445,36 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
 
     st.markdown("### 📊 Indicadores Consolidados do Extrato Bancário")
     cb1, cb2, cb3 = st.columns(3)
-    cb1.metric("💰 Saldo Líquido do Extrato", f"R$ {saldo_b:,.2f}")
-    cb2.metric("🟢 Entradas no Extrato", f"R$ {rec_b:,.2f}")
-    cb3.metric("🔴 Saídas no Extrato", f"R$ {desp_b:,.2f}")
+    with cb1:
+      st.markdown(
+          f"""
+          <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💰 SALDO LÍQUIDO DO EXTRATO</span>
+              <h3 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 20px;">R$ {saldo_b:,.2f}</h3>
+          </div>
+          """,
+          unsafe_allow_html=True,
+      )
+    with cb2:
+      st.markdown(
+          f"""
+          <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🟢 ENTRADAS NO EXTRATO</span>
+              <h3 style="color: #22c55e; margin: 8px 0 0 0; font-size: 20px;">R$ {rec_b:,.2f}</h3>
+          </div>
+          """,
+          unsafe_allow_html=True,
+      )
+    with cb3:
+      st.markdown(
+          f"""
+          <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🔴 SAÍDAS NO EXTRATO</span>
+              <h3 style="color: #ef4444; margin: 8px 0 0 0; font-size: 20px;">R$ {desp_b:,.2f}</h3>
+          </div>
+          """,
+          unsafe_allow_html=True,
+      )
 
     st.markdown("---")
     st.subheader("🔥 Dias de Pico de Saídas (Extrato Bancário)")
@@ -1429,7 +1485,15 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
       for idx_p, (_, row_pb) in enumerate(picos_banco.iterrows()):
         if idx_p < len(cols_pb):
           with cols_pb[idx_p]:
-            st.metric(f"📅 Dia {row_pb['data'].strftime('%d/%m/%Y')}", f"R$ {row_pb['valor']:,.2f}", help="Concentração de saídas neste dia do extrato.")
+            st.markdown(
+                f"""
+                <div style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                    <span style="color: #f87171; font-size: 12px; font-weight: 700;">📅 DIA {row_pb['data'].strftime('%d/%m/%Y')}</span>
+                    <h3 style="color: #ef4444; margin: 8px 0 0 0; font-size: 18px;">R$ {row_pb['valor']:,.2f}</h3>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     st.markdown("---")
     st.subheader("📈 Distribuição de Gastos do Extrato por Categoria")
@@ -1806,8 +1870,14 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
     st.dataframe(df_cartao, use_container_width=True)
 
     total_fatura = df_cartao["valor"].sum()
-    st.metric(
-        "💳 Montante Total Acumulado em Cartões", f"R$ {total_fatura:,.2f}"
+    st.markdown(
+        f"""
+        <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; margin-top: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+            <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💳 MONTANTE TOTAL ACUMULADO EM CARTÕES</span>
+            <h3 style="color: #f59e0b; margin: 8px 0 0 0; font-size: 20px;">R$ {total_fatura:,.2f}</h3>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     st.markdown("---")
@@ -1894,9 +1964,36 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
     patrimonio_total = df_carteira["Valor Total"].sum()
 
     col_m1, col_m2, col_m3 = st.columns(3)
-    col_m1.metric("💎 Patrimônio Total Alocado", f"R$ {patrimonio_total:,.2f}")
-    col_m2.metric("📦 Total de Ativos Únicos", len(df_carteira["ativo"].unique()))
-    col_m3.metric("📊 Classes Distintas", len(df_carteira["classe"].unique()))
+    with col_m1:
+      st.markdown(
+          f"""
+          <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💎 PATRIMÔNIO TOTAL ALOCADO</span>
+              <h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 20px;">R$ {patrimonio_total:,.2f}</h3>
+          </div>
+          """,
+          unsafe_allow_html=True,
+      )
+    with col_m2:
+      st.markdown(
+          f"""
+          <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">📦 TOTAL DE ATIVOS ÚNICOS</span>
+              <h3 style="color: #60a5fa; margin: 8px 0 0 0; font-size: 20px;">{len(df_carteira['ativo'].unique())}</h3>
+          </div>
+          """,
+          unsafe_allow_html=True,
+      )
+    with col_m3:
+      st.markdown(
+          f"""
+          <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">📊 CLASSES DISTINTAS</span>
+              <h3 style="color: #f59e0b; margin: 8px 0 0 0; font-size: 20px;">{len(df_carteira['classe'].unique())}</h3>
+          </div>
+          """,
+          unsafe_allow_html=True,
+      )
 
     st.markdown("---")
     col_pos1, col_pos2 = st.columns(2)
@@ -1953,8 +2050,12 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
   meta_total_desafio = df_deps["valor"].sum()
 
   st.markdown(
-      f"<h3 style='color: #00FF7F; text-align: center;'>Progresso Atual: R$"
-      f" {total_concluido:,.2f} / R$ {meta_total_desafio:,.2f}</h3>",
+      f"""
+      <div style="background: rgba(34, 197, 94, 0.06); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+          <span style="color: #94a3b8; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🎯 PROGRESSO ATUAL DO DESAFIO</span>
+          <h2 style="color: #22c55e; margin: 8px 0 0 0; font-size: 24px;">R$ {total_concluido:,.2f} / R$ {meta_total_desafio:,.2f}</h2>
+      </div>
+      """,
       unsafe_allow_html=True,
   )
   st.progress(min(total_concluido / meta_total_desafio if meta_total_desafio > 0 else 0, 1.0))
@@ -2063,9 +2164,14 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
           else 0.0
       )
 
-      st.write(
-          f"**{cat_nome}** — Gasto Real: R$ {gasto_atual_meta:,.2f} / Meta"
-          f" Teto: R$ {v_meta:,.2f}"
+      st.markdown(
+          f"""
+          <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+              <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">{cat_nome}</span>
+              <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Gasto Real: R$ {gasto_atual_meta:,.2f} / Meta Teto: R$ {v_meta:,.2f}</p>
+          </div>
+          """,
+          unsafe_allow_html=True,
       )
       if v_meta > 0:
         st.progress(min(gasto_atual_meta / v_meta, 1.0))
@@ -2266,10 +2372,10 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
 
   st.markdown(
       f"""
-    <div style="background-color: #1E1E1E; padding: 30px; border-radius: 10px; text-align: center; border: 1px solid #333;">
-        <h1 style="font-size: 60px; color: #FF4B4B; margin: 0;">{score_total}</h1>
-        <p style="color: #888; font-size: 18px; margin: 5px 0 15px 0;">pontos de 1000</p>
-        <h3 style="color: #FFF; margin: 0;">{cor_status} Status: {status_score}</h3>
+    <div style="background: rgba(25, 29, 38, 0.85); padding: 30px; border-radius: 14px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
+        <h1 style="font-size: 60px; color: #3b82f6; margin: 0;">{score_total}</h1>
+        <p style="color: #94a3b8; font-size: 14px; margin: 5px 0 15px 0; font-weight: 600;">pontos de 1000</p>
+        <h3 style="color: #f8fafc; margin: 0; font-size: 20px;">{cor_status} Status: {status_score}</h3>
     </div>
     """,
       unsafe_allow_html=True,
@@ -2282,23 +2388,47 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
       " financeira:"
   )
 
-  st.write(
-      "🛡️ **Controle de Endividamento (Receitas vs Despesas):**"
-      f" {int(f_endividamento)} / 250 pts"
+  st.markdown(
+      f"""
+      <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+          <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">🛡️ Controle de Endividamento (Receitas vs Despesas)</span>
+          <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Pontuação: {int(f_endividamento)} / 250 pts</p>
+      </div>
+      """,
+      unsafe_allow_html=True,
   )
   st.progress(min(f_endividamento / 250, 1.0))
-  st.write(
-      "🎯 **Controle de Desejos (Regra dos 30%):** {int(f_metas_s)} / 250 pts"
+  
+  st.markdown(
+      f"""
+      <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+          <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">🎯 Controle de Desejos (Regra dos 30%)</span>
+          <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Pontuação: {int(f_metas_s)} / 250 pts</p>
+      </div>
+      """,
+      unsafe_allow_html=True,
   )
   st.progress(min(f_metas_s / 250, 1.0))
-  st.write(
-      "📈 **Taxa de Poupança / Investimento (Regra dos 20%):**"
-      f" {int(f_poupanca)} / 250 pts"
+  
+  st.markdown(
+      f"""
+      <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+          <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">📈 Taxa de Poupança / Investimento (Regra dos 20%)</span>
+          <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Pontuação: {int(f_poupanca)} / 250 pts</p>
+      </div>
+      """,
+      unsafe_allow_html=True,
   )
   st.progress(min(f_poupanca / 250, 1.0))
-  st.write(
-      "📅 **Disciplina de Registros & Frequência:**"
-      f" {int(f_disciplina * 0.5)} / 250 pts"
+  
+  st.markdown(
+      f"""
+      <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+          <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">📅 Disciplina de Registros & Frequência</span>
+          <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Pontuação: {int(f_disciplina * 0.5)} / 250 pts</p>
+      </div>
+      """,
+      unsafe_allow_html=True,
   )
   st.progress(min((f_disciplina * 0.5) / 250, 1.0))
 
@@ -2341,7 +2471,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
   st.markdown(
       f"""
-      <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 14px; padding: 20px; margin-bottom: 25px;">
+      <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 14px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
           <h4 style="color: #60a5fa; margin-top: 0; display: flex; align-items: center; gap: 8px;">📌 Agenda do Dia: {st.session_state.data_calendario_ref.strftime('%d/%m/%Y')}</h4>
       </div>
       """,
@@ -3161,14 +3291,14 @@ elif st.session_state.pagina_atual == "📄 Holerites":
     with col_rec:
       st.markdown(
           f"""
-            <div style="background-color: #1A3322; padding: 25px; border-radius: 10px; border: 1px solid #2E7D32;">
-                <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale ({mes_ativo_ext})</h4>
-                <hr style="border-color: #2E7D32;">
+            <div style="background: rgba(25, 29, 38, 0.85); padding: 25px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
+                <h4 style="color: #4ade80; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale ({mes_ativo_ext})</h4>
+                <hr style="border-color: rgba(255,255,255,0.08);">
                 <p><b>Salário Bruto / Base:</b> R$ {bruto_ativo:,.2f}</p>
                 <p><b>Adiantamento / Vale Quinzenal:</b> R$ {vale_ativo:,.2f}</p>
                 <p><b>Horas Extras / Adicionais:</b> R$ 0,00</p>
                 <p><b>Outros Proventos:</b> R$ 0,00</p>
-                <h3 style="color: #66BB6A; margin-top: 15px;">Total Bruto & Vales: R$ {bruto_ativo + vale_ativo:,.2f}</h3>
+                <h3 style="color: #22c55e; margin-top: 15px; font-size: 20px;">Total Bruto & Vales: R$ {bruto_ativo + vale_ativo:,.2f}</h3>
             </div>
             """,
           unsafe_allow_html=True,
@@ -3177,14 +3307,14 @@ elif st.session_state.pagina_atual == "📄 Holerites":
     with col_desc:
       st.markdown(
           f"""
-            <div style="background-color: #331A1A; padding: 25px; border-radius: 10px; border: 1px solid #C62828;">
-                <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Detalhamento Separado dos Descontos ({mes_ativo_ext})</h4>
-                <hr style="border-color: #C62828;">
+            <div style="background: rgba(25, 29, 38, 0.85); padding: 25px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
+                <h4 style="color: #f87171; margin-top: 0;">🔴 Detalhamento Separado dos Descontos ({mes_ativo_ext})</h4>
+                <hr style="border-color: rgba(255,255,255,0.08);">
                 <p><b>• INSS (Previdência Social):</b> R$ {inss_ativo:,.2f}</p>
                 <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:,.2f}</p>
                 <p><b>• Desconto de Vale (Adiantamento):</b> R$ {vale_ativo:,.2f}</p>
                 <p><b>• Convênio / Farmácia / Outros:</b> R$ {max(0, desc_ativo - inss_ativo - irrf_ativo - vale_ativo):,.2f}</p>
-                <h3 style="color: #EF5350; margin-top: 15px;">Total Descontos: R$ {desc_ativo:,.2f}</h3>
+                <h3 style="color: #ef4444; margin-top: 15px; font-size: 20px;">Total Descontos: R$ {desc_ativo:,.2f}</h3>
             </div>
             """,
           unsafe_allow_html=True,
@@ -3194,9 +3324,9 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
     st.markdown(
         f"""
-        <div style="background-color: #1E222A; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #3F51B5;">
-            <h4 style="color: #9FA8DA; margin: 0;">💵 Receita Líquida ({mes_ativo_ext})</h4>
-            <h2 style="color: #5C6BC0; margin: 5px 0 0 0;">R$ {liquido_ativo:,.2f}</h2>
+        <div style="background: rgba(25, 29, 38, 0.85); padding: 20px; border-radius: 14px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
+            <h4 style="color: #94a3b8; margin: 0; font-size: 13px; font-weight: 600;">💵 RECEITA LÍQUIDA ({mes_ativo_ext})</h4>
+            <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {liquido_ativo:,.2f}</h2>
         </div>
         """,
         unsafe_allow_html=True,
