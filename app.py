@@ -13,7 +13,6 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide"
 )
 
-# Estilo visual moderno injetado via CSS (Novo Visual)
 st.markdown(
     """
     <style>
@@ -117,20 +116,14 @@ if not st.session_state.autenticado:
   st.stop()
 
 # ==========================================
-# --- CONEXÃO COM O BANCO DE DADOS (SQLite) ---
+# --- CONEXÃO E RECONHECIMENTO AUTOMÁTICO DO DB ---
 # ==========================================
 conn = sqlite3.connect("gestor_financeiro.db", check_same_thread=False)
 c = conn.cursor()
 
+# Criação automática de todas as tabelas necessárias
 c.execute("""CREATE TABLE IF NOT EXISTS transacoes 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, tipo TEXT, descricao TEXT, categoria TEXT, valor REAL, origem TEXT)""")
-
-# Garante compatibilidade caso a coluna origem não exista
-try:
-  c.execute("ALTER TABLE transacoes ADD COLUMN origem TEXT")
-  conn.commit()
-except:
-  pass
 
 c.execute("""CREATE TABLE IF NOT EXISTS contas 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, vencimento TEXT, descricao TEXT, valor REAL, pago INTEGER)""")
@@ -152,6 +145,23 @@ c.execute("""CREATE TABLE IF NOT EXISTS cartao_credito
 
 c.execute("""CREATE TABLE IF NOT EXISTS holerites 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, mes_ano TEXT, salario_bruto REAL, total_descontos REAL, liquido REAL, inss REAL, irrf REAL, vale REAL)""")
+
+# Novas tabelas para Gestão de Veículos, Manutenções e Combustíveis
+c.execute("""CREATE TABLE IF NOT EXISTS veiculos 
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, placa TEXT, modelo TEXT, ano TEXT, km_atual REAL)""")
+
+c.execute("""CREATE TABLE IF NOT EXISTS manutencoes_veiculo 
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, veiculo_id INTEGER, tipo_registro TEXT, descricao TEXT, data TEXT, valor REAL, status TEXT)""")
+
+c.execute("""CREATE TABLE IF NOT EXISTS consumo_combustivel 
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, veiculo_id INTEGER, data TEXT, litros REAL, valor_total REAL, km_odometro REAL, consumo_medio REAL)""")
+
+# Garantia de colunas essenciais caso o banco já exista
+try:
+  c.execute("ALTER TABLE transacoes ADD COLUMN origem TEXT")
+  conn.commit()
+except:
+  pass
 
 try:
   c.execute("ALTER TABLE holerites ADD COLUMN vale REAL")
@@ -441,8 +451,8 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
       mudar_pagina("💳 Cartão de Crédito")
       st.rerun()
   with c5:
-    if st.button("💵 Fluxo de Caixa", use_container_width=True):
-      mudar_pagina("💵 Fluxo de Caixa")
+    if st.button("🚗 Veículos & Manutenção", use_container_width=True):
+      mudar_pagina("🚗 Veículos & Manutenção")
       st.rerun()
   st.markdown("</div>", unsafe_allow_html=True)
 
@@ -629,6 +639,147 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
         st.success("Entrada financeira registrada com sucesso como lançamento manual!")
       else:
         st.error("Informe uma descrição e um valor de receita válido.")
+  botao_voltar()
+
+# ==========================================
+# --- SEÇÃO 2.1: VEÍCULOS, MANUTENÇÕES & COMBUSTÍVEIS ---
+# ==========================================
+elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
+  st.subheader("🚗 Central de Veículos, Manutenções & Consumo de Combustível")
+  st.write(
+      "Gerencie sua frota, registre quilometragem, agende manutenções e monitore o consumo médio de combustível."
+  )
+
+  tab_v1, tab_v2, tab_v3 = st.tabs(["🚗 Veículos", "📅 Manutenções Agendadas & Histórico", "⛽ Consumo de Combustível"])
+
+  with tab_v1:
+    st.write("### 🚗 Cadastro de Veículos")
+    with st.form("form_cadastrar_veiculo", clear_on_submit=True):
+      col_ve1, col_ve2 = st.columns(2)
+      with col_ve1:
+        placa_v = st.text_input("Placa do Veículo (Ex: ABC-1234)")
+        modelo_v = st.text_input("Modelo do Veículo (Ex: Corolla, Onix)")
+      with col_ve2:
+        ano_v = st.text_input("Ano (Ex: 2021/2022)")
+        km_v = st.number_input("Quilometragem Atual (Km)", min_value=0.0, value=0.0, step=100.0)
+
+      if st.form_submit_button("Salvar Novo Veículo", use_container_width=True):
+        if placa_v.strip() and modelo_v.strip():
+          c.execute("INSERT INTO veiculos (placa, modelo, ano, km_atual) VALUES (?,?,?,?)", 
+                    (placa_v.upper().strip(), modelo_v.strip(), ano_v.strip(), km_v))
+          conn.commit()
+          st.success(f"Veículo {modelo_v.upper()} ({placa_v.upper()}) cadastrado com sucesso!")
+          st.rerun()
+        else:
+          st.error("Informe ao menos a placa e o modelo do veículo.")
+
+    st.markdown("---")
+    df_veiculos_reg = pd.read_sql("SELECT * FROM veiculos", conn)
+    if not df_veiculos_reg.empty:
+      st.write("### 📋 Veículos Cadastrados")
+      st.dataframe(df_veiculos_reg.rename(columns={"id": "ID", "placa": "Placa", "modelo": "Modelo", "ano": "Ano", "km_atual": "Km Atual"}), use_container_width=True)
+      
+      id_del_veiculo = st.selectbox("Selecione o ID do veículo para exclusão:", df_veiculos_reg["id"].tolist(), key="del_veiculo_sel")
+      if st.button("Excluir Veículo Selecionado", use_container_width=True):
+        c.execute("DELETE FROM veiculos WHERE id = ?", (id_del_veiculo,))
+        conn.commit()
+        st.success("Veículo removido com sucesso!")
+        st.rerun()
+    else:
+      st.info("Nenhum veículo cadastrado no momento.")
+
+  with tab_v2:
+    st.write("### 🛠️ Gestão de Manutenções (Agendadas & Histórico)")
+    df_veic_opts = pd.read_sql("SELECT id, modelo, placa FROM veiculos", conn)
+    
+    if not df_veic_opts.empty:
+      veiculos_map = {f"{row['modelo']} ({row['placa']})": row['id'] for _, row in df_veic_opts.iterrows()}
+      
+      with st.form("form_cadastrar_manutencao", clear_on_submit=True):
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+          veic_escolhido = st.selectbox("Selecione o Veículo", list(veiculos_map.keys()))
+          tipo_manut = st.selectbox("Tipo de Registro", ["Manutenção Agendada", "Histórico Realizado"])
+          desc_manut = st.text_input("Descrição da Manutenção (Ex: Troca de Óleo, Pastilhas de Freio)")
+        with col_m2:
+          data_manut = st.date_input("Data do Ocorrido / Agendamento", value=date.today())
+          valor_manut = st.number_input("Valor Estimado / Pago (R$)", min_value=0.0, value=0.00, step=10.0, format="%.2f")
+          status_manut = st.selectbox("Status", ["Pendente", "Concluído"])
+
+        if st.form_submit_button("Salvar Registro de Manutenção", use_container_width=True):
+          if desc_manut.strip():
+            v_id = veiculos_map[veic_escolhido]
+            c.execute("INSERT INTO manutencoes_veiculo (veiculo_id, tipo_registro, descricao, data, valor, status) VALUES (?,?,?,?,?,?)",
+                      (v_id, tipo_manut, desc_manut.strip(), data_manut.strftime("%Y-%m-%d"), valor_manut, status_manut))
+            conn.commit()
+            st.success("Registro de manutenção salvo com sucesso!")
+            st.rerun()
+          else:
+            st.error("Informe a descrição da manutenção.")
+
+      st.markdown("---")
+      df_manut_all = pd.read_sql("SELECT m.id, v.modelo, v.placa, m.tipo_registro, m.descricao, m.data, m.valor, m.status FROM manutencoes_veiculo m JOIN veiculos v ON m.veiculo_id = v.id", conn)
+      if not df_manut_all.empty:
+        st.write("### 📋 Registros de Manutenções")
+        st.dataframe(df_manut_all.rename(columns={"id": "ID", "modelo": "Modelo", "placa": "Placa", "tipo_registro": "Tipo", "descricao": "Descrição", "data": "Data", "valor": "Valor (R$)", "status": "Status"}), use_container_width=True)
+
+        id_del_m = st.selectbox("Selecione o ID do registro de manutenção para remover:", df_manut_all["id"].tolist(), key="del_manut_sel")
+        if st.button("Remover Registro de Manutenção", use_container_width=True):
+          c.execute("DELETE FROM manutencoes_veiculo WHERE id = ?", (id_del_m,))
+          conn.commit()
+          st.success("Registro removido com sucesso!")
+          st.rerun()
+      else:
+        st.info("Nenhuma manutenção registrada.")
+    else:
+      st.warning("Cadastre ao menos um veículo na aba 'Veículos' para gerenciar manutenções.")
+
+  with tab_v3:
+    st.write("### ⛽ Controle de Consumo de Combustível")
+    if not df_veic_opts.empty:
+      with st.form("form_cadastrar_combustivel", clear_on_submit=True):
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+          veic_comb = st.selectbox("Selecione o Veículo", list(veiculos_map.keys()), key="veic_comb_key")
+          data_comb = st.date_input("Data do Abastecimento", value=date.today(), key="data_comb_key")
+          litros_comb = st.number_input("Litros Abastecidos", min_value=0.01, value=40.0, step=1.0, format="%.2f")
+        with col_c2:
+          valor_tot_comb = st.number_input("Valor Total Pago (R$)", min_value=0.0, value=200.0, step=10.0, format="%.2f")
+          km_odometro = st.number_input("Quilometragem no Odômetro (Km)", min_value=0.0, value=50000.0, step=10.0)
+
+        if st.form_submit_button("Registrar Abastecimento & Calcular Consumo", use_container_width=True):
+          v_id_c = veiculos_map[veic_comb]
+          # Tenta calcular o consumo médio com base no último abastecimento do veículo
+          df_ant = pd.read_sql("SELECT km_odometro FROM consumo_combustivel WHERE veiculo_id = ? ORDER BY id DESC LIMIT 1", conn, params=(v_id_c,))
+          consumo_medio = 0.0
+          if not df_ant.empty:
+            km_anterior = df_ant.iloc[0]["km_odometro"]
+            km_rodados = km_odometro - km_anterior
+            if km_rodados > 0 and litros_comb > 0:
+              consumo_medio = km_rodados / litros_comb
+
+          c.execute("INSERT INTO consumo_combustivel (veiculo_id, data, litros, valor_total, km_odometro, consumo_medio) VALUES (?,?,?,?,?,?)",
+                    (v_id_c, data_comb.strftime("%Y-%m-%d"), litros_comb, valor_tot_comb, km_odometro, consumo_medio))
+          conn.commit()
+          st.success(f"Abastecimento registrado com sucesso! Consumo médio estimado: {consumo_medio:.2f} Km/L")
+          st.rerun()
+
+      st.markdown("---")
+      df_comb_all = pd.read_sql("SELECT c.id, v.modelo, v.placa, c.data, c.litros, c.valor_total, c.km_odometro, c.consumo_medio FROM consumo_combustivel c JOIN veiculos v ON c.veiculo_id = v.id", conn)
+      if not df_comb_all.empty:
+        st.write("### 📋 Histórico de Abastecimentos")
+        st.dataframe(df_comb_all.rename(columns={"id": "ID", "modelo": "Modelo", "placa": "Placa", "data": "Data", "litros": "Litros", "valor_total": "Total (R$)", "km_odometro": "Odômetro (Km)", "consumo_medio": "Km/L Médio"}), use_container_width=True)
+
+        id_del_comb = st.selectbox("Selecione o ID do abastecimento para remover:", df_comb_all["id"].tolist(), key="del_comb_sel")
+        if st.button("Remover Registro de Abastecimento", use_container_width=True):
+          c.execute("DELETE FROM consumo_combustivel WHERE id = ?", (id_del_comb,))
+          conn.commit()
+          st.success("Abastecimento removido com sucesso!")
+          st.rerun()
+      else:
+        st.info("Nenhum abastecimento registrado.")
+    else:
+      st.warning("Cadastre ao menos um veículo na aba 'Veículos' para registrar o consumo.")
   botao_voltar()
 
 # ==========================================
