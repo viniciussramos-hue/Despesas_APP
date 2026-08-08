@@ -88,21 +88,22 @@ st.markdown(
         }
 
         .group-card {
-            background: rgba(18, 21, 28, 0.5);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
+            background: linear-gradient(135deg, rgba(22, 27, 34, 0.8) 0%, rgba(15, 18, 24, 0.9) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 14px;
+            padding: 22px;
+            backdrop-filter: blur(12px);
             margin-bottom: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
         }
 
         .group-title {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             color: var(--text-secondary);
             margin-bottom: 14px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
         }
     </style>
     """,
@@ -1205,32 +1206,41 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
   st.subheader("📊 Executive Dashboard — Lançamentos Reais Manuais")
   st.write("Painel gerencial focado exclusivamente nos registros feitos de forma manual no sistema.")
 
+  # Considera apenas lançamentos manuais (ignora upload do banco)
   df_all = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Manual' OR origem = 'Nota_Fiscal' OR origem = 'Voz_IA' OR origem = 'Chat_IA'", conn)
   df_inv_dash = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
   df_cartao_dash = pd.read_sql("SELECT * FROM cartao_credito", conn)
   df_contas_dash = pd.read_sql("SELECT * FROM contas", conn)
   df_metas_dash = pd.read_sql("SELECT * FROM metas", conn)
 
-  if "dash_manual_data_ref" not in st.session_state:
-    st.session_state.dash_manual_data_ref = date.today()
+  if "dash_manual_mes_ref" not in st.session_state:
+    st.session_state.dash_manual_mes_ref = date.today().month
+  if "dash_manual_ano_ref" not in st.session_state:
+    st.session_state.dash_manual_ano_ref = date.today().year
 
-  col_fm1, col_fm2 = st.columns([3, 3])
-  with col_fm1:
-    data_sel_manual_cal = st.date_input(
-        "📅 Filtrar Visão Manual por Data/Mês (Calendário):",
-        value=st.session_state.dash_manual_data_ref,
-        key="picker_dash_manual_cal",
-        format="DD/MM/YYYY"
-    )
-    if data_sel_manual_cal:
-      st.session_state.dash_manual_data_ref = data_sel_manual_cal
+  st.write("**Filtrar por Mês (Seleção Rápida em Botões Pequenos):**")
+  meses_nomes_map = {
+      1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
+      7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"
+  }
+  
+  cols_meses_btns = st.columns(12)
+  for m_idx in range(1, 13):
+    with cols_meses_btns[m_idx - 1]:
+      is_active_m = (st.session_state.dash_manual_mes_ref == m_idx)
+      btn_type_m = "primary" if is_active_m else "secondary"
+      if st.button(meses_nomes_map[m_idx], key=f"btn_mes_dash_m_{m_idx}", use_container_width=True, type=btn_type_m):
+        st.session_state.dash_manual_mes_ref = m_idx
+        st.rerun()
 
-  mes_selecionado = st.session_state.dash_manual_data_ref.strftime("%Y-%m")
+  mes_selecionado_num = st.session_state.dash_manual_mes_ref
+  ano_selecionado_num = st.session_state.dash_manual_ano_ref
+  mes_selecionado_str = f"{ano_selecionado_num}-{mes_selecionado_num:02d}"
 
   if not df_all.empty:
     df_all["data"] = pd.to_datetime(df_all["data"])
     df_all["ano_mes"] = df_all["data"].dt.strftime("%Y-%m")
-    df = df_all[df_all["ano_mes"] == mes_selecionado].copy()
+    df = df_all[df_all["ano_mes"] == mes_selecionado_str].copy()
   else:
     df = df_all.copy()
 
@@ -1250,18 +1260,28 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
 
     st.markdown("### 💼 Visão Geral & Indicadores Manuais")
     b1, b2, b3, b4, b5 = st.columns(5)
-    b1.metric("⚡ Burn Rate Diário (Manual)", f"R$ {burn_rate_diario:,.2f} / dia")
-    b2.metric("💵 Saldo Atual (Entrada - Saída)", f"R$ {saldo_caixa:,.2f}")
-    b3.metric("💳 Saldo Livre Pós-Contas", f"R$ {saldo_livre_pos_compromissos:,.2f}")
-    b4.metric("🟢 Entradas Manuais", f"R$ {receitas:,.2f}")
-    b5.metric("🔴 Despesas Manuais", f"R$ {despesas:,.2f}")
+    with b1:
+      st.markdown(f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">⚡ BURN RATE DIÁRIO</span><h3 style="color: #f8fafc; margin: 8px 0 0 0; font-size: 18px;">R$ {burn_rate_diario:,.2f} / dia</h3></div>""", unsafe_allow_html=True)
+    with b2:
+      st.markdown(f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💵 SALDO ATUAL (ENTRADA - SAÍDA)</span><h3 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_caixa:,.2f}</h3></div>""", unsafe_allow_html=True)
+    with b3:
+      st.markdown(f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💳 SALDO LIVRE PÓS-CONTAS</span><h3 style="color: #f59e0b; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_livre_pos_compromissos:,.2f}</h3></div>""", unsafe_allow_html=True)
+    with b4:
+      st.markdown(f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🟢 ENTRADAS MANUAIS</span><h3 style="color: #22c55e; margin: 8px 0 0 0; font-size: 18px;">R$ {receitas:,.2f}</h3></div>""", unsafe_allow_html=True)
+    with b5:
+      st.markdown(f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🔴 DESPESAS MANUAIS</span><h3 style="color: #ef4444; margin: 8px 0 0 0; font-size: 18px;">R$ {despesas:,.2f}</h3></div>""", unsafe_allow_html=True)
 
+    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 🏛️ Indicadores Patrimoniais & Passivos")
     p1, p2, p3, p4 = st.columns(4)
-    p1.metric("💎 Patrimônio Líquido Global", f"R$ {patrimonio_liquido_global:,.2f}")
-    p2.metric("📈 Total Investido", f"R$ {patrimonio_investido:,.2f}")
-    p3.metric("💳 Faturas de Cartão", f"R$ {total_faturas_cartao:,.2f}")
-    p4.metric("📅 Contas a Pagar", f"R$ {total_contas_pendentes:,.2f}")
+    with p1:
+      st.markdown(f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px;"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💎 PATRIMÔNIO LÍQUIDO GLOBAL</span><h3 style="color: #60a5fa; margin: 8px 0 0 0; font-size: 18px;">R$ {patrimonio_liquido_global:,.2f}</h3></div>""", unsafe_allow_html=True)
+    with p2:
+      st.markdown(f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px;"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">📈 TOTAL INVESTIDO</span><h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 18px;">R$ {patrimonio_investido:,.2f}</h3></div>""", unsafe_allow_html=True)
+    with p3:
+      st.markdown(f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px;"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💳 FATURAS DE CARTÃO</span><h3 style="color: #f59e0b; margin: 8px 0 0 0; font-size: 18px;">R$ {total_faturas_cartao:,.2f}</h3></div>""", unsafe_allow_html=True)
+    with p4:
+      st.markdown(f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px;"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">📅 CONTAS A PAGAR</span><h3 style="color: #ef4444; margin: 8px 0 0 0; font-size: 18px;">R$ {total_contas_pendentes:,.2f}</h3></div>""", unsafe_allow_html=True)
 
     st.markdown("---")
     media_despesa_mensal = df_all[df_all["tipo"] == "Despesa"]["valor"].mean() if not df_all.empty else 0.0
@@ -1273,7 +1293,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
 
     st.markdown(
         f"""
-        <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+        <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 14px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
             <h4 style="color: #60a5fa; margin-top: 0; display: flex; align-items: center; gap: 8px;">🛡️ Índice de Autonomia Financeira (Runway)</h4>
             <p style="color: #f8fafc; font-size: 15px; margin-bottom: 5px;">
                 O seu patrimônio atual garante <b>{meses_runway:.1f} meses</b> de autonomia completa com base na despesa média manual (<b>R$ {media_despesa_mensal:,.2f}</b>).
@@ -1295,10 +1315,10 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
           with cols_v[idx]:
             st.markdown(
                 f"""
-                <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 15px;">
-                    <span style="font-size: 12px; color: #f87171; font-weight: 600;"># {idx+1} MAIOR GASTO</span>
-                    <h4 style="color: #f8fafc; margin: 5px 0 2px 0; font-size: 16px;">{row_v['descricao']}</h4>
-                    <p style="color: #94a3b8; font-size: 13px; margin: 0 0 8px 0;">{row_v['categoria']}</p>
+                <div style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                    <span style="font-size: 11px; color: #f87171; font-weight: 700; letter-spacing: 0.5px;"># {idx+1} MAIOR GASTO</span>
+                    <h4 style="color: #f8fafc; margin: 6px 0 2px 0; font-size: 16px;">{row_v['descricao']}</h4>
+                    <p style="color: #94a3b8; font-size: 13px; margin: 0 0 10px 0;">{row_v['categoria']}</p>
                     <h3 style="color: #ef4444; margin: 0; font-size: 18px;">R$ {row_v['valor']:,.2f}</h3>
                 </div>
                 """,
@@ -1441,41 +1461,45 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   if "prev_data_atual" not in st.session_state or not isinstance(st.session_state.prev_data_atual, (date, datetime)):
     st.session_state.prev_data_atual = datetime.now().replace(day=1)
 
-  # Botões em formato de botão elegante para Período da Visão e Formato de Exibição
+  # Botões menores, com cores diferentes e sem calendário (conforme solicitado)
   col_cfg1, col_cfg2, col_exp_btn = st.columns([3, 3, 2])
+  
   with col_cfg1:
-    st.write("**Período da Visão:**")
+    st.markdown("<span style='font-size:12px; color:#94a3b8; font-weight:600;'>PERÍODO DA VISÃO</span>", unsafe_allow_html=True)
     if "tipo_visao" not in st.session_state:
       st.session_state.tipo_visao = "Mensal"
     
     cv_p1, cv_p2 = st.columns(2)
     with cv_p1:
-      if st.button("Mensal", use_container_width=True, type="primary" if st.session_state.tipo_visao == "Mensal" else "secondary"):
+      is_mensal = (st.session_state.tipo_visao == "Mensal")
+      if st.button("Mensal", use_container_width=True, type="primary" if is_mensal else "secondary"):
         st.session_state.tipo_visao = "Mensal"
         st.rerun()
     with cv_p2:
-      if st.button("Anual", use_container_width=True, type="primary" if st.session_state.tipo_visao == "Anual" else "secondary"):
+      is_anual = (st.session_state.tipo_visao == "Anual")
+      if st.button("Anual", use_container_width=True, type="primary" if is_anual else "secondary"):
         st.session_state.tipo_visao = "Anual"
         st.rerun()
 
   with col_cfg2:
-    st.write("**Formato de Exibição:**")
+    st.markdown("<span style='font-size:12px; color:#94a3b8; font-weight:600;'>FORMATO DE EXIBIÇÃO</span>", unsafe_allow_html=True)
     if "formato_exibicao" not in st.session_state:
       st.session_state.formato_exibicao = "Gráfico"
 
     cv_e1, cv_e2 = st.columns(2)
     with cv_e1:
-      if st.button("Gráfico", use_container_width=True, type="primary" if st.session_state.formato_exibicao == "Gráfico" else "secondary"):
+      is_grafico = (st.session_state.formato_exibicao == "Gráfico")
+      if st.button("Gráfico", use_container_width=True, type="primary" if is_grafico else "secondary"):
         st.session_state.formato_exibicao = "Gráfico"
         st.rerun()
     with cv_e2:
-      if st.button("Tabela", use_container_width=True, type="primary" if st.session_state.formato_exibicao == "Tabela" else "secondary"):
+      is_tabela = (st.session_state.formato_exibicao == "Tabela")
+      if st.button("Tabela", use_container_width=True, type="primary" if is_tabela else "secondary"):
         st.session_state.formato_exibicao = "Tabela"
         st.rerun()
 
   with col_exp_btn:
-    st.write("")
-    st.write("")
+    st.markdown("<span style='font-size:12px; color:transparent;'>EXPORTAR</span>", unsafe_allow_html=True)
     if st.button("📥 Exportar Relatório", use_container_width=True):
       st.success("Relatório de previsão exportado com sucesso!")
 
@@ -1484,27 +1508,20 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("---")
 
-  col_nav_cal1, col_nav_cal2, col_nav_cal3 = st.columns([1, 4, 1])
-  with col_nav_cal1:
-    if st.button("❮ Mês Anterior", use_container_width=True):
+  # Navegação de mês lado a lado em botões pequenos e distintos (sem calendário)
+  st.markdown("<span style='font-size:12px; color:#94a3b8; font-weight:600; text-transform:uppercase;'>Selecionar Mês de Referência (Navegação Rápida)</span>", unsafe_allow_html=True)
+  
+  col_nav_ant, col_nav_prox = st.columns(2)
+  with col_nav_ant:
+    if st.button("❮ Mês Anterior", use_container_width=True, type="secondary"):
       if tipo_visao == "Mensal":
         st.session_state.prev_data_atual = (st.session_state.prev_data_atual - timedelta(days=1)).replace(day=1)
       else:
         st.session_state.prev_data_atual = st.session_state.prev_data_atual.replace(year=st.session_state.prev_data_atual.year - 1)
       st.rerun()
 
-  with col_nav_cal2:
-    data_calendario_escolhida = st.date_input(
-        "📅 Selecionar Data de Referência da Previsão (Calendário):",
-        value=st.session_state.prev_data_atual,
-        key="picker_previsao_data_cal",
-        format="DD/MM/YYYY"
-    )
-    if data_calendario_escolhida:
-      st.session_state.prev_data_atual = datetime.combine(data_calendario_escolhida, datetime.min.time()).replace(day=1)
-
-  with col_nav_cal3:
-    if st.button("Mês Seguinte ❯", use_container_width=True):
+  with col_nav_prox:
+    if st.button("Mês Seguinte ❯", use_container_width=True, type="primary"):
       if tipo_visao == "Mensal":
         st.session_state.prev_data_atual = (st.session_state.prev_data_atual + timedelta(days=32)).replace(day=1)
       else:
@@ -1606,9 +1623,9 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   with m1:
     st.markdown(
         f"""
-        <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 20px;">
-            <span style="color: #4ade80; font-size: 13px; font-weight: 600;">🟢 TOTAL ENTRADAS (Com A Receber)</span>
-            <h2 style="color: #22c55e; margin: 5px 0 0 0;">R$ {total_entradas_previstas:,.2f}</h2>
+        <div style="background: rgba(34, 197, 94, 0.06); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+            <span style="color: #4ade80; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🟢 TOTAL ENTRADAS (Com A Receber)</span>
+            <h2 style="color: #22c55e; margin: 8px 0 0 0; font-size: 22px;">R$ {total_entradas_previstas:,.2f}</h2>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1616,9 +1633,9 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   with m2:
     st.markdown(
         f"""
-        <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 20px;">
-            <span style="color: #f87171; font-size: 13px; font-weight: 600;">🔴 TOTAL SAÍDAS</span>
-            <h2 style="color: #ef4444; margin: 5px 0 0 0;">R$ {total_saidas_previstas:,.2f}</h2>
+        <div style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+            <span style="color: #f87171; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🔴 TOTAL SAÍDAS</span>
+            <h2 style="color: #ef4444; margin: 8px 0 0 0; font-size: 22px;">R$ {total_saidas_previstas:,.2f}</h2>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1626,9 +1643,9 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   with m3:
     st.markdown(
         f"""
-        <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 20px;">
-            <span style="color: #60a5fa; font-size: 13px; font-weight: 600;">⚖️ SALDO PROJETADO</span>
-            <h2 style="color: #3b82f6; margin: 5px 0 0 0;">R$ {saldo_projetado:,.2f}</h2>
+        <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+            <span style="color: #60a5fa; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">⚖️ SALDO PROJETADO</span>
+            <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {saldo_projetado:,.2f}</h2>
         </div>
         """,
         unsafe_allow_html=True,
