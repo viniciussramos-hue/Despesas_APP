@@ -123,7 +123,14 @@ conn = sqlite3.connect("gestor_financeiro.db", check_same_thread=False)
 c = conn.cursor()
 
 c.execute("""CREATE TABLE IF NOT EXISTS transacoes 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, tipo TEXT, descricao TEXT, categoria TEXT, valor REAL)""")
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, tipo TEXT, descricao TEXT, categoria TEXT, valor REAL, origem TEXT)""")
+
+# Garante compatibilidade caso a coluna origem não exista
+try:
+  c.execute("ALTER TABLE transacoes ADD COLUMN origem TEXT")
+  conn.commit()
+except:
+  pass
 
 c.execute("""CREATE TABLE IF NOT EXISTS contas 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, vencimento TEXT, descricao TEXT, valor REAL, pago INTEGER)""")
@@ -455,12 +462,12 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
       mudar_pagina("🔮 Projeções Futuras")
       st.rerun()
   with c3:
-    if st.button("📊 Dashboard Geral", use_container_width=True):
-      mudar_pagina("📊 Dashboard")
+    if st.button("📊 Dash. Manual (Real)", use_container_width=True):
+      mudar_pagina("📊 Dashboard Manual")
       st.rerun()
   with c4:
-    if st.button("🎯 Desafios", use_container_width=True):
-      mudar_pagina("🎯 Desafios")
+    if st.button("📥 Dash. Extrato Banco", use_container_width=True):
+      mudar_pagina("📥 Dashboard Banco")
       st.rerun()
   with c5:
     if st.button("🎯 Metas de Gastos", use_container_width=True):
@@ -549,18 +556,19 @@ elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
     if btn_salvar_desp:
       if desc.strip() and valor > 0:
         c.execute(
-            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor)"
-            " VALUES (?,?,?,?,?)",
+            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem)"
+            " VALUES (?,?,?,?,?,?)",
             (
                 data_desp.strftime("%Y-%m-%d"),
                 "Despesa",
                 desc.strip(),
                 cat,
                 valor,
+                "Manual",
             ),
         )
         conn.commit()
-        st.success("Despesa registrada e consolidada com sucesso!")
+        st.success("Despesa registrada e consolidada com sucesso como lançamento manual!")
       else:
         st.error(
             "Preencha uma descrição válida e um valor superior a zero."
@@ -606,30 +614,31 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
     if btn_salvar_rec:
       if desc_rec.strip() and valor_rec > 0:
         c.execute(
-            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor)"
-            " VALUES (?,?,?,?,?)",
+            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem)"
+            " VALUES (?,?,?,?,?,?)",
             (
                 data_rec.strftime("%Y-%m-%d"),
                 "Receita",
                 desc_rec.strip(),
                 cat_rec,
                 valor_rec,
+                "Manual",
             ),
         )
         conn.commit()
-        st.success("Entrada financeira registrada com sucesso!")
+        st.success("Entrada financeira registrada com sucesso como lançamento manual!")
       else:
         st.error("Informe uma descrição e um valor de receita válido.")
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 3: DASHBOARD (COM NOVAS SUGESTÕES DE ANÁLISE) ---
+# --- SEÇÃO 3A: DASHBOARD MANUAL (LANÇAMENTOS REAIS) ---
 # ==========================================
-elif st.session_state.pagina_atual == "📊 Dashboard":
-  st.subheader("📊 Executive Dashboard & Inteligência Financeira")
-  st.write("Painel gerencial consolidado com indicadores avançados, Burn Rate diário e Saldo Livre Pós-Contas.")
+elif st.session_state.pagina_atual == "📊 Dashboard Manual":
+  st.subheader("📊 Executive Dashboard — Lançamentos Reais Manuais")
+  st.write("Painel gerencial focado exclusivamente nos registros feitos de forma manual no sistema.")
 
-  df_all = pd.read_sql("SELECT * FROM transacoes", conn)
+  df_all = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Manual' OR origem IS NULL", conn)
   df_inv_dash = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
   df_cartao_dash = pd.read_sql("SELECT * FROM cartao_credito", conn)
   df_contas_dash = pd.read_sql("SELECT * FROM contas", conn)
@@ -643,74 +652,12 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
     col_f1, col_f2 = st.columns([2, 4])
     with col_f1:
       mes_selecionado = st.selectbox(
-          "📅 Filtrar Visão Analítica por Mês/Ano:", meses_disponiveis
+          "📅 Filtrar Visão Manual por Mês/Ano:", meses_disponiveis, key="sel_mes_manual"
       )
 
     df = df_all[df_all["ano_mes"] == mes_selecionado].copy()
   else:
     df = df_all.copy()
-
-  # Alertas de orçamento e contas
-  if not df_all.empty and not df.empty:
-    df_desp_all = df_all[df_all["tipo"] == "Despesa"]
-    if len(df_desp_all["ano_mes"].unique()) > 1:
-      media_por_cat = (
-          df_desp_all.groupby(["categoria", "ano_mes"])["valor"]
-          .sum()
-          .reset_index()
-      )
-      media_historica = media_por_cat.groupby("categoria")["valor"].mean().to_dict()
-
-      gasto_atual_cat = (
-          df[df["tipo"] == "Despesa"].groupby("categoria")["valor"].sum().to_dict()
-      )
-      for cat, val in gasto_atual_cat.items():
-        med = media_historica.get(cat, val)
-        if med > 0 and val > (med * 1.3):
-          st.warning(
-              f"🚨 **Alerta de Gasto Anômalo:** Os gastos na categoria **{cat}**"
-              f" (R$ {val:,.2f}) estão 30% acima da sua média histórica (R$"
-              f" {med:,.2f})!"
-          )
-
-  if not df.empty and not df_metas_dash.empty:
-    for _, m in df_metas_dash.iterrows():
-      gasto_cat_mes = df[
-          (df["categoria"] == m["categoria"]) & (df["tipo"] == "Despesa")
-      ]["valor"].sum()
-      if m["valor_meta"] > 0 and (gasto_cat_mes / m["valor_meta"]) >= 0.9:
-        st.warning(
-            "⚠️ **Alerta de Orçamento:** Você atingiu ou ultrapassou 90% do"
-            f" teto de meta em **{m['categoria']}**! (Gasto atual: R$"
-            f" {gasto_cat_mes:,.2f} / Meta: R$ {m['valor_meta']:,.2f})"
-        )
-
-  df_contas_check = df_contas_dash[df_contas_dash["pago"] == 0]
-  if not df_contas_check.empty:
-    hoje = date.today()
-    vencidas, proximas = [], []
-    for _, row in df_contas_check.iterrows():
-      data_venc = datetime.strptime(row["vencimento"], "%Y-%m-%d").date()
-      dias_diff = (data_venc - hoje).days
-      if dias_diff < 0:
-        vencidas.append(
-            f"• **{row['descricao']}** (Vencia em {row['vencimento']} - R$"
-            f" {row['valor']:,.2f})"
-        )
-      elif 0 <= dias_diff <= 3:
-        proximas.append(
-            f"• **{row['descricao']}** (Vence em {row['vencimento']} - R$"
-            f" {row['valor']:,.2f})"
-        )
-    if vencidas:
-      st.error(
-          "🚨 **Atenção Crítica! Contas VENCIDAS:**\n\n" + "\n".join(vencidas)
-      )
-    if proximas:
-      st.warning(
-          "⚠️ **Aviso: Contas próximas do vencimento (próximos 3 dias):**\n\n"
-          + "\n".join(proximas)
-      )
 
   if not df_all.empty:
     df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
@@ -723,20 +670,16 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
     total_contas_pendentes = df_contas_dash[df_contas_dash["pago"] == 0]["valor"].sum() if not df_contas_dash.empty else 0.0
     patrimonio_liquido_global = patrimonio_investido + max(0, saldo_caixa)
 
-    # --- NOVO RECURSO 1: BURN RATE DIÁRIO E RECURSO 2: SALDO LIVRE PÓS-CONTAS ---
-    dias_no_mes = 30 # Referência padrão mensal para cálculo do Burn Rate
-    burn_rate_diario = despesas / dias_no_mes if dias_no_mes > 0 else 0.0
+    burn_rate_diario = despesas / 30.0
     saldo_livre_pos_compromissos = saldo_caixa - total_contas_pendentes - total_faturas_cartao
 
-    st.markdown("### 💼 Visão Geral & Indicadores de Análise Rápida")
+    st.markdown("### 💼 Visão Geral & Indicadores Manuais")
     b1, b2, b3, b4 = st.columns(4)
-    b1.metric("⚡ Burn Rate Diário", f"R$ {burn_rate_diario:,.2f} / dia", help="Média de gasto diário com base nas despesas do mês selecionado.")
-    b2.metric("💵 Saldo Livre Pós-Contas", f"R$ {saldo_livre_pos_compromissos:,.2f}", help="Saldo do período deduzido de contas pendentes e faturas de cartão.")
-    b3.metric("🟢 Entradas Totais", f"R$ {receitas:,.2f}")
-    b4.metric("🔴 Despesas Totais", f"R$ {despesas:,.2f}")
-    # --------------------------------------------------------------------------
+    b1.metric("⚡ Burn Rate Diário (Manual)", f"R$ {burn_rate_diario:,.2f} / dia")
+    b2.metric("💵 Saldo Livre Pós-Contas", f"R$ {saldo_livre_pos_compromissos:,.2f}")
+    b3.metric("🟢 Entradas Manuais", f"R$ {receitas:,.2f}")
+    b4.metric("🔴 Despesas Manuais", f"R$ {despesas:,.2f}")
 
-    # --- LINHA 2 DE MÉTRICAS EXECUTIVAS ---
     st.markdown("### 🏛️ Indicadores Patrimoniais & Passivos")
     p1, p2, p3, p4 = st.columns(4)
     p1.metric("💎 Patrimônio Líquido Global", f"R$ {patrimonio_liquido_global:,.2f}")
@@ -744,7 +687,6 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
     p3.metric("💳 Faturas de Cartão", f"R$ {total_faturas_cartao:,.2f}")
     p4.metric("📅 Contas a Pagar", f"R$ {total_contas_pendentes:,.2f}")
 
-    # --- CARD DE RUNWAY / AUTONOMIA FINANCEIRA ---
     st.markdown("---")
     media_despesa_mensal = df_all[df_all["tipo"] == "Despesa"]["valor"].mean() if not df_all.empty else 0.0
     if len(df_all["ano_mes"].unique()) > 0:
@@ -758,15 +700,14 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
         <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
             <h4 style="color: #60a5fa; margin-top: 0; display: flex; align-items: center; gap: 8px;">🛡️ Índice de Autonomia Financeira (Runway)</h4>
             <p style="color: #f8fafc; font-size: 15px; margin-bottom: 5px;">
-                O seu patrimônio atual garante <b>{meses_runway:.1f} meses</b> de autonomia completa com base na sua despesa média mensal (<b>R$ {media_despesa_mensal:,.2f}</b>).
+                O seu patrimônio atual garante <b>{meses_runway:.1f} meses</b> de autonomia completa com base na despesa média manual (<b>R$ {media_despesa_mensal:,.2f}</b>).
             </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # --- TOP 3 MAIORES VILÕES DO MÊS ---
-    st.markdown("### 🚨 Top 3 Maiores Vilões de Despesa do Mês")
+    st.markdown("### 🚨 Top 3 Maiores Vilões Manuais do Mês")
     df_desp_mes = df[df["tipo"] == "Despesa"].copy()
     if not df_desp_mes.empty:
       top_viloes = df_desp_mes.sort_values(by="valor", ascending=False).head(3)
@@ -787,28 +728,15 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
                 """,
                 unsafe_allow_html=True,
             )
-    else:
-      st.info("Nenhuma despesa registrada para o mês selecionado para calcular os vilões.")
 
     st.markdown("---")
-    st.subheader("🎯 Acompanhamento Rigoroso da Regra 50 / 30 / 20")
+    st.subheader("🎯 Acompanhamento Rigoroso da Regra 50 / 30 / 20 (Manual)")
     if receitas > 0:
-      nec = df[
-          (df["tipo"] == "Despesa")
-          & (df["categoria"].str.contains("Necessidade", na=False))
-      ]["valor"].sum()
-      des = df[
-          (df["tipo"] == "Despesa")
-          & (df["categoria"].str.contains("Desejos", na=False))
-      ]["valor"].sum()
-      inv = df[
-          (df["tipo"] == "Despesa")
-          & (df["categoria"].str.contains("Investimentos", na=False))
-      ]["valor"].sum()
+      nec = df[(df["tipo"] == "Despesa") & (df["categoria"].str.contains("Necessidade", na=False))]["valor"].sum()
+      des = df[(df["tipo"] == "Despesa") & (df["categoria"].str.contains("Desejos", na=False))]["valor"].sum()
+      inv = df[(df["tipo"] == "Despesa") & (df["categoria"].str.contains("Investimentos", na=False))]["valor"].sum()
 
-      meta_nec = receitas * 0.50
-      meta_des = receitas * 0.30
-      meta_inv = receitas * 0.20
+      meta_nec, meta_des, meta_inv = receitas * 0.50, receitas * 0.30, receitas * 0.20
 
       c_50, c_30, c_20 = st.columns(3)
       with c_50:
@@ -823,13 +751,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
         st.write("**20% Investimentos (Mínimo)**")
         st.write(f"Guardado: R$ {inv:,.2f} / Meta: R$ {meta_inv:,.2f}")
         st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
-    else:
-      st.warning(
-          "Cadastre entradas neste mês para habilitar o cálculo dinâmico da"
-          " regra 50/30/20."
-      )
 
-    # --- TERMÔMETRO VISUAL DE METAS DE GASTOS ---
     st.markdown("---")
     st.subheader("🎯 Termômetro de Metas por Categoria")
     if not df_metas_dash.empty:
@@ -837,57 +759,25 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
         c_nome = meta_row["categoria"]
         teto_meta = meta_row["valor_meta"]
         gasto_cat_real = df[(df["categoria"] == c_nome) & (df["tipo"] == "Despesa")]["valor"].sum()
-        
         pct_atingido = (gasto_cat_real / teto_meta) if teto_meta > 0 else 0.0
         st.write(f"**{c_nome}** — Real: R$ {gasto_cat_real:,.2f} / Teto: R$ {teto_meta:,.2f} ({(pct_atingido*100):.1f}%)")
         st.progress(min(pct_atingido, 1.0))
-    else:
-      st.info("Nenhuma meta teto cadastrada. Configure suas metas na aba 'Metas de Gastos'.")
 
     st.markdown("---")
-    st.subheader("📈 Distribuição Analítica de Despesas por Categoria")
+    st.subheader("📈 Distribuição de Despesas Manuais por Categoria")
     df_desp = df[df["tipo"] == "Despesa"]
     if not df_desp.empty:
       gasto_cat = df_desp.groupby("categoria")["valor"].sum()
       col_g1, col_g2 = st.columns(2)
       with col_g1:
-        st.write("**Gráfico de Barras - Gastos por Categoria**")
         st.bar_chart(gasto_cat)
       with col_g2:
-        st.write("**Demonstrativo Analítico Detalhado**")
-        df_resumo = (
-            gasto_cat.reset_index()
-            .rename(columns={"valor": "Total Gasto (R$)"})
-        )
-        df_resumo["Total Gasto (R$)"] = df_resumo["Total Gasto (R$)"].apply(
-            lambda x: f"R$ {x:,.2f}"
-        )
+        df_resumo = gasto_cat.reset_index().rename(columns={"valor": "Total Gasto (R$)"})
+        df_resumo["Total Gasto (R$)"] = df_resumo["Total Gasto (R$)"].apply(lambda x: f"R$ {x:,.2f}")
         st.dataframe(df_resumo, use_container_width=True)
-    else:
-      st.info("Nenhuma despesa registrada para o mês selecionado.")
 
     st.markdown("---")
-    st.subheader("📈 Evolução Histórica & Saldo Acumulado Patrimonial")
-    df_pivot = (
-        df_all.pivot_table(
-            index="ano_mes", columns="tipo", values="valor", aggfunc="sum"
-        )
-        .fillna(0)
-    )
-    if "Receita" not in df_pivot.columns:
-      df_pivot["Receita"] = 0
-    if "Despesa" not in df_pivot.columns:
-      df_pivot["Despesa"] = 0
-    df_pivot["Saldo Mensal"] = df_pivot["Receita"] - df_pivot["Despesa"]
-    df_pivot["Saldo Acumulado"] = df_pivot["Saldo Mensal"].cumsum()
-
-    st.write("**Curva de Crescimento do Saldo Acumulado em Caixa**")
-    st.line_chart(df_pivot[["Saldo Acumulado"]])
-
-    # --- GRÁFICO DE ÁREA EMPILHADA DA REGRA 50/30/20 ---
-    st.markdown("---")
-    st.subheader("📊 Gráfico de Área Empilhada: Dinâmica 50/30/20 ao Longo dos Meses")
-    
+    st.subheader("📊 Gráfico de Área Empilhada: Dinâmica 50/30/20 (Manual)")
     df_empilhado = df_all[df_all["tipo"] == "Despesa"].copy()
     if not df_empilhado.empty:
       def mapear_pilar(cat):
@@ -897,18 +787,71 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
           return "Desejos (30%)"
         else:
           return "Investimentos (20%)"
-          
       df_empilhado["Pilar"] = df_empilhado["categoria"].apply(mapear_pilar)
       df_area_pivot = df_empilhado.pivot_table(index="ano_mes", columns="Pilar", values="valor", aggfunc="sum").fillna(0)
       st.area_chart(df_area_pivot)
-    else:
-      st.info("Cadastre mais despesas históricas em meses diferentes para habilitar o gráfico de área empilhada.")
-
   else:
-    st.info(
-        "Inicie os lançamentos no sistema para construir o painel corporativo"
-        " completo."
-    )
+    st.info("Nenhum lançamento manual registrado para exibir no dashboard.")
+  botao_voltar()
+
+# ==========================================
+# --- SEÇÃO 3B: DASHBOARD EXTRATO BANCO (PDF) ---
+# ==========================================
+elif st.session_state.pagina_atual == "📥 Dashboard Banco":
+  st.subheader("📥 Dashboard de Auditoria & Extratos Importados do Banco")
+  st.write("Painel exclusivo para analisar transações geradas automaticamente por upload de extratos bancários em PDF.")
+
+  df_banco_all = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Banco_PDF'", conn)
+
+  if not df_banco_all.empty:
+    df_banco_all["data"] = pd.to_datetime(df_banco_all["data"])
+    df_banco_all["ano_mes"] = df_banco_all["data"].dt.strftime("%Y-%m")
+    meses_banco = sorted(df_banco_all["ano_mes"].unique(), reverse=True)
+
+    col_fb1, col_fb2 = st.columns([2, 4])
+    with col_fb1:
+      mes_banco_sel = st.selectbox("📅 Selecionar Mês do Extrato Bancário:", meses_banco)
+
+    df_b = df_banco_all[df_banco_all["ano_mes"] == mes_banco_sel].copy()
+
+    rec_b = df_b[df_b["tipo"] == "Receita"]["valor"].sum()
+    desp_b = df_b[df_b["tipo"] == "Despesa"]["valor"].sum()
+    saldo_b = rec_b - desp_b
+
+    st.markdown("### 📊 Indicadores Consolidados do Extrato Bancário")
+    cb1, cb2, cb3 = st.columns(3)
+    cb1.metric("💰 Saldo Líquido do Extrato", f"R$ {saldo_b:,.2f}")
+    cb2.metric("🟢 Entradas no Extrato", f"R$ {rec_b:,.2f}")
+    cb3.metric("🔴 Saídas no Extrato", f"R$ {desp_b:,.2f}")
+
+    st.markdown("---")
+    st.subheader("🔥 Dias de Pico de Saídas (Extrato Bancário)")
+    df_desp_banco = df_b[df_b["tipo"] == "Despesa"]
+    if not df_desp_banco.empty:
+      picos_banco = df_desp_banco.groupby("data")["valor"].sum().reset_index().sort_values(by="valor", ascending=False).head(3)
+      cols_pb = st.columns(3)
+      for idx_p, (_, row_pb) in enumerate(picos_banco.iterrows()):
+        if idx_p < len(cols_pb):
+          with cols_pb[idx_p]:
+            st.metric(f"📅 Dia {row_pb['data'].strftime('%d/%m/%Y')}", f"R$ {row_pb['valor']:,.2f}", help="Concentração de saídas neste dia do extrato.")
+
+    st.markdown("---")
+    st.subheader("📈 Distribuição de Gastos do Extrato por Categoria")
+    if not df_desp_banco.empty:
+      gasto_cat_b = df_desp_banco.groupby("categoria")["valor"].sum()
+      col_gb1, col_gb2 = st.columns(2)
+      with col_gb1:
+        st.bar_chart(gasto_cat_b)
+      with col_gb2:
+        df_res_b = gasto_cat_b.reset_index().rename(columns={"valor": "Total (R$)"})
+        df_res_b["Total (R$)"] = df_res_b["Total (R$)"].apply(lambda x: f"R$ {x:,.2f}")
+        st.dataframe(df_res_b, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("📋 Relação Completa de Transações do Extrato PDF")
+    st.dataframe(df_b[["data", "tipo", "descricao", "categoria", "valor"]], use_container_width=True, hide_index=True)
+  else:
+    st.info("Nenhum extrato bancário em PDF foi importado e processado até o momento. Faça o upload na aba 'Extrato & Backup'.")
   botao_voltar()
 
 # ==========================================
@@ -1765,7 +1708,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 11: EXTRATO & BACKUP (COM FILTRO DE DIAS DE PICO DE GASTOS) ---
+# --- SEÇÃO 11: EXTRATO & BACKUP ---
 # ==========================================
 elif st.session_state.pagina_atual == "📋 Extrato & Backup":
   st.subheader(
@@ -1843,13 +1786,14 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
               )
               c.execute(
                   "INSERT INTO transacoes (data, tipo, descricao, categoria,"
-                  " valor) VALUES (?,?,?,?,?)",
+                  " valor, origem) VALUES (?,?,?,?,?,?)",
                   (
                       data_str,
                       tipo_trans,
                       desc_str,
                       cat_inteligente,
                       abs(val_float),
+                      "Banco_PDF",
                   ),
               )
               importados_pdf_count += 1
@@ -1858,7 +1802,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
         conn.commit()
         st.success(
             f"{importados_pdf_count} lançamentos do extrato importados e"
-            " categorizados com sucesso!"
+            " categorizados com sucesso como origem 'Banco_PDF'!"
         )
         st.rerun()
     except Exception as e:
@@ -1898,12 +1842,12 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
         divergentes = merged_rec[merged_rec["_merge"] == "left_only"]
         
         if not divergentes.empty:
-          st.warning(f"⚠️ Atenção: Encontramos **{len(divergentes)}** transação(ões) no PDF do extrato que constam como divergentes ou ausentes nos lançamentos manuais do sistema:")
+          st.warning(f"⚠️ Atenção: Encontramos **{len(divergentes)}** transação(ões) no PDF do extrato que constam como divergentes ou ausentes nos lançamentos do sistema:")
           st.dataframe(divergentes[["data", "descricao_x", "valor", "tipo"]].rename(columns={"descricao_x": "Descrição no Extrato PDF"}), use_container_width=True)
         else:
-          st.success("✅ **Reconciliação Perfeita:** Todos os lançamentos do extrato PDF conferem com os registros manuais salvos no sistema!")
+          st.success("✅ **Reconciliação Perfeita:** Todos os lançamentos do extrato PDF conferem com os registros salvos no sistema!")
       else:
-        st.info("Cadastre transações manuais no sistema para ativar o cruzamento da reconciliação com o PDF.")
+        st.info("Cadastre transações no sistema para ativar o cruzamento da reconciliação com o PDF.")
     else:
       st.info("Nenhuma transação válida lida no PDF atual para reconciliação.")
   else:
@@ -1972,19 +1916,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
           by="valor", ascending=True
       )
 
-    # --- NOVO RECURSO 3: DESTAQUE DE DIAS DE PICO DE GASTOS ---
     if not df_extrato_filtrado.empty:
-      st.markdown("#### 🔥 Dias de Pico de Saídas (Top Dias com Maior Volume de Gastos)")
-      df_desp_apenas = df_extrato_filtrado[df_extrato_filtrado["tipo"] == "Despesa"]
-      if not df_desp_apenas.empty:
-        picos_dias = df_desp_apenas.groupby("data")["valor"].sum().reset_index().sort_values(by="valor", ascending=False).head(3)
-        cols_picos = st.columns(3)
-        for p_idx, (_, p_row) in enumerate(picos_dias.iterrows()):
-          if p_idx < len(cols_picos):
-            with cols_picos[p_idx]:
-              st.metric(f"📅 Dia {p_row['data']}", f"R$ {p_row['valor']:,.2f}", help="Total de saídas concentradas neste dia específico.")
-      
-      st.markdown("---")
       st.write(
           f"### 📋 Resultados Encontrados ({len(df_extrato_filtrado)} registros)"
       )
