@@ -1575,31 +1575,43 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
     st.write("### ✏️ Editar ou 🗑️ Excluir Categoria")
     df_cats_gerenciar = pd.read_sql("SELECT * FROM categorias", conn)
     if not df_cats_gerenciar.empty:
+      lista_nomes_cats = df_cats_gerenciar["nome"].tolist()
+      
       cat_selecionada_para_gerenciar = st.selectbox(
           "Selecione a categoria para gerenciar:",
-          df_cats_gerenciar["nome"].tolist(),
+          lista_nomes_cats,
           key="sel_cat_gerenciar"
       )
       
-      # Encontrar o ID da categoria selecionada
       id_cat_atual = df_cats_gerenciar[df_cats_gerenciar["nome"] == cat_selecionada_para_gerenciar]["id"].values[0]
+
+      # Extrair separadamente o emoji atual e o texto atual para preencher os inputs de edição
+      nome_completo_atual = str(cat_selecionada_para_gerenciar)
+      emoji_atual = nome_completo_atual[0] if len(nome_completo_atual) > 0 else "📄"
+      texto_atual_puro = nome_completo_atual[1:].strip() if len(nome_completo_atual) > 1 else ""
+
+      lista_icones_opcoes = [
+          "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", 
+          "🪙", "🏷️", "💼", "📈", "📉", "🔒", "🔑", "💡", "⚡", "💧", 
+          "🔥", "📶", "📡", "📱", "💻", "📺", "📬", "🗑️", "⚙️", "🛠️",
+          "🏠", "🏡", "🏢", "🛒", "🛍️", "🍔", "🍕", "☕", "🍺", "🍷", 
+          "🚗", "🚕", "🚌", "🚆", "⛽", "🅿️", "💊", "🏥", "🩺", "🏋️‍♂️", 
+          "✈️", "🏖️", "🏨", "🐕", "🐈", "🐾", "🎮", "🎲", "📚", "🎧", 
+          "🎬", "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
+      ]
+
+      # Ajustar índice padrão do emoji se existir na lista
+      idx_emoji_default = lista_icones_opcoes.index(emoji_atual) if emoji_atual in lista_icones_opcoes else 0
 
       with st.form("form_editar_excluir_cat"):
         st.write(f"Editando: **{cat_selecionada_para_gerenciar}**")
         novo_icone = st.selectbox(
             "Novo Ícone:",
-            [
-                "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", 
-                "🪙", "🏷️", "💼", "📈", "📉", "🔒", "🔑", "💡", "⚡", "💧", 
-                "🔥", "📶", "📡", "📱", "💻", "📺", "📬", "🗑️", "⚙️", "🛠️",
-                "🏠", "🏡", "🏢", "🛒", "🛍️", "🍔", "🍕", "☕", "🍺", "🍷", 
-                "🚗", "🚕", "🚌", "🚆", "⛽", "🅿️", "💊", "🏥", "🩺", "🏋️‍♂️", 
-                "✈️", "🏖️", "🏨", "🐕", "🐈", "🐾", "🎮", "🎲", "📚", "🎧", 
-                "🎬", "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
-            ],
+            lista_icones_opcoes,
+            index=idx_emoji_default,
             key="novo_icone_sel"
         )
-        novo_nome_texto = st.text_input("Novo Nome da Categoria:", value="", placeholder="Digite se quiser alterar o texto")
+        novo_nome_texto = st.text_input("Novo Nome da Categoria:", value=texto_atual_puro, key="novo_nome_texto_input")
 
         col_btn_ed1, col_btn_ed2 = st.columns(2)
         with col_btn_ed1:
@@ -1608,7 +1620,7 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
           btn_excluir = st.form_submit_button("Excluir Categoria", use_container_width=True)
 
         if btn_atualizar:
-          texto_base = novo_nome_texto.strip() if novo_nome_texto.strip() else cat_selecionada_para_gerenciar.split(" ", 1)[-1]
+          texto_base = novo_nome_texto.strip() if novo_nome_texto.strip() else texto_atual_puro
           nome_atualizado_final = f"{novo_icone} {texto_base}"
           c.execute("UPDATE categorias SET nome = ? WHERE id = ?", (nome_atualizado_final, int(id_cat_atual)))
           conn.commit()
