@@ -725,6 +725,29 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
     col3.metric("🔴 Despesas Totais", f"R$ {despesas:,.2f}")
     col4.metric("📅 Contas Pendentes", f"R$ {total_contas_pendentes:,.2f}")
 
+    # --- RECURSO PROFISSIONAL 2: Indicador de Runway / Autonomia Financeira ---
+    st.markdown("---")
+    st.subheader("🛡️ Indicador de Runway / Autonomia Financeira (Reserva)")
+    df_inv_runway = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
+    patrimonio_liquido_total = 0.0
+    if not df_inv_runway.empty:
+      patrimonio_liquido_total = (df_inv_runway["quantidade"] * df_inv_runway["preco_medio"]).sum()
+    patrimonio_liquido_total += max(0, saldo_caixa)
+
+    media_despesa_mensal = df_all[df_all["tipo"] == "Despesa"]["valor"].mean() if not df_all.empty else 0.0
+    if len(df_all["ano_mes"].unique()) > 0:
+      despesa_por_mes = df_all[df_all["tipo"] == "Despesa"].groupby("ano_mes")["valor"].sum()
+      media_despesa_mensal = despesa_por_mes.mean() if not despesa_por_mes.empty else 3000.0
+
+    meses_runway = (patrimonio_liquido_total / media_despesa_mensal) if media_despesa_mensal > 0 else 0.0
+
+    col_r1, col_r2 = st.columns(2)
+    with col_r1:
+      st.metric("⏳ Autonomia Estimada (Runway)", f"{meses_runway:.1f} meses", help="Quantos meses o seu patrimônio atual bancaria o seu padrão de vida médio.")
+    with col_r2:
+      st.info(f"💡 Com base na sua despesa média mensal de **R$ {media_despesa_mensal:,.2f}**, o seu patrimônio atual de **R$ {patrimonio_liquido_total:,.2f}** garante total cobertura por **{meses_runway:.1f} meses** sem novas entradas.")
+    # ------------------------------------------------------------------------
+
     st.markdown("---")
     st.subheader("🎯 Acompanhamento Rigoroso da Regra 50 / 30 / 20")
     if receitas > 0:
@@ -1160,7 +1183,6 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
   with col_m1:
     st.write("### ➕ Adicionar Nova Categoria com Ícone")
     with st.form("form_nova_categoria_completo", clear_on_submit=True):
-      # Lista expandida de ícones organizados por temas
       icone_escolhido = st.selectbox(
           "Escolha um Ícone Personalizado:",
           [
@@ -1329,7 +1351,6 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
 
   df_all_fluxo = pd.read_sql("SELECT * FROM transacoes", conn)
   
-  # --- RECURSO: Previsão de Saldo Mínimo Diário & Alerta de Caixa Crítico ---
   st.markdown("---")
   st.subheader("⚡ Previsão de Saldo Mínimo Diário & Alerta de Caixa Crítico")
   
@@ -1383,7 +1404,6 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
     )
   else:
     st.info("Nenhuma conta pendente cadastrada no momento para gerar o alerta diário de caixa.")
-  # ---------------------------------------------------------------------------
 
   if not df_all_fluxo.empty:
     df_all_fluxo["data"] = pd.to_datetime(df_all_fluxo["data"])
@@ -1766,8 +1786,56 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
     except Exception as e:
       st.error(f"Erro ao processar extrato bancário em PDF: {e}")
 
+  # --- RECURSO PROFISSIONAL 1: Módulo de Reconciliação Bancária Automatizada ---
   st.markdown("---")
+  st.subheader("📑 Módulo de Reconciliação Bancária Automatizada")
+  st.write("Verifique divergências entre os lançamentos manuais do sistema e o extrato importado mais recentemente.")
 
+  if arquivo_importado is not None and arquivo_importado.name.endswith(".pdf"):
+    # Extrai os dados do PDF em memória para conciliação sem duplicar inserções
+    transacoes_pdf_temp = []
+    for linha in texto_pdf_extrato.split("\n"):
+      if "SALDO" in linha.upper():
+        continue
+      partes = linha.split()
+      if len(partes) >= 3 and "/" in partes[0] and len(partes[0]) == 10:
+        try:
+          d = partes[0].split("/")
+          data_str = f"{d[2]}-{d[1]}-{d[0]}"
+          val_float = float(linha.replace("R$", "").replace(".", "").replace(",", ".").split()[-1])
+          desc_str = " ".join(partes[1:-1])
+          transacoes_pdf_temp.append({
+              "data": data_str,
+              "descricao": desc_str,
+              "valor": abs(val_float),
+              "tipo": "Receita" if val_float > 0 else "Despesa"
+          })
+        except:
+          continue
+    
+    if transacoes_pdf_temp:
+      df_pdf_temp = pd.DataFrame(transacoes_pdf_temp)
+      df_banco_atual = pd.read_sql("SELECT data, descricao, valor, tipo FROM transacoes", conn)
+      
+      # Cruza dados para achar itens no PDF que não estão no banco cadastrados exatamente igual
+      if not df_banco_atual.empty:
+        merged_rec = pd.merge(df_pdf_temp, df_banco_atual, on=["data", "valor", tipo_trans := "tipo"], how="left", indicator=True)
+        divergentes = merged_rec[merged_rec["_merge"] == "left_only"]
+        
+        if not divergentes.empty:
+          st.warning(f"⚠️ Atenção: Encontramos **{len(divergentes)}** transação(ões) no PDF do extrato que constam como divergentes ou ausentes nos lançamentos manuais do sistema:")
+          st.dataframe(divergentes[["data", "descricao_x", "valor", "tipo"]].rename(columns={"descricao_x": "Descrição no Extrato PDF"}), use_container_width=True)
+        else:
+          st.success("✅ **Reconciliação Perfeita:** Todos os lançamentos do extrato PDF conferem com os registros manuais salvos no sistema!")
+      else:
+        st.info("Cadastre transações manuais no sistema para ativar o cruzamento da reconciliação com o PDF.")
+    else:
+      st.info("Nenhuma transação válida lida no PDF atual para reconciliação.")
+  else:
+    st.info("Faça o upload de um extrato bancário em PDF acima para habilitar o painel de Reconciliação Automatizada.")
+  # --------------------------------------------------------------------------
+
+  st.markdown("---")
   st.write("### 🔍 Pesquisa Avançada & Filtros Inteligentes no Extrato")
 
   col_s1, col_s2, col_s3 = st.columns([2, 1, 1])
@@ -1932,7 +2000,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             " sucesso!"
         )
 
-  # Carrega do banco de dados os holerites salvos para exibir os cartões mensais permanentemente
   df_holerites = pd.read_sql(
       "SELECT * FROM holerites ORDER BY mes_ano DESC", conn
   )
@@ -1969,7 +2036,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
           st.session_state.holerite_selecionado_db_idx = idx
           st.rerun()
 
-    # Seleciona o holerite ativo com base no banco de dados
     row_ativo = df_holerites.iloc[
         st.session_state.holerite_selecionado_db_idx
     ]
