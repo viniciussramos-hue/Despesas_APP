@@ -2242,7 +2242,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             st.success(f"Conta a receber ID {cr_id} excluída com sucesso!")
             st.rerun()
 
-      # Formulário inline de edição para contas a receber com variação
+        # Formulário inline de edição para contas a receber com variação
         if st.session_state.get(f"editando_cr_{cr_id}", False):
           with st.form(f"form_editar_cr_{cr_id}"):
             st.write(f"**Editando Conta a Receber ID {cr_id}** (Ajuste de variação)")
@@ -2440,7 +2440,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
     else:
       st.info("Nenhuma transação válida lida no PDF atual para reconciliação.")
   else:
-    st.info("Faça o upload de um extrato bancário em PDF acima para habilitar o painel de Reconciliação Automatizada.")
+      st.info("Faça o upload de um extrato bancário em PDF acima para habilitar o painel de Reconciliação Automatizada.")
 
   st.markdown("---")
   st.subheader("🔍 Pesquisa Avançada & Filtros Inteligentes no Extrato")
