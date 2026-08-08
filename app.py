@@ -1017,24 +1017,44 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   if "prev_data_atual" not in st.session_state:
     st.session_state.prev_data_atual = datetime.now().replace(day=1)
 
-  col_p1, col_p2, col_p3 = st.columns([2, 2, 2])
+  # SELETOR DE PERÍODO E FORMATO ESTILO BOTÕES COM RADIO/COLUNAS
+  col_p1, col_p2, col_p3 = st.columns([3, 3, 2])
   with col_p1:
-    tipo_visao = st.radio("Período:", ["Mensal", "Anual"], horizontal=True, label_visibility="collapsed")
+    tipo_visao = st.radio("Período da Visão:", ["Mensal", "Anual"], horizontal=True)
   with col_p2:
-    formato_exibicao = st.radio("Formato:", ["Gráfico", "Tabela"], horizontal=True, label_visibility="collapsed")
+    formato_exibicao = st.radio("Formato de Exibição:", ["Gráfico", "Tabela"], horizontal=True)
   with col_p3:
-    if st.button("📥 Exportar Relatório Previsto", use_container_width=True):
+    st.write("")
+    if st.button("📥 Exportar Relatório", use_container_width=True):
       st.success("Relatório de previsão exportado com sucesso!")
 
   st.markdown("---")
 
-  col_nav1, col_nav2, col_nav3 = st.columns([1, 4, 1])
-  with col_nav1:
-    if st.button("❮ Anterior", use_container_width=True):
+  # SELETOR DE DATAS NO FORMATO CALENDÁRIO COM NAVEGAÇÃO
+  col_nav_cal1, col_nav_cal2, col_nav_cal3 = st.columns([1, 4, 1])
+  with col_nav_cal1:
+    if st.button("❮ Mês Anterior", use_container_width=True):
       if tipo_visao == "Mensal":
         st.session_state.prev_data_atual = (st.session_state.prev_data_atual - timedelta(days=1)).replace(day=1)
       else:
         st.session_state.prev_data_atual = st.session_state.prev_data_atual.replace(year=st.session_state.prev_data_atual.year - 1)
+      st.rerun()
+
+  with col_nav_cal2:
+    data_calendario_escolhida = st.date_input(
+        "📅 Selecionar Data de Referência da Previsão:",
+        value=st.session_state.prev_data_atual,
+        key="picker_previsao_data"
+    )
+    if data_calendario_escolhida:
+      st.session_state.prev_data_atual = datetime.combine(data_calendario_escolhida, datetime.min.time()).replace(day=1)
+
+  with col_nav_cal3:
+    if st.button("Mês Seguinte ❯", use_container_width=True):
+      if tipo_visao == "Mensal":
+        st.session_state.prev_data_atual = (st.session_state.prev_data_atual + timedelta(days=32)).replace(day=1)
+      else:
+        st.session_state.prev_data_atual = st.session_state.prev_data_atual.replace(year=st.session_state.prev_data_atual.year + 1)
       st.rerun()
 
   meses_nomes_pt = {
@@ -1045,19 +1065,10 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   mes_ativo_num = st.session_state.prev_data_atual.month
   nome_mes_exib = meses_nomes_pt[mes_ativo_num]
 
-  with col_nav2:
-    if tipo_visao == "Mensal":
-      st.markdown(f"<h3 style='text-align: center; color: #f8fafc; margin: 0;'>{nome_mes_exib} de {ano_ativo}</h3>", unsafe_allow_html=True)
-    else:
-      st.markdown(f"<h3 style='text-align: center; color: #f8fafc; margin: 0;'>Ano de {ano_ativo} (Acumulado)</h3>", unsafe_allow_html=True)
-
-  with col_nav3:
-    if st.button("Próximo ❯", use_container_width=True):
-      if tipo_visao == "Mensal":
-        st.session_state.prev_data_atual = (st.session_state.prev_data_atual + timedelta(days=32)).replace(day=1)
-      else:
-        st.session_state.prev_data_atual = st.session_state.prev_data_atual.replace(year=st.session_state.prev_data_atual.year + 1)
-      st.rerun()
+  if tipo_visao == "Mensal":
+    st.markdown(f"<h3 style='text-align: center; color: #f8fafc; margin: 15px 0;'>Referência: {nome_mes_exib} de {ano_ativo}</h3>", unsafe_allow_html=True)
+  else:
+    st.markdown(f"<h3 style='text-align: center; color: #f8fafc; margin: 15px 0;'>Referência Acumulada: Ano de {ano_ativo}</h3>", unsafe_allow_html=True)
 
   st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1078,7 +1089,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     df_trans_prev["data_dt"] = pd.to_datetime(df_trans_prev["data"], errors="coerce")
 
   if tipo_visao == "Mensal":
-    # Filtros mensais
     f_cartao = df_cartao_prev[(df_cartao_prev["data_dt"].dt.year == ano_ativo) & (df_cartao_prev["data_dt"].dt.month == mes_ativo_num)] if not df_cartao_prev.empty else pd.DataFrame()
     f_contas = df_contas_prev[(df_contas_prev["venc_dt"].dt.year == ano_ativo) & (df_contas_prev["venc_dt"].dt.month == mes_ativo_num)] if not df_contas_prev.empty else pd.DataFrame()
     f_receber = df_receber_prev[(df_receber_prev["venc_dt"].dt.year == ano_ativo) & (df_receber_prev["venc_dt"].dt.month == mes_ativo_num)] if not df_receber_prev.empty else pd.DataFrame()
@@ -1094,7 +1104,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     total_entradas_previstas = entradas_manuais + total_contas_receber
     total_saidas_previstas = total_faturas + total_contas_pagar + saidas_manuais
   else:
-    # Filtros anuais (Acumulado)
     f_cartao = df_cartao_prev[df_cartao_prev["data_dt"].dt.year == ano_ativo] if not df_cartao_prev.empty else pd.DataFrame()
     f_contas = df_contas_prev[df_contas_prev["venc_dt"].dt.year == ano_ativo] if not df_contas_prev.empty else pd.DataFrame()
     f_receber = df_receber_prev[df_receber_prev["venc_dt"].dt.year == ano_ativo] if not df_receber_prev.empty else pd.DataFrame()
@@ -1236,7 +1245,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   for m_num in range(1, 13):
     m_nome = meses_nomes_pt[m_num]
     
-    # Filtrar cada mês individualmente no ano ativo
     c_cart_m = df_cartao_prev[(df_cartao_prev["data_dt"].dt.year == ano_ativo) & (df_cartao_prev["data_dt"].dt.month == m_num)] if not df_cartao_prev.empty else pd.DataFrame()
     c_pag_m = df_contas_prev[(df_contas_prev["venc_dt"].dt.year == ano_ativo) & (df_contas_prev["venc_dt"].dt.month == m_num)] if not df_contas_prev.empty else pd.DataFrame()
     c_rec_m = df_receber_prev[(df_receber_prev["venc_dt"].dt.year == ano_ativo) & (df_receber_prev["venc_dt"].dt.month == m_num)] if not df_receber_prev.empty else pd.DataFrame()
@@ -1287,7 +1295,8 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
     col_cc1, col_cc2 = st.columns(2)
     with col_cc1:
       nome_cartao = st.selectbox(
-          "Bandeira / Cartão", ["Itaúcard", "Samsung Itaú", "Nubank", "Outro"]
+          "Bandeira / Cartão",
+          ["Caixa", "Banco do Brasil", "Santander", "Inter", "Itaúcard", "Samsung Itaú", "Nubank", "Outro"]
       )
       desc_cc = st.text_input("Descrição da Compra Específica")
     with col_cc2:
@@ -1625,14 +1634,11 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
       icone_escolhido = st.selectbox(
           "Escolha um Ícone Personalizado:",
           [
-              # --- Contas, Boletos & Finanças ---
               "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", 
               "🪙", "🏷️", "💼", "📈", "📉", "🔒", "🔑", "💡", "⚡", "💧", 
               "🔥", "📶", "📡", "📱", "💻", "📺", "📬", "🗑️", "⚙️", "🛠️",
-              # --- Despesas do Dia a Dia & Moradia ---
               "🏠", "🏡", "🏢", "🛒", "🛍️", "🍔", "🍕", "☕", "🍺", "🍷", 
               "🚗", "🚕", "🚌", "🚆", "⛽", "🅿️", "💊", "🏥", "🩺", "🏋️‍♂️", 
-              # --- Lazer, Pets & Outros ---
               "✈️", "🏖️", "🏨", "🐕", "🐈", "🐾", "🎮", "🎲", "📚", "🎧", 
               "🎬", "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
           ],
@@ -1664,17 +1670,13 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
       )
       
       id_cat_atual = df_cats_gerenciar[df_cats_gerenciar["nome"] == cat_selecionada_para_gerenciar]["id"].values[0]
-
-      # Capturar separadamente o emoji e o texto restante da categoria selecionada de forma robusta
       nome_completo_atual = str(cat_selecionada_para_gerenciar).strip()
       
-      # Separar o primeiro caractere (emoji/símbolo) do resto do nome
       match_emoji = re.match(r"^([^\w\s])\s*(.*)$", nome_completo_atual)
       if match_emoji:
         emoji_atual = match_emoji.group(1)
         texto_atual_puro = match_emoji.group(2)
       else:
-        # Fallback caso venha em formato diferente
         partes_cat = nome_completo_atual.split(" ", 1)
         emoji_atual = partes_cat[0] if len(partes_cat) > 0 else "📄"
         texto_atual_puro = partes_cat[1] if len(partes_cat) > 1 else nome_completo_atual
@@ -1689,10 +1691,7 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
           "🎬", "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
       ]
 
-      # Garantir que o índice do emoji selecionado seja recuperado corretamente
       idx_emoji_default = lista_icones_opcoes.index(emoji_atual) if emoji_atual in lista_icones_opcoes else 0
-
-      # Gerar uma chave dinâmica baseada no ID/Nome atual para forçar o Streamlit a atualizar os campos do form ao trocar de categoria
       chave_form_edicao = f"form_edit_cat_{id_cat_atual}"
 
       with st.form(chave_form_edicao):
@@ -1847,27 +1846,21 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
 # ==========================================
 elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   
-  # Correção definitiva para inicializar 'data_calendario_ref' com data padrão com segurança antes de renderizar qualquer componente
   if "data_calendario_ref" not in st.session_state or not isinstance(st.session_state.data_calendario_ref, (date, datetime)):
     st.session_state.data_calendario_ref = date.today()
 
-  # Cabeçalho flexível com o título à esquerda e o calendário em formato real com callback direto no st.date_input para evitar qualquer falha de clique
-  col_tit_h, col_cal_h = st.columns([3, 2])
-  with col_tit_h:
-    st.subheader("📅 Calendário de Contas & Gestão de Pagamentos / Recebimentos")
-    st.write("Organize boletos, contas a pagar, contas a receber e compromissos com vencimento programado.")
-  with col_cal_h:
-    st.markdown("##### 🗓️ Agenda / Calendário Interativo")
-    
-    col_c_input, col_c_btn = st.columns([3, 1])
-    with col_c_input:
-      st.date_input("Selecionar Data de Referência:", value=st.session_state.data_calendario_ref, key="data_calendario_ref", label_visibility="collapsed")
-    with col_c_btn:
-      if st.button("Hoje 📍", use_container_width=True, help="Retornar para o dia de hoje"):
-        st.session_state.data_calendario_ref = date.today()
-        st.rerun()
+  # CABEÇALHO DA SEÇÃO DE CONTAS SEM O BOTÃO PROBLEMÁTICO
+  st.subheader("📅 Calendário de Contas & Gestão de Pagamentos / Recebimentos")
+  st.write("Organize boletos, contas a pagar, contas a receber e compromissos com vencimento programado.")
 
-  data_calendario_topo = st.session_state.data_calendario_ref
+  st.markdown("##### 🗓️ Seleção de Data no Calendário Interativo")
+  data_calendario_topo = st.date_input(
+      "Selecionar Data de Referência:",
+      value=st.session_state.data_calendario_ref,
+      key="data_calendario_ref_input"
+  )
+  if data_calendario_topo:
+    st.session_state.data_calendario_ref = data_calendario_topo
 
   # Gerenciamento de abas estilo botões modernos via session_state
   if "aba_contas_ativa" not in st.session_state:
@@ -1891,13 +1884,13 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   st.markdown(
       f"""
       <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 14px; padding: 20px; margin-bottom: 25px;">
-          <h4 style="color: #60a5fa; margin-top: 0; display: flex; align-items: center; gap: 8px;">📌 Agenda do Dia: {data_calendario_topo.strftime('%d/%m/%Y')}</h4>
+          <h4 style="color: #60a5fa; margin-top: 0; display: flex; align-items: center; gap: 8px;">📌 Agenda do Dia: {st.session_state.data_calendario_ref.strftime('%d/%m/%Y')}</h4>
       </div>
       """,
       unsafe_allow_html=True,
   )
 
-  data_sel_str = data_calendario_topo.strftime("%Y-%m-%d")
+  data_sel_str = st.session_state.data_calendario_ref.strftime("%Y-%m-%d")
   df_cp_dia = pd.read_sql("SELECT * FROM contas WHERE vencimento = ?", conn, params=(data_sel_str,))
   df_cr_dia = pd.read_sql("SELECT * FROM contas_receber WHERE vencimento = ?", conn, params=(data_sel_str,))
 
@@ -1979,7 +1972,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
     st.markdown("---")
 
-    # --- ALERTA VISUAL DE CONTAS VENCIDAS OU VENCENDO HOJE ---
     df_contas_alerta = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
     if not df_contas_alerta.empty:
       hoje = date.today()
@@ -2013,7 +2005,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     if not df_contas_all.empty:
       if usar_filtro_agenda_cp:
         df_contas_all["venc_dt_cmp"] = pd.to_datetime(df_contas_all["vencimento"]).dt.date
-        df_contas_all = df_contas_all[df_contas_all["venc_dt_cmp"] == data_calendario_topo]
+        df_contas_all = df_contas_all[df_contas_all["venc_dt_cmp"] == st.session_state.data_calendario_ref]
 
       if termo_busca_contas.strip():
         termo_limpo = termo_busca_contas.strip().lower()
@@ -2078,7 +2070,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             st.success(f"Conta ID {c_id} excluída com sucesso!")
             st.rerun()
 
-        # Formulário inline de edição para contas que podem ter variação
         if st.session_state.get(f"editando_cp_{c_id}", False):
           with st.form(f"form_editar_cp_{c_id}"):
             st.write(f"**Editando Conta ID {c_id}** (Ajuste de variação de valor ou data)")
@@ -2177,7 +2168,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     if not df_receber_all.empty:
       if usar_filtro_agenda_cr:
         df_receber_all["venc_dt_cmp"] = pd.to_datetime(df_receber_all["vencimento"]).dt.date
-        df_receber_all = df_receber_all[df_receber_all["venc_dt_cmp"] == data_calendario_topo]
+        df_receber_all = df_receber_all[df_receber_all["venc_dt_cmp"] == st.session_state.data_calendario_ref]
 
       if termo_busca_receber.strip():
         termo_limpo_r = termo_busca_receber.strip().lower()
@@ -2242,7 +2233,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             st.success(f"Conta a receber ID {cr_id} excluída com sucesso!")
             st.rerun()
 
-        # Formulário inline de edição para contas a receber com variação
         if st.session_state.get(f"editando_cr_{cr_id}", False):
           with st.form(f"form_editar_cr_{cr_id}"):
             st.write(f"**Editando Conta a Receber ID {cr_id}** (Ajuste de variação)")
