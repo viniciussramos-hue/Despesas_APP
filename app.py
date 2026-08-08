@@ -1414,7 +1414,7 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
   with col_esq:
     st.write("### Tabela Geral do Desafio")
     df_exibicao = pd.DataFrame()
-    df_exibicao["Nº do Depósito"] = df_deps["numero_deposito"]
+    df_exibicao["Nº do Depósito"] = df_deps["numero_depósito"]
     df_exibicao["Valor a Guardar"] = df_deps["valor"].apply(
         lambda x: f"R$ {x:,.2f}"
     )
@@ -1427,7 +1427,7 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
     st.write("### ⚙️ Atualizar Status do Depósito")
     with st.form("form_atualizar_deposito_completo"):
       deps_sel = st.multiselect(
-          "Selecione os Números dos Depósitos:", df_deps["numero_deposito"].tolist()
+          "Selecione os Números dos Depósitos:", df_deps["numero_depósito"].tolist()
       )
       status_novo = st.selectbox(
           "Novo Status:", ["Pendente", "Concluído"], index=1
@@ -1770,16 +1770,16 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
 # ==========================================
 elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   
-  # Cabeçalho flexível com o título à esquerda e o calendário estilo agenda ao lado
+  # Cabeçalho flexível com o título à esquerda e o calendário em formato de calendário real ao lado
   col_tit_h, col_cal_h = st.columns([3, 2])
   with col_tit_h:
     st.subheader("📅 Calendário de Contas & Gestão de Pagamentos / Recebimentos")
     st.write("Organize boletos, contas a pagar, contas a receber e compromissos com vencimento programado.")
   with col_cal_h:
-    st.markdown("##### 🗓️ Agenda / Calendário Rápido")
-    data_calendario_topo = st.date_input("Selecionar Data de Referência:", value=date.today(), key="calendario_topo_geral", label_visibility="collapsed")
+    st.markdown("##### 🗓️ Agenda / Calendário Interativo")
+    data_calendario_topo = st.date_input("Selecionar Data de Referência:", value=date.today(), key="calendario_topo_geral")
 
-  # Gerenciamento de abas estilo botões modernos/limpos via session_state
+  # Gerenciamento de abas estilo botões modernos via session_state
   if "aba_contas_ativa" not in st.session_state:
     st.session_state.aba_contas_ativa = "pagar"
 
@@ -1792,6 +1792,41 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     if st.button("📈 Contas a Receber", use_container_width=True, type="primary" if st.session_state.aba_contas_ativa == "receber" else "secondary"):
       st.session_state.aba_contas_ativa = "receber"
       st.rerun()
+
+  st.markdown("---")
+
+  # ==========================================
+  # --- PAINEL ABAIXO DO CALENDÁRIO: O QUE ESTÁ AGENDADO NA DATA SELECIONADA ---
+  # ==========================================
+  st.markdown(
+      f"""
+      <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 14px; padding: 20px; margin-bottom: 25px;">
+          <h4 style="color: #60a5fa; margin-top: 0; display: flex; align-items: center; gap: 8px;">📌 Agenda do Dia: {data_calendario_topo.strftime('%d/%m/%Y')}</h4>
+      </div>
+      """,
+      unsafe_allow_html=True,
+  )
+
+  data_sel_str = data_calendario_topo.strftime("%Y-%m-%d")
+  df_cp_dia = pd.read_sql("SELECT * FROM contas WHERE vencimento = ?", conn, params=(data_sel_str,))
+  df_cr_dia = pd.read_sql("SELECT * FROM contas_receber WHERE vencimento = ?", conn, params=(data_sel_str,))
+
+  col_agd1, col_agd2 = st.columns(2)
+  with col_agd1:
+    st.write("**📉 Contas a Pagar na Data:**")
+    if not df_cp_dia.empty:
+      for _, row_cp_d in df_cp_dia.iterrows():
+        st.markdown(f"• ID {row_cp_d['id']} | **{row_cp_d['descricao']}** — R$ {row_cp_d['valor']:,.2f} ({'Pago ✅' if row_cp_d['pago'] == 1 else 'Pendente ⏳'})")
+    else:
+      st.info("Nenhuma conta a pagar para esta data.")
+
+  with col_agd2:
+    st.write("**📈 Contas a Receber na Data:**")
+    if not df_cr_dia.empty:
+      for _, row_cr_d in df_cr_dia.iterrows():
+        st.markdown(f"• ID {row_cr_d['id']} | **{row_cr_d['descricao']}** — R$ {row_cr_d['valor']:,.2f} ({'Recebido ✅' if row_cr_d['recebido'] == 1 else 'Pendente ⏳'})")
+    else:
+      st.info("Nenhuma conta a receber para esta data.")
 
   st.markdown("---")
 
@@ -1854,12 +1889,12 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             st.warning(f"🔔 **Vence Hoje:** '{r_hoje['descricao']}' vence **hoje** ({hoje.strftime('%d/%m/%Y')}) no valor de **R$ {r_hoje['valor']:,.2f}**!")
         st.markdown("---")
 
-    st.write("### 🔍 Pesquisa & Relação de Contas a Pagar")
+    st.write("### 🔍 Pesquisa Aprimorada & Relação de Contas a Pagar")
     
     col_pesq_cp, col_fil_agenda_cp = st.columns([3, 2])
     with col_pesq_cp:
       termo_busca_contas = st.text_input(
-          "Pesquisar contas a pagar:", "", key="busca_contas_input"
+          "Pesquisar por nome, parte da descrição ou similaridade:", "", key="busca_contas_input"
       )
     with col_fil_agenda_cp:
       usar_filtro_agenda_cp = st.checkbox("Filtrar visualização pela data selecionada no calendário do topo", value=False)
@@ -1875,7 +1910,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         termo_limpo = termo_busca_contas.strip().lower()
         descricoes = df_contas_all["descricao"].tolist()
         similares = difflib.get_close_matches(
-            termo_limpo, [d.lower() for d in descricoes], n=10, cutoff=0.3
+            termo_limpo, [d.lower() for d in descricoes], n=15, cutoff=0.25
         )
 
         mask = (
@@ -1899,7 +1934,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         c_val = row_cp["valor"]
         c_pago = row_cp["pago"]
 
-        col_row1, col_row2, col_row3, col_row4, col_row5 = st.columns([1, 2, 2, 1, 1])
+        col_row1, col_row2, col_row3, col_row4, col_row5, col_row6 = st.columns([1, 2, 2, 1, 1, 1])
         with col_row1:
           st.write(f"**ID:** {c_id}")
         with col_row2:
@@ -1924,12 +1959,32 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
               st.success(f"Conta '{c_desc}' marcada como pendente!")
               st.rerun()
         with col_row5:
+          if st.button("✏️ Editar", key=f"btn_edit_cp_{c_id}", use_container_width=True):
+            st.session_state[f"editando_cp_{c_id}"] = not st.session_state.get(f"editando_cp_{c_id}", False)
+            st.rerun()
+        with col_row6:
           if st.button("Excluir 🗑️", key=f"btn_del_cp_{c_id}", use_container_width=True):
             c.execute("DELETE FROM contas WHERE id = ?", (c_id,))
             conn.commit()
             st.success(f"Conta ID {c_id} excluída com sucesso!")
             st.rerun()
-      
+
+        # Formulário inline de edição caso o usuário clique em Editar (para contas que variam de valor/vencimento)
+        if st.session_state.get(f"editando_cp_{c_id}", False):
+          with st.form(f"form_editar_cp_{c_id}"):
+            st.write(f"**Editando Conta ID {c_id}** (Ajuste de variação de valor ou data)")
+            novo_venc_cp = st.date_input("Nova Data de Vencimento", value=datetime.strptime(row_cp["vencimento"], "%Y-%m-%d").date(), key=f"nv_v_{c_id}")
+            nova_desc_cp = st.text_input("Nova Descrição", value=c_desc, key=f"nv_d_{c_id}")
+            novo_val_cp = st.number_input("Novo Valor (R$)", min_value=0.0, value=float(c_val), step=1.0, format="%.2f", key=f"nv_val_{c_id}")
+            
+            if st.form_submit_button("Salvar Alterações", use_container_width=True):
+              c.execute("UPDATE contas SET vencimento = ?, descricao = ?, valor = ? WHERE id = ?", 
+                        (novo_venc_cp.strftime("%Y-%m-%d"), nova_desc_cp.strip(), novo_val_cp, c_id))
+              conn.commit()
+              st.session_state[f"editando_cp_{c_id}"] = False
+              st.success("Conta atualizada com sucesso!")
+              st.rerun()
+
       st.markdown("---")
       id_del_cp = st.selectbox("Selecione o ID da conta a pagar para exclusão geral:", contas_filtradas["id"].tolist(), key="del_cp_sel")
       if st.button("Excluir Conta a Pagar Selecionada", use_container_width=True):
@@ -1979,12 +2034,12 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
           st.error("Informe a descrição e o valor da conta a receber.")
 
     st.markdown("---")
-    st.write("### 🔍 Pesquisa & Relação de Contas a Receber")
+    st.write("### 🔍 Pesquisa Aprimorada & Relação de Contas a Receber")
     
     col_pesq_cr, col_fil_agenda_cr = st.columns([3, 2])
     with col_pesq_cr:
       termo_busca_receber = st.text_input(
-          "Pesquisar contas a receber:", "", key="busca_receber_input"
+          "Pesquisar por nome, parte da descrição ou similaridade:", "", key="busca_receber_input"
       )
     with col_fil_agenda_cr:
       usar_filtro_agenda_cr = st.checkbox("Filtrar visualização pela data selecionada no calendário do topo", value=False, key="chk_agenda_cr")
@@ -2000,7 +2055,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         termo_limpo_r = termo_busca_receber.strip().lower()
         desc_r = df_receber_all["descricao"].tolist()
         sim_r = difflib.get_close_matches(
-            termo_limpo_r, [d.lower() for d in desc_r], n=10, cutoff=0.3
+            termo_limpo_r, [d.lower() for d in desc_r], n=15, cutoff=0.25
         )
 
         mask_r = (
@@ -2024,7 +2079,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         cr_val = row_cr["valor"]
         cr_recebido = row_cr["recebido"]
 
-        col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns([1, 2, 2, 1, 1])
+        col_r1, col_r2, col_r3, col_r4, col_r5, col_r6 = st.columns([1, 2, 2, 1, 1, 1])
         with col_r1:
           st.write(f"**ID:** {cr_id}")
         with col_r2:
@@ -2049,11 +2104,31 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
               st.success(f"Recebimento '{cr_desc}' marcado como pendente!")
               st.rerun()
         with col_r5:
+          if st.button("✏️ Editar", key=f"btn_edit_cr_{cr_id}", use_container_width=True):
+            st.session_state[f"editando_cr_{cr_id}"] = not st.session_state.get(f"editando_cr_{cr_id}", False)
+            st.rerun()
+        with col_r6:
           if st.button("Excluir 🗑️", key=f"btn_del_cr_{cr_id}", use_container_width=True):
             c.execute("DELETE FROM contas_receber WHERE id = ?", (cr_id,))
             conn.commit()
             st.success(f"Conta a receber ID {cr_id} excluída com sucesso!")
             st.rerun()
+
+        # Formulário inline de edição para contas a receber com variação
+        if st.session_state.get(f"editando_cr_{cr_id}", False):
+          with st.form(f"form_editar_cr_{cr_id}"):
+            st.write(f"**Editando Conta a Receber ID {cr_id}** (Ajuste de variação)")
+            novo_venc_cr = st.date_input("Nova Data de Vencimento", value=datetime.strptime(row_cr["vencimento"], "%Y-%m-%d").date(), key=f"nv_vr_{cr_id}")
+            nova_desc_cr = st.text_input("Nova Descrição", value=cr_desc, key=f"nv_dr_{cr_id}")
+            novo_val_cr = st.number_input("Novo Valor (R$)", min_value=0.0, value=float(cr_val), step=1.0, format="%.2f", key=f"nv_valr_{cr_id}")
+            
+            if st.form_submit_button("Salvar Alterações", use_container_width=True):
+              c.execute("UPDATE contas_receber SET vencimento = ?, descricao = ?, valor = ? WHERE id = ?", 
+                        (novo_venc_cr.strftime("%Y-%m-%d"), nova_desc_cr.strip(), novo_val_cr, cr_id))
+              conn.commit()
+              st.session_state[f"editando_cr_{cr_id}"] = False
+              st.success("Conta a receber atualizada com sucesso!")
+              st.rerun()
 
       st.markdown("---")
       id_del_cr = st.selectbox("Selecione o ID da conta a receber para exclusão geral:", receber_filtradas["id"].tolist(), key="del_cr_sel")
