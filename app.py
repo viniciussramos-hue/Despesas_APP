@@ -1011,7 +1011,10 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   st.subheader("📅 Previsão Financeira")
   st.write("Visualize suas finanças em qualquer período de forma detalhada e interativa.")
 
-  # Controles superiores (Gráfico / Tabela / Exportar / Período)
+  # Inicializa estado para controle de mês/ano na previsão
+  if "prev_data_atual" not in st.session_state:
+    st.session_state.prev_data_atual = datetime.now().replace(day=1)
+
   col_p1, col_p2, col_p3 = st.columns([2, 2, 2])
   with col_p1:
     tipo_visao = st.radio("Período:", ["Mensal", "Anual"], horizontal=True, label_visibility="collapsed")
@@ -1023,28 +1026,80 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("---")
 
-  # Navegador de meses/anos
+  # Navegador de meses interativo e funcional
   col_nav1, col_nav2, col_nav3 = st.columns([1, 4, 1])
   with col_nav1:
-    btn_ant = st.button("❮ Anterior", use_container_width=True)
+    if st.button("❮ Anterior", use_container_width=True):
+      if tipo_visao == "Mensal":
+        st.session_state.prev_data_atual = (st.session_state.prev_data_atual - timedelta(days=1)).replace(day=1)
+      else:
+        st.session_state.prev_data_atual = st.session_state.prev_data_atual.replace(year=st.session_state.prev_data_atual.year - 1)
+      st.rerun()
+
+  meses_nomes_pt = {
+      1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho",
+      7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+  }
+  ano_ativo = st.session_state.prev_data_atual.year
+  mes_ativo_num = st.session_state.prev_data_atual.month
+  nome_mes_exib = meses_nomes_pt[mes_ativo_num]
+
   with col_nav2:
-    st.markdown("<h3 style='text-align: center; color: #f8fafc; margin: 0;'>Agosto de 2026</h3>", unsafe_allow_html=True)
+    if tipo_visao == "Mensal":
+      st.markdown(f"<h3 style='text-align: center; color: #f8fafc; margin: 0;'>{nome_mes_exib} de {ano_ativo}</h3>", unsafe_allow_html=True)
+    else:
+      st.markdown(f"<h3 style='text-align: center; color: #f8fafc; margin: 0;'>Ano de {ano_ativo}</h3>", unsafe_allow_html=True)
+
   with col_nav3:
-    btn_prox = st.button("Próximo ❯", use_container_width=True)
+    if st.button("Próximo ❯", use_container_width=True):
+      if tipo_visao == "Mensal":
+        st.session_state.prev_data_atual = (st.session_state.prev_data_atual + timedelta(days=32)).replace(day=1)
+      else:
+        st.session_state.prev_data_atual = st.session_state.prev_data_atual.replace(year=st.session_state.prev_data_atual.year + 1)
+      st.rerun()
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # Dados simulados e reais combinados para a previsão
+  # Filtro dos dados reais de acordo com o período selecionado
   df_cartao_prev = pd.read_sql("SELECT * FROM cartao_credito", conn)
   df_contas_prev = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
-  df_trans_prev = pd.read_sql("SELECT * FROM transacoes WHERE tipo = 'Receita'", conn)
+  df_trans_prev = pd.read_sql("SELECT * FROM transacoes", conn)
 
-  total_faturas = df_cartao_prev["valor"].sum() if not df_cartao_prev.empty else 0.0
-  total_contas = df_contas_prev["valor"].sum() if not df_contas_prev.empty else 0.0
-  total_dividas = 0.0 # Reservado para futuros módulos
-  
-  total_saidas_previstas = total_faturas + total_contas + total_dividas
-  total_entradas_previstas = df_trans_prev["valor"].sum() if not df_trans_prev.empty else 6800.0
+  if not df_cartao_prev.empty:
+    df_cartao_prev["data_dt"] = pd.to_datetime(df_cartao_prev["data"], errors="coerce")
+    if tipo_visao == "Mensal":
+      df_cartao_filtered = df_cartao_prev[(df_cartao_prev["data_dt"].dt.year == ano_ativo) & (df_cartao_prev["data_dt"].dt.month == mes_ativo_num)]
+    else:
+      df_cartao_filtered = df_cartao_prev[df_cartao_prev["data_dt"].dt.year == ano_ativo]
+    total_faturas = df_cartao_filtered["valor"].sum()
+  else:
+    total_faturas = 0.0
+
+  if not df_contas_prev.empty:
+    df_contas_prev["venc_dt"] = pd.to_datetime(df_contas_prev["vencimento"], errors="coerce")
+    if tipo_visao == "Mensal":
+      df_contas_filtered = df_contas_prev[(df_contas_prev["venc_dt"].dt.year == ano_ativo) & (df_contas_prev["venc_dt"].dt.month == mes_ativo_num)]
+    else:
+      df_contas_filtered = df_contas_prev[df_contas_prev["venc_dt"].dt.year == ano_ativo]
+    total_contas = df_contas_filtered["valor"].sum()
+  else:
+    total_contas = 0.0
+
+  if not df_trans_prev.empty:
+    df_trans_prev["data_dt"] = pd.to_datetime(df_trans_prev["data"], errors="coerce")
+    if tipo_visao == "Mensal":
+      df_trans_filtered = df_trans_prev[(df_trans_prev["data_dt"].dt.year == ano_ativo) & (df_trans_prev["data_dt"].dt.month == mes_ativo_num)]
+    else:
+      df_trans_filtered = df_trans_prev[df_trans_prev["data_dt"].dt.year == ano_ativo]
+    
+    total_entradas_previstas = df_trans_filtered[df_trans_filtered["tipo"] == "Receita"]["valor"].sum()
+    total_saidas_manuais = df_trans_filtered[df_trans_filtered["tipo"] == "Despesa"]["valor"].sum()
+  else:
+    total_entradas_previstas = 0.0
+    total_saidas_manuais = 0.0
+
+  total_dividas = 0.0
+  total_saidas_previstas = total_faturas + total_contas + total_dividas + total_saidas_manuais
   saldo_projetado = total_entradas_previstas - total_saidas_previstas
 
   # Cards de Resumo Superior
@@ -1096,8 +1151,8 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
               <span style="color: #f8fafc; font-weight: 600;">R$ {total_faturas:,.2f}</span>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
-              <span style="color: #94a3b8;">📅 Contas a Pagar</span>
-              <span style="color: #f8fafc; font-weight: 600;">R$ {total_contas:,.2f}</span>
+              <span style="color: #94a3b8;">📅 Contas a Pagar & Despesas</span>
+              <span style="color: #f8fafc; font-weight: 600;">R$ {total_contas + total_saidas_manuais:,.2f}</span>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
               <span style="color: #94a3b8;">🏛️ Parcelas de Dívidas</span>
@@ -1751,6 +1806,31 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
           mime="text/csv",
           use_container_width=True,
       )
+
+  st.markdown("---")
+  st.markdown("### ⚠️ Zona de Perigo — Exclusão Geral de Dados")
+  st.write("Insira a senha de segurança abaixo para apagar permanentemente todos os registros, transações, faturas, veículos e investimentos do sistema.")
+  
+  with st.form("form_exclusao_geral_segura"):
+    senha_exclusao_geral = st.text_input("Senha de Confirmação:", type="password")
+    btn_executar_limpeza = st.form_submit_button("🗑️ APAGAR TODOS OS DADOS DO SISTEMA", use_container_width=True)
+    
+    if btn_executar_limpeza:
+      if senha_exclusao_geral == "1234":
+        c.execute("DELETE FROM transacoes")
+        c.execute("DELETE FROM contas")
+        c.execute("DELETE FROM cartao_credito")
+        c.execute("DELETE FROM carteira_investimentos")
+        c.execute("DELETE FROM veiculos")
+        c.execute("DELETE FROM manutencoes_veiculo")
+        c.execute("DELETE FROM consumo_combustivel")
+        c.execute("DELETE FROM holerites")
+        c.execute("DELETE FROM metas")
+        conn.commit()
+        st.success("Todos os dados do sistema foram apagados com sucesso!")
+        st.rerun()
+      else:
+        st.error("Senha incorreta! A exclusão geral foi cancelada.")
 
   st.markdown("---")
   st.write(
