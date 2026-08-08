@@ -17,6 +17,23 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+        /* Oculta o rodapé e marcas d'água flutuantes inferiores */
+        footer {visibility: hidden;}
+        .viewerBadge_container__1QSob {visibility: hidden;}
+        #MainMenu {visibility: hidden;}
+        
+        /* Oculta os selos flutuantes do Streamlit no canto inferior */
+        div[data-testid="stStatusWidget"] {visibility: hidden;}
+        .stDeployButton {display:none;}
+        footer {display: none !important;}
+        header {visibility: hidden;}
+        
+        /* Esconde elementos flutuantes adicionais da barra inferior */
+        .eczcs4p0 {display: none !important;}
+        .styles_viewerBadge__1yG5_, .viewerBadge_link__1S137, .viewerBadge_text__1JaDK {
+            display: none !important;
+        }
+
         :root {
             --bg-color: #0f1117;
             --card-bg: rgba(25, 29, 38, 0.75);
