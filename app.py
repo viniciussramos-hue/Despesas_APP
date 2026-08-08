@@ -1585,10 +1585,13 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
       
       id_cat_atual = df_cats_gerenciar[df_cats_gerenciar["nome"] == cat_selecionada_para_gerenciar]["id"].values[0]
 
-      # Extrair separadamente o emoji atual e o texto atual para preencher os inputs de edição
+      # Capturar separadamente o emoji e o texto restante da categoria selecionada
       nome_completo_atual = str(cat_selecionada_para_gerenciar)
-      emoji_atual = nome_completo_atual[0] if len(nome_completo_atual) > 0 else "📄"
-      texto_atual_puro = nome_completo_atual[1:].strip() if len(nome_completo_atual) > 1 else ""
+      
+      # Encontrar o primeiro caractere ou split por espaço para isolar o emoji corretamente
+      partes_cat = nome_completo_atual.split(" ", 1)
+      emoji_atual = partes_cat[0] if len(partes_cat) > 0 else "📄"
+      texto_atual_puro = partes_cat[1] if len(partes_cat) > 1 else ""
 
       lista_icones_opcoes = [
           "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", 
@@ -1600,7 +1603,7 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
           "🎬", "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
       ]
 
-      # Ajustar índice padrão do emoji se existir na lista
+      # Garantir que o índice do emoji selecionado seja recuperado corretamente
       idx_emoji_default = lista_icones_opcoes.index(emoji_atual) if emoji_atual in lista_icones_opcoes else 0
 
       with st.form("form_editar_excluir_cat"):
@@ -1611,7 +1614,7 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
             index=idx_emoji_default,
             key="novo_icone_sel"
         )
-        novo_nome_texto = st.text_input("Novo Nome da Categoria:", value=texto_atual_puro, key="novo_nome_texto_input")
+        novo_nome_texto = st.text_input("Novo Nome da Categorizada:", value=texto_atual_puro, key="novo_nome_texto_input")
 
         col_btn_ed1, col_btn_ed2 = st.columns(2)
         with col_btn_ed1:
