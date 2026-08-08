@@ -488,20 +488,23 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
       st.rerun()
   st.markdown("</div>", unsafe_allow_html=True)
 
-  # Grupo 3 & 4: Configuração, Suporte, Relatórios & Backup
+  # Grupo 3 & 4: Novas Funções (Voz e Chatbot IA), Configuração & Relatórios
   col_a, col_b = st.columns(2)
   with col_a:
     st.markdown(
-        '<div class="group-card"><div class="group-title">Configuração &'
-        " Suporte</div>",
+        '<div class="group-card"><div class="group-title">Inovação & IA & Suporte</div>',
         unsafe_allow_html=True,
     )
-    sub1, sub2 = st.columns(2)
+    sub1, sub2, sub3 = st.columns(3)
     with sub1:
-      if st.button("🏷️ Categorias & Ícones", use_container_width=True):
-        mudar_pagina("🏷️ Categorias & Ícones")
+      if st.button("🎙️ Lançar por Voz", use_container_width=True):
+        mudar_pagina("🎙️ Lançar por Voz")
         st.rerun()
     with sub2:
+      if st.button("🤖 Assistente IA & Chat", use_container_width=True):
+        mudar_pagina("🤖 Assistente IA")
+        st.rerun()
+    with sub3:
       if st.button("❤️ Saúde Financeira", use_container_width=True):
         mudar_pagina("❤️ Saúde Financeira")
         st.rerun()
@@ -509,16 +512,19 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
 
   with col_b:
     st.markdown(
-        '<div class="group-card"><div class="group-title">Relatórios &'
-        " Backup</div>",
+        '<div class="group-card"><div class="group-title">Configuração, Relatórios & Backup</div>',
         unsafe_allow_html=True,
     )
-    sub1, sub2 = st.columns(2)
+    sub1, sub2, sub3 = st.columns(3)
     with sub1:
-      if st.button("📄 Holerites & PDF", use_container_width=True):
-        mudar_pagina("📄 Holerites")
+      if st.button("🏷️ Categorias", use_container_width=True):
+        mudar_pagina("🏷️ Categorias & Ícones")
         st.rerun()
     with sub2:
+      if st.button("📄 Holerites", use_container_width=True):
+        mudar_pagina("📄 Holerites")
+        st.rerun()
+    with sub3:
       if st.button("📋 Extrato & Backup", use_container_width=True):
         mudar_pagina("📋 Extrato & Backup")
         st.rerun()
@@ -645,7 +651,157 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 2.1: VEÍCULOS, MANUTENÇÕES & COMBUSTÍVEIS ---
+# --- SEÇÃO 2.1: LANÇAR DESPESA POR COMANDO DE VOZ ---
+# ==========================================
+elif st.session_state.pagina_atual == "🎙️ Lançar por Voz":
+  st.subheader("🎙️ Lançamento Inteligente de Despesas por Comando de Voz / Texto Falado")
+  st.write(
+      "Simule ou grave seu comando de voz. Digite ou dite no formato natural, por exemplo: "
+      "<i>'Gastei 45 reais na farmácia hoje'</i> ou <i>'Paguei 120 de luz ontem'</i>."
+  )
+
+  # Integração simulada de áudio / caixa de fala natural
+  comando_voz_input = st.text_area(
+      "💬 Comando de Voz Capturado (ou digite sua frase natural):",
+      value="",
+      placeholder="Ex: Gastei 89.90 no supermercado shibata hoje...",
+      help="Você pode digitar ou dite sua frase financeira livremente."
+  )
+
+  if st.button("Processar Comando de Voz & Lançar Automaticamente", use_container_width=True):
+    if comando_voz_input.strip():
+      texto_cv = comando_voz_input.strip()
+      
+      # Extração inteligente de valores numéricos na frase
+      nums_encontrados = re.findall(r"(\d+(?:[.,]\d+)?)", texto_cv.replace(",", "."))
+      valor_extraido = float(nums_encontrados[0]) if nums_encontrados else 0.0
+
+      if valor_extraido > 0:
+        # Descrição e Categorização Inteligente
+        desc_extraida = texto_cv
+        tipo_trans = "Receita" if any(p in texto_cv.lower() for p in ["recebi", "ganhei", "salario", "PIX recebido"]) else "Despesa"
+        cat_extraida = categorizar_automaticamente(desc_extraida, tipo_trans)
+        data_hoje_str = date.today().strftime("%Y-%m-%d")
+
+        c.execute(
+            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+            (data_hoje_str, tipo_trans, desc_extraida, cat_extraida, valor_extraido, "Voz_IA")
+        )
+        conn.commit()
+
+        st.success(f"🎉 **Lançamento por Voz Realizado com Sucesso!**")
+        st.markdown(
+            f"""
+            <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 15px; margin-top: 10px;">
+                <p><b>Tipo:</b> {tipo_trans}</p>
+                <p><b>Descrição:</b> {desc_extraida}</p>
+                <p><b>Valor:</b> R$ {valor_extraido:,.2f}</p>
+                <p><b>Categoria Atribuída:</b> {cat_extraida}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+      else:
+        st.error("Não foi possível identificar um valor numérico válido no comando falado/digitado. Tente incluir o valor (ex: '45 reais').")
+    else:
+      st.warning("Insira um comando de voz ou frase para processar.")
+
+  st.markdown("---")
+  st.subheader("📋 Últimos Lançamentos via Comando de Voz")
+  df_voz_all = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Voz_IA' ORDER BY id DESC", conn)
+  if not df_voz_all.empty:
+    st.dataframe(df_voz_all[["data", "tipo", "descricao", "categoria", "valor"]], use_container_width=True, hide_index=True)
+  else:
+    st.info("Nenhum lançamento por voz registrado ainda.")
+
+  botao_voltar()
+
+# ==========================================
+# --- SEÇÃO 2.2: ASSISTENTE IA & CHATBOT ---
+# ==========================================
+elif st.session_state.pagina_atual == "🤖 Assistente IA":
+  st.subheader("🤖 Assistente Financeiro Inteligente (Chatbot IA)")
+  st.write(
+      "Converse com a Inteligência Artificial do seu gestor. Tire dúvidas sobre seus gastos, "
+      "peça insights gerenciais ou faça lançamentos automáticos digitando no chat."
+  )
+
+  if "historico_chat" not in st.session_state:
+    st.session_state.historico_chat = [
+        {"role": "assistant", "content": "Olá Vinicius! Sou seu assistente financeiro IA. Como posso ajudar nas suas finanças hoje? Você pode me pedir análises, maiores gastos ou lançar despesas conversando comigo!"}
+    ]
+
+  # Exibição do histórico de conversas do chat
+  for msg in st.session_state.historico_chat:
+    with st.chat_message(msg["role"]):
+      st.write(msg["content"])
+
+  # Entrada do usuário no chat
+  user_query = st.chat_input("Digite sua pergunta ou comando para o Assistente IA...")
+
+  if user_query:
+    st.session_state.historico_chat.append({"role": "user", "content": user_query})
+    with st.chat_message("user"):
+      st.write(user_query)
+
+    # Processamento e resposta inteligente da IA baseada no banco de dados SQLite real
+    query_up = user_query.upper()
+    resposta_ia = ""
+
+    df_trans_ia = pd.read_sql("SELECT * FROM transacoes", conn)
+    df_contas_ia = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
+    df_cartao_ia = pd.read_sql("SELECT * FROM cartao_credito", conn)
+
+    total_rec_ia = df_trans_ia[df_trans_ia["tipo"] == "Receita"]["valor"].sum() if not df_trans_ia.empty else 0.0
+    total_desp_ia = df_trans_ia[df_trans_ia["tipo"] == "Despesa"]["valor"].sum() if not df_trans_ia.empty else 0.0
+    saldo_caixa_ia = total_rec_ia - total_desp_ia
+
+    if any(k in query_up for k in ["GASTO", "MAIOR", "QUANTO GASTEI"]):
+      if not df_trans_ia.empty:
+        df_d_ia = df_trans_ia[df_trans_ia["tipo"] == "Despesa"]
+        if not df_d_ia.empty:
+          maior_gasto = df_d_ia.sort_values(by="valor", ascending=False).iloc[0]
+          resposta_ia = f"📊 O seu maior gasto registrado é **{maior_gasto['descricao']}** na categoria *{maior_gasto['categoria']}* no valor de **R$ {maior_gasto['valor']:,.2f}**."
+        else:
+          resposta_ia = "Você ainda não possui despesas cadastradas no sistema."
+      else:
+        resposta_ia = "Seu banco de dados de transações está vazio no momento."
+
+    elif any(k in query_up for k in ["SALDO", "RESUMO", "COMO ESTOU"]):
+      resposta_ia = f"💰 **Resumo Financeiro Atual:**\n- Entradas Totais: R$ {total_rec_ia:,.2f}\n- Saídas Totais: R$ {total_desp_ia:,.2f}\n- Saldo em Caixa: R$ {saldo_caixa_ia:,.2f}"
+
+    elif any(k in query_up for k in ["PAGUEI", "GASTEI", "COMPREI", "LANCEI"]):
+      # Extração e lançamento automático por chat
+      nums_chat = re.findall(r"(\d+(?:[.,]\d+)?)", user_query.replace(",", "."))
+      if nums_chat:
+        val_chat = float(nums_chat[0])
+        cat_c = categorizar_automaticamente(user_query, "Despesa")
+        c.execute(
+            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+            (date.today().strftime("%Y-%m-%d"), "Despesa", user_query, cat_c, val_chat, "Chat_IA")
+        )
+        conn.commit()
+        resposta_ia = f"✅ Lançado com sucesso pelo chat!\n- Descrição: {user_query}\n- Valor: R$ {val_chat:,.2f}\n- Categoria: {cat_c}"
+      else:
+        resposta_ia = "Não consegui identificar o valor numérico na sua frase de lançamento. Tente incluir o valor (ex: 'Gastei 150 no mercado')."
+
+    else:
+      resposta_ia = (
+          f"🤖 Compreendi sua pergunta. Analisei seus dados atuais: Saldo líquido projetado em R$ {saldo_caixa_ia:,.2f}. "
+          "Você pode me pedir para:\n"
+          "1. Mostrar seu maior gasto\n"
+          "2. Ver o resumo de saldo e receitas\n"
+          "3. Lançar despesas ou contas conversando diretamente comigo!"
+      )
+
+    st.session_state.historico_chat.append({"role": "assistant", "content": resposta_ia})
+    with st.chat_message("assistant"):
+      st.write(resposta_ia)
+
+  botao_voltar()
+
+# ==========================================
+# --- SEÇÃO 2.3: VEÍCULOS, MANUTENÇÕES & COMBUSTÍVEIS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
   st.subheader("🚗 Central de Veículos, Manutenções & Consumo de Combustível")
@@ -1845,7 +2001,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   if "data_calendario_ref" not in st.session_state or not isinstance(st.session_state.data_calendario_ref, (date, datetime)):
     st.session_state.data_calendario_ref = date.today()
 
-  # CORREÇÃO DO TÍTULO CONFORME SOLICITADO
   st.subheader("📅 Contas a Pagar & Receber / Gestão de Pagamentos")
   st.write("Organize boletos, contas a pagar, contas a receber e compromissos com vencimento programado.")
 
@@ -1858,7 +2013,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   if data_calendario_topo:
     st.session_state.data_calendario_ref = data_calendario_topo
 
-  # Gerenciamento de abas estilo botões modernos via session_state
   if "aba_contas_ativa" not in st.session_state:
     st.session_state.aba_contas_ativa = "pagar"
 
@@ -1874,9 +2028,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
   st.markdown("---")
 
-  # ==========================================
-  # --- PAINEL ABAIXO DO CALENDÁRIO: O QUE ESTÁ AGENDADO NA DATA SELECIONADA ---
-  # ==========================================
   st.markdown(
       f"""
       <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 14px; padding: 20px; margin-bottom: 25px;">
