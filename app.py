@@ -623,16 +623,17 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 3: DASHBOARD (REFORMULADA & PROFISSIONAL) ---
+# --- SEÇÃO 3: DASHBOARD (COM NOVAS SUGESTÕES) ---
 # ==========================================
 elif st.session_state.pagina_atual == "📊 Dashboard":
   st.subheader("📊 Executive Dashboard & Inteligência Financeira")
-  st.write("Painel gerencial consolidado com indicadores de desempenho, fluxo e eficiência patrimonial.")
+  st.write("Painel gerencial consolidado com indicadores avançados, metas e controle de maiores despesas.")
 
   df_all = pd.read_sql("SELECT * FROM transacoes", conn)
   df_inv_dash = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
   df_cartao_dash = pd.read_sql("SELECT * FROM cartao_credito", conn)
   df_contas_dash = pd.read_sql("SELECT * FROM contas", conn)
+  df_metas_dash = pd.read_sql("SELECT * FROM metas", conn)
 
   if not df_all.empty:
     df_all["data"] = pd.to_datetime(df_all["data"])
@@ -672,9 +673,8 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
               f" {med:,.2f})!"
           )
 
-  metas_check = pd.read_sql("SELECT * FROM metas", conn)
-  if not df.empty and not metas_check.empty:
-    for _, m in metas_check.iterrows():
+  if not df.empty and not df_metas_dash.empty:
+    for _, m in df_metas_dash.iterrows():
       gasto_cat_mes = df[
           (df["categoria"] == m["categoria"]) & (df["tipo"] == "Despesa")
       ]["valor"].sum()
@@ -726,7 +726,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
     # --- LINHA 1 DE MÉTRICAS EXECUTIVAS ---
     st.markdown("### 💼 Visão Geral do Período Selecionado")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("💰 Saldo do Período", f"R$ {saldo_caixa:,.2f}", delta=f"{(saldo_caixa):,.2f}")
+    m1.metric("💰 Saldo do Período", f"R$ {saldo_caixa:,.2f}")
     m2.metric("🟢 Entradas Totais", f"R$ {receitas:,.2f}")
     m3.metric("🔴 Despesas Totais", f"R$ {despesas:,.2f}")
     m4.metric("📈 Taxa de Poupança", f"{(inv_tax := (df[df['categoria'].str.contains('Investimentos', na=False)]['valor'].sum() / receitas * 100) if receitas > 0 else 0.0):.1f}%")
@@ -759,6 +759,34 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
         """,
         unsafe_allow_html=True,
     )
+
+    # ==========================================
+    # --- NOVO RECURSO 3: TOP 3 MAIORES VILÕES DO MÊS ---
+    # ==========================================
+    st.markdown("### 🚨 Top 3 Maiores Vilões de Despesa do Mês")
+    df_desp_mes = df[df["tipo"] == "Despesa"].copy()
+    if not df_desp_mes.empty:
+      top_viloes = df_desp_mes.sort_values(by="valor", ascending=False).head(3)
+      v1, v2, v3 = st.columns(3)
+      cols_v = [v1, v2, v3]
+      
+      for idx, (_, row_v) in enumerate(top_viloes.iterrows()):
+        if idx < len(cols_v):
+          with cols_v[idx]:
+            st.markdown(
+                f"""
+                <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 15px;">
+                    <span style="font-size: 12px; color: #f87171; font-weight: 600;"># {idx+1} MAIOR GASTO</span>
+                    <h4 style="color: #f8fafc; margin: 5px 0 2px 0; font-size: 16px;">{row_v['descricao']}</h4>
+                    <p style="color: #94a3b8; font-size: 13px; margin: 0 0 8px 0;">{row_v['categoria']}</p>
+                    <h3 style="color: #ef4444; margin: 0; font-size: 18px;">R$ {row_v['valor']:,.2f}</h3>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    else:
+      st.info("Nenhuma despesa registrada para o mês selecionado para calcular os vilões.")
+    # --------------------------------------------------
 
     st.markdown("---")
     st.subheader("🎯 Acompanhamento Rigoroso da Regra 50 / 30 / 20")
@@ -799,6 +827,24 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
           " regra 50/30/20."
       )
 
+    # ==========================================
+    # --- NOVO RECURSO 2: TERMÔMETRO VISUAL DE METAS DE GASTOS ---
+    # ==========================================
+    st.markdown("---")
+    st.subheader("🎯 Termômetro de Metas por Categoria")
+    if not df_metas_dash.empty:
+      for _, meta_row in df_metas_dash.iterrows():
+        c_nome = meta_row["categoria"]
+        teto_meta = meta_row["valor_meta"]
+        gasto_cat_real = df[(df["categoria"] == c_nome) & (df["tipo"] == "Despesa")]["valor"].sum()
+        
+        pct_atingido = (gasto_cat_real / teto_meta) if teto_meta > 0 else 0.0
+        st.write(f"**{c_nome}** — Real: R$ {gasto_cat_real:,.2f} / Teto: R$ {teto_meta:,.2f} ({(pct_atingido*100):.1f}%)")
+        st.progress(min(pct_atingido, 1.0))
+    else:
+      st.info("Nenhuma meta teto cadastrada. Configure suas metas na aba 'Metas de Gastos'.")
+    # -------------------------------------------------------------
+
     st.markdown("---")
     st.subheader("📈 Distribuição Analítica de Despesas por Categoria")
     df_desp = df[df["tipo"] == "Despesa"]
@@ -838,6 +884,31 @@ elif st.session_state.pagina_atual == "📊 Dashboard":
 
     st.write("**Curva de Crescimento do Saldo Acumulado em Caixa**")
     st.line_chart(df_pivot[["Saldo Acumulado"]])
+
+    # ==========================================
+    # --- NOVO RECURSO 1: GRÁFICO DE ÁREA EMPILHADA DA REGRA 50/30/20 ---
+    # ==========================================
+    st.markdown("---")
+    st.subheader("📊 Gráfico de Área Empilhada: Dinâmica 50/30/20 ao Longo dos Meses")
+    
+    # Prepara dados agrupados por mês e pilares da regra
+    df_empilhado = df_all[df_all["tipo"] == "Despesa"].copy()
+    if not df_empilhado.empty:
+      def mapear_pilar(cat):
+        if "Necessidade" in str(cat) or "Supermercado" in str(cat) or "Contas Fixas" in str(cat) or "Transporte" in str(cat) or "Saúde" in str(cat):
+          return "Necessidades (50%)"
+        elif "Desejos" in str(cat) or "Lazer" in str(cat):
+          return "Desejos (30%)"
+        else:
+          return "Investimentos (20%)"
+          
+      df_empilhado["Pilar"] = df_empilhado["categoria"].apply(mapear_pilar)
+      df_area_pivot = df_empilhado.pivot_table(index="ano_mes", columns="Pilar", values="valor", aggfunc="sum").fillna(0)
+      st.area_chart(df_area_pivot)
+    else:
+      st.info("Cadastre mais despesas históricas em meses diferentes para habilitar o gráfico de área empilhada.")
+    # -------------------------------------------------------------------
+
   else:
     st.info(
         "Inicie os lançamentos no sistema para construir o painel corporativo"
