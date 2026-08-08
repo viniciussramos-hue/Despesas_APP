@@ -1585,13 +1585,19 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
       
       id_cat_atual = df_cats_gerenciar[df_cats_gerenciar["nome"] == cat_selecionada_para_gerenciar]["id"].values[0]
 
-      # Capturar separadamente o emoji e o texto restante da categoria selecionada
-      nome_completo_atual = str(cat_selecionada_para_gerenciar)
+      # Capturar separadamente o emoji e o texto restante da categoria selecionada de forma robusta
+      nome_completo_atual = str(cat_selecionada_para_gerenciar).strip()
       
-      # Encontrar o primeiro caractere ou split por espaço para isolar o emoji corretamente
-      partes_cat = nome_completo_atual.split(" ", 1)
-      emoji_atual = partes_cat[0] if len(partes_cat) > 0 else "📄"
-      texto_atual_puro = partes_cat[1] if len(partes_cat) > 1 else ""
+      # Separar o primeiro caractere (emoji/símbolo) do resto do nome
+      match_emoji = re.match(r"^([^\w\s])\s*(.*)$", nome_completo_atual)
+      if match_emoji:
+        emoji_atual = match_emoji.group(1)
+        texto_atual_puro = match_emoji.group(2)
+      else:
+        # Fallback caso venha em formato diferente
+        partes_cat = nome_completo_atual.split(" ", 1)
+        emoji_atual = partes_cat[0] if len(partes_cat) > 0 else "📄"
+        texto_atual_puro = partes_cat[1] if len(partes_cat) > 1 else nome_completo_atual
 
       lista_icones_opcoes = [
           "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", 
@@ -1606,15 +1612,18 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
       # Garantir que o índice do emoji selecionado seja recuperado corretamente
       idx_emoji_default = lista_icones_opcoes.index(emoji_atual) if emoji_atual in lista_icones_opcoes else 0
 
-      with st.form("form_editar_excluir_cat"):
+      # Gerar uma chave dinâmica baseada no ID/Nome atual para forçar o Streamlit a atualizar os campos do form ao trocar de categoria
+      chave_form_edicao = f"form_edit_cat_{id_cat_atual}"
+
+      with st.form(chave_form_edicao):
         st.write(f"Editando: **{cat_selecionada_para_gerenciar}**")
         novo_icone = st.selectbox(
             "Novo Ícone:",
             lista_icones_opcoes,
             index=idx_emoji_default,
-            key="novo_icone_sel"
+            key=f"novo_icone_sel_{id_cat_atual}"
         )
-        novo_nome_texto = st.text_input("Novo Nome da Categorizada:", value=texto_atual_puro, key="novo_nome_texto_input")
+        novo_nome_texto = st.text_input("Novo Nome da Categoria:", value=texto_atual_puro, key=f"novo_nome_texto_input_{id_cat_atual}")
 
         col_btn_ed1, col_btn_ed2 = st.columns(2)
         with col_btn_ed1:
