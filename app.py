@@ -1014,8 +1014,6 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
   )
 
   df_deps = pd.read_sql("SELECT * FROM tabela_depositos", conn)
-  
-  # Cálculo acumulado correto: soma todos os valores dos depósitos cujo status é 'Concluído'
   total_concluido = df_deps[df_deps["status"] == "Concluído"]["valor"].sum()
   meta_total_desafio = df_deps["valor"].sum()
 
@@ -1042,7 +1040,6 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
   with col_dir:
     st.write("### ⚙️ Atualizar Status do Depósito")
     with st.form("form_atualizar_deposito_completo"):
-      # Seleção múltipla permitindo escolher vários depósitos simultaneamente
       deps_sel = st.multiselect(
           "Selecione os Números dos Depósitos:", df_deps["numero_deposito"].tolist()
       )
@@ -1326,6 +1323,66 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
   )
 
   df_all_fluxo = pd.read_sql("SELECT * FROM transacoes", conn)
+  
+  # --- NOVO RECURSO: Previsão de Saldo Mínimo Diário & Alerta de Caixa Crítico ---
+  st.markdown("---")
+  st.subheader("⚡ Previsão de Saldo Mínimo Diário & Alerta de Caixa Crítico")
+  
+  df_contas_fluxo = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
+  
+  if not df_all_fluxo.empty:
+    receitas_totais = df_all_fluxo[df_all_fluxo["tipo"] == "Receita"]["valor"].sum()
+    despesas_totais = df_all_fluxo[df_all_fluxo["tipo"] == "Despesa"]["valor"].sum()
+    saldo_atual_base = receitas_totais - despesas_totais
+  else:
+    saldo_atual_base = 0.0
+
+  if not df_contas_fluxo.empty:
+    df_contas_fluxo["vencimento_dt"] = pd.to_datetime(df_contas_fluxo["vencimento"])
+    df_contas_fluxo = df_contas_fluxo.sort_values("vencimento_dt")
+    
+    # Simula os próximos 15 dias de caixa diário
+    dias_simulacao = []
+    saldo_iterativo = saldo_atual_base
+    hoje_ref = datetime.now().date()
+
+    for i in range(15):
+      dia_alvo = hoje_ref + timedelta(days=i)
+      # Soma contas que vencem neste dia exato
+      contas_dia = df_contas_fluxo[df_contas_fluxo["vencimento_dt"].dt.date == dia_alvo]["valor"].sum()
+      saldo_iterativo -= contas_dia
+      dias_simulacao.append({
+          "Data": dia_alvo.strftime("%d/%m/%Y"),
+          "Contas Vencendo (R$)": contas_dia,
+          "Saldo Projetado (R$)": saldo_iterativo
+      })
+
+    df_proj_diaria = pd.DataFrame(dias_simulacao)
+    
+    # Verifica se há algum saldo negativo na projeção
+    dias_negativos = df_proj_diaria[df_proj_diaria["Saldo Projetado (R$)"] < 0]
+    if not dias_negativos.empty:
+      primeiro_alerta = dias_negativos.iloc[0]
+      st.error(
+          f"🚨 **ALERTA CRÍTICO DE CAIXA:** O seu saldo projetado ficará negativo em **{primeiro_alerta['Data']}** "
+          f"(Chegando a R$ {primeiro_alerta['Saldo Projetado (R$)']:,.2f}) devido ao vencimento de compromissos pendentes!"
+      )
+    else:
+      st.success("🟢 **Caixa Saudável:** Nenhum gargalo financeiro crítico detectado nos próximos 15 dias com base nas contas pendentes.")
+
+    st.write("#### 📊 Projeção de Caixa Diária (Próximos 15 Dias)")
+    st.dataframe(
+        df_proj_diaria.style.format({
+            "Contas Vencendo (R$)": "R$ {:,.2f}",
+            "Saldo Projetado (R$)": "R$ {:,.2f}"
+        }),
+        use_container_width=True,
+        hide_index=True
+    )
+  else:
+    st.info("Nenhuma conta pendente cadastrada no momento para gerar o alerta diário de caixa.")
+  # ---------------------------------------------------------------------------
+
   if not df_all_fluxo.empty:
     df_all_fluxo["data"] = pd.to_datetime(df_all_fluxo["data"])
     df_all_fluxo["ano_mes"] = df_all_fluxo["data"].dt.strftime("%Y-%m")
@@ -1346,6 +1403,7 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
           "valor_ajustado"
       ].cumsum()
 
+      st.markdown("---")
       st.write("### 📈 Curva de Caixa Diária (Entradas menos Saídas)")
       st.line_chart(df_caixa_mes.set_index("data")[["Saldo Diário Acumulado"]])
 
@@ -1357,7 +1415,7 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
           hide_index=True,
       )
     else:
-      st.info("Nenhum lançamento encontrado para o mês selecionado.")
+      st.info("Nenhum lançamento encontrado para el mês selecionado.")
   else:
     st.info("Cadastre transações para gerar o fluxo de caixa.")
   botao_voltar()
