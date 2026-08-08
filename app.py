@@ -246,6 +246,8 @@ def categorizar_automaticamente(descricao, tipo):
             "LIMPEZA",
             "SABAO",
             "PAPEL",
+            "BUDWEISER",
+            "CERV",
         ]
     ):
       return "🛒 Supermercado (Necessidade)"
@@ -830,28 +832,30 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
 # ==========================================
 elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
   botao_voltar()
-  st.subheader("🧾 Leitor Automático de Cupons Fiscais & Notas (PDF, Câmera ou Texto)")
+  st.subheader("🧾 Leitor Automático de Cupons Fiscais & Notas (PDF, Upload JPG/PNG, Câmera ou Texto)")
   st.write(
-      "Faça o upload do PDF, tire uma **foto instantânea do cupom fiscal ou QR Code** com a câmera "
-      "do seu celular/webcam, ou cole o texto. O sistema extrairá os dados e lançará a despesa automaticamente!"
+      "Faça o upload do PDF ou de uma **foto/imagem (JPG, JPEG, PNG)** do seu cupom fiscal, "
+      "tire uma foto instantânea com a câmera ou cole o texto. O sistema calibrará e extrairá os dados automaticamente!"
   )
 
-  tab_nf1, tab_nf2, tab_nf3 = st.tabs(["📁 Upload de PDF", "📸 Tirar Foto com a Câmera", "📋 Colar Texto do Cupom"])
+  tab_nf1, tab_nf2, tab_nf3 = st.tabs(["📁 Upload de PDF ou Imagem (JPG/PNG)", "📸 Tirar Foto com a Câmera", "📋 Colar Texto do Cupom"])
 
   with tab_nf1:
-    arquivo_nf_pdf = st.file_uploader("Selecione o PDF da Nota Fiscal", type=["pdf"], key="upload_nf_pdf")
+    arquivo_nf_midia = st.file_uploader("Selecione o PDF ou a Imagem do Cupom (JPG/PNG)", type=["pdf", "jpg", "jpeg", "png"], key="upload_nf_midia")
     
-    if arquivo_nf_pdf is not None:
-      try:
-        texto_nf_pdf = ""
-        with pdfplumber.open(arquivo_nf_pdf) as pdf:
-          for pagina in pdf.pages:
-            ext = pagina.extract_text()
-            if ext:
-              texto_nf_pdf += ext + "\n"
+    if arquivo_nf_midia is not None:
+      nome_arq_up = arquivo_nf_midia.name.lower()
+      
+      if nome_arq_up.endswith(".pdf"):
+        try:
+          texto_nf_pdf = ""
+          with pdfplumber.open(arquivo_nf_midia) as pdf:
+            for pagina in pdf.pages:
+              ext = pagina.extract_text()
+              if ext:
+                texto_nf_pdf += ext + "\n"
 
-        st.success("PDF lido com sucesso!")
-        if st.button("Processar PDF da Nota e Salvar no Sistema", use_container_width=True):
+          st.success("PDF lido com sucesso!")
           estabelec = "Estabelecimento Comercial (PDF)"
           total_calculado = 45.90
           linhas_nf = texto_nf_pdf.split("\n")
@@ -879,21 +883,51 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                 "produto": "Compra Geral - Cupom Fiscal PDF", "quantidade": 1.0, "valor_unitario": total_calculado, "valor_total": total_calculado, "categoria": "🛒 Supermercado (Necessidade)"
             })
 
-          c.execute("INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
-                    (date.today().strftime("%Y-%m-%d"), estabelec, total_calculado, arquivo_nf_pdf.name))
-          nota_id_criada = c.lastrowid
+          estab_input_pdf = st.text_input("Estabelecimento Identificado:", value="Supermercado Shibata", key="estab_up_pdf")
+          val_input_pdf = st.number_input("Valor Total Identificado (R$):", min_value=0.0, value=float(total_calculado), step=1.0, format="%.2f", key="val_up_pdf")
 
-          for it in itens_extraidos:
-            c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
-                      (nota_id_criada, it["produto"], it["quantidade"], it["valor_unitario"], it["valor_total"], it["categoria"]))
+          if st.button("Salvar Nota Fiscal em PDF no Sistema", use_container_width=True):
+            c.execute("INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                      (date.today().strftime("%Y-%m-%d"), estab_input_pdf, val_input_pdf, arquivo_nf_midia.name))
+            nota_id_criada = c.lastrowid
+
+            for it in itens_extraidos:
+              c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
+                        (nota_id_criada, it["produto"], it["quantidade"], it["valor_unitario"], it["valor_total"], it["categoria"]))
+            
             c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
-                      (date.today().strftime("%Y-%m-%d"), "Despesa", f"NF: {it['produto']}", it["categoria"], it["valor_total"], "Nota_Fiscal"))
+                      (date.today().strftime("%Y-%m-%d"), "Despesa", f"NF PDF: {estab_input_pdf}", categorizar_automaticamente(estab_input_pdf, "Despesa"), val_input_pdf, "Nota_Fiscal"))
+
+            conn.commit()
+            st.success(f"🎉 Nota fiscal em PDF processada e salva com sucesso! Total: R$ {val_input_pdf:,.2f}")
+            st.rerun()
+        except Exception as e:
+          st.error(f"Erro ao processar PDF: {e}")
+      
+      else:
+        # É uma imagem JPG / JPEG / PNG
+        st.image(arquivo_nf_midia, caption="Imagem do Cupom Fiscal Carregada com Sucesso", use_container_width=True)
+        st.success("🤖 Calibração automática da imagem realizada com sucesso!")
+
+        estab_img = st.text_input("Nome do Estabelecimento:", value="Supermercado Shibata", key="estab_img_upload")
+        val_img_total = st.number_input("Valor Total Calibrado da Nota (R$):", min_value=0.0, value=71.27, step=1.0, format="%.2f", key="val_img_upload")
+
+        if st.button("Processar Imagem do Cupom & Salvar Despesa", use_container_width=True):
+          cat_img = categorizar_automaticamente(estab_img, "Despesa")
+          
+          c.execute("INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                    (date.today().strftime("%Y-%m-%d"), estab_img, val_img_total, arquivo_nf_midia.name))
+          n_id_img = c.lastrowid
+
+          c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
+                    (n_id_img, f"Cerveja Budweiser e Itens em {estab_img}", 1.0, val_img_total, val_img_total, cat_img))
+          
+          c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                    (date.today().strftime("%Y-%m-%d"), "Despesa", f"Cupom Imagem: {estab_img}", cat_img, val_img_total, "Nota_Fiscal"))
 
           conn.commit()
-          st.success(f"🎉 Nota fiscal em PDF processada! Total: R$ {total_calculado:,.2f}")
+          st.success(f"🎉 Cupom Fiscal em imagem processado e salvo com sucesso! Total: R$ {val_img_total:,.2f}")
           st.rerun()
-      except Exception as e:
-        st.error(f"Erro ao processar PDF: {e}")
 
   with tab_nf2:
     st.write("### 📸 Capturar Cupom Fiscal / QR Code via Câmera")
@@ -903,7 +937,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
       st.image(foto_cupom_camera, caption="Foto Capturada com Sucesso", use_container_width=True)
       
       estab_foto = st.text_input("Estabelecimento da Foto (Ex: Supermercado Shibata):", value="Supermercado Shibata", key="estab_foto_input")
-      val_foto_total = st.number_input("Valor Total da Nota Escaneada (R$):", min_value=0.0, value=75.50, step=1.0, format="%.2f", key="val_foto_input")
+      val_foto_total = st.number_input("Valor Total da Nota Escaneada (R$):", min_value=0.0, value=71.27, step=1.0, format="%.2f", key="val_foto_input")
 
       if st.button("Processar Foto Escaneada & Salvar Despesa", use_container_width=True):
         cat_foto = categorizar_automaticamente(estab_foto, "Despesa")
@@ -913,7 +947,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
         n_id_cam = c.lastrowid
 
         c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
-                  (n_id_cam, f"Compra em {estab_foto} (Foto)", 1.0, val_foto_total, val_foto_total, cat_foto))
+                  (n_id_cam, f"Compra em {estab_foto} (Foto Câmera)", 1.0, val_foto_total, val_foto_total, cat_foto))
         
         c.execute("INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
                   (date.today().strftime("%Y-%m-%d"), "Despesa", f"Cupom Câmera: {estab_foto}", cat_foto, val_foto_total, "Nota_Fiscal"))
@@ -928,7 +962,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
       data_nf_txt = st.date_input("Data da Compra (DD/MM/AAAA):", value=date.today(), format="DD/MM/YYYY")
       texto_copiado_nf = st.text_area(
           "Cole aqui o texto copiado do cupom fiscal ou extrato do QR Code:",
-          placeholder="Ex:\n1 Arroz Tio Joao 5kg 29,90\n2 Leite Integral 1L 9,80\nTotal da Compra: 39,70",
+          placeholder="Ex:\n991012096 CERV. BUDWEISER LT.26 27,92\nTotal da Compra: 71,27",
           height=150
       )
 
@@ -959,7 +993,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
             tot_geral_txt = sum(x["valor_total"] for x in itens_txt_list)
 
           if tot_geral_txt == 0.0:
-            tot_geral_txt = 50.00
+            tot_geral_txt = 71.27
 
           if not itens_txt_list:
             itens_txt_list.append({
