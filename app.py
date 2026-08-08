@@ -446,7 +446,7 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
       mudar_pagina("🟢 Entradas & Salários")
       st.rerun()
   with c3:
-    if st.button("📅 Contas a Pagar", use_container_width=True):
+    if st.button("📅 Contas a Pagar & Receber", use_container_width=True):
       mudar_pagina("📅 Contas a Pagar")
       st.rerun()
   with c4:
@@ -1072,13 +1072,11 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # Carregamento de dados de todas as fontes relevantes para previsão
   df_cartao_prev = pd.read_sql("SELECT * FROM cartao_credito", conn)
   df_contas_prev = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
   df_receber_prev = pd.read_sql("SELECT * FROM contas_receber WHERE recebido = 0", conn)
   df_trans_prev = pd.read_sql("SELECT * FROM transacoes", conn)
 
-  # Conversão de datas para filtro
   if not df_cartao_prev.empty:
     df_cartao_prev["data_dt"] = pd.to_datetime(df_cartao_prev["data"], errors="coerce")
   if not df_contas_prev.empty:
@@ -1153,7 +1151,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("---")
 
-  # Exibição das Métricas Principais
   m1, m2, m3 = st.columns(3)
   with m1:
     st.markdown(
@@ -1188,7 +1185,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # Detalhamento de Saídas e Entradas Previstas
   col_det_s, col_det_e = st.columns(2)
   with col_det_s:
     st.markdown(
@@ -1849,8 +1845,8 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   if "data_calendario_ref" not in st.session_state or not isinstance(st.session_state.data_calendario_ref, (date, datetime)):
     st.session_state.data_calendario_ref = date.today()
 
-  # CABEÇALHO DA SEÇÃO DE CONTAS SEM O BOTÃO PROBLEMÁTICO
-  st.subheader("📅 Calendário de Contas & Gestão de Pagamentos / Recebimentos")
+  # CORREÇÃO DO TÍTULO CONFORME SOLICITADO
+  st.subheader("📅 Contas a Pagar & Receber / Gestão de Pagamentos")
   st.write("Organize boletos, contas a pagar, contas a receber e compromissos com vencimento programado.")
 
   st.markdown("##### 🗓️ Seleção de Data no Calendário Interativo")
