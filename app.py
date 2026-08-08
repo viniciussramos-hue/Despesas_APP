@@ -310,7 +310,7 @@ def extrair_mes_ano_do_nome(nome_arquivo):
           else (match_ano.group(0) if match_ano else "2026")
       )
       return f"{num_mes}/{ano}"
-  return "07/2026"
+  return "08/2026"
 
 
 def extrair_valores_precisos_pdf(texto):
@@ -1011,7 +1011,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   st.subheader("📅 Previsão Financeira")
   st.write("Visualize suas finanças em qualquer período de forma detalhada e interativa.")
 
-  # Inicializa estado para controle de mês/ano na previsão
   if "prev_data_atual" not in st.session_state:
     st.session_state.prev_data_atual = datetime.now().replace(day=1)
 
@@ -1026,7 +1025,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("---")
 
-  # Navegador de meses interativo e funcional
   col_nav1, col_nav2, col_nav3 = st.columns([1, 4, 1])
   with col_nav1:
     if st.button("❮ Anterior", use_container_width=True):
@@ -1060,7 +1058,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # Filtro dos dados reais de acordo com o período selecionado
   df_cartao_prev = pd.read_sql("SELECT * FROM cartao_credito", conn)
   df_contas_prev = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
   df_trans_prev = pd.read_sql("SELECT * FROM transacoes", conn)
@@ -1102,7 +1099,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   total_saidas_previstas = total_faturas + total_contas + total_dividas + total_saidas_manuais
   saldo_projetado = total_entradas_previstas - total_saidas_previstas
 
-  # Cards de Resumo Superior
   m1, m2, m3 = st.columns(3)
   with m1:
     st.markdown(
@@ -1137,7 +1133,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # Seção de Saídas Previstas Detalhadas
   st.markdown(
       f"""
       <div class="group-card">
@@ -1163,7 +1158,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
       unsafe_allow_html=True,
   )
 
-  # Seção de Entradas Previstas Detalhadas
   st.markdown(
       f"""
       <div class="group-card">
