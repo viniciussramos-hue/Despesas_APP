@@ -1799,6 +1799,25 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
   st.markdown("---")
 
+  # --- ALERTA VISUAL DE CONTAS VENCIDAS OU VENCENDO HOJE ---
+  df_contas_alerta = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
+  if not df_contas_alerta.empty:
+    hoje = date.today()
+    df_contas_alerta["venc_dt"] = pd.to_datetime(df_contas_alerta["vencimento"]).dt.date
+    
+    vencidas = df_contas_alerta[df_contas_alerta["venc_dt"] < hoje]
+    vencem_hoje = df_contas_alerta[df_contas_alerta["venc_dt"] == hoje]
+
+    if not vencidas.empty or not vencem_hoje.empty:
+      st.markdown("### 🚨 Alertas de Vencimento")
+      if not vencidas.empty:
+        for _, r_venc in vencidas.iterrows():
+          st.error(f"⚠️ **Conta Vencida:** '{r_venc['descricao']}' vencia em **{pd.to_datetime(r_venc['vencimento']).strftime('%d/%m/%Y')}** no valor de **R$ {r_venc['valor']:,.2f}**!")
+      if not vencem_hoje.empty:
+        for _, r_hoje in vencem_hoje.iterrows():
+          st.warning(f"🔔 **Vence Hoje:** '{r_hoje['descricao']}' vence **hoje** ({hoje.strftime('%d/%m/%Y')}) no valor de **R$ {r_hoje['valor']:,.2f}**!")
+      st.markdown("---")
+
   st.write("### 🔍 Pesquisa Inteligente de Contas (com Similaridade)")
   termo_busca_contas = st.text_input(
       "Digite o nome ou descrição da conta:", "", key="busca_contas_input"
@@ -1825,7 +1844,20 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
   if not contas_filtradas.empty:
     st.write("### 📋 Relação de Compromissos (Resultados da Busca)")
-    st.dataframe(contas_filtradas, use_container_width=True)
+    
+    # Exibição customizada ou formatada para destacar dias restantes / status de vencimento
+    df_exib_contas = contas_filtradas.copy()
+    df_exib_contas["vencimento_fmt"] = pd.to_datetime(df_exib_contas["vencimento"]).dt.strftime("%d/%m/%Y")
+    df_exib_contas["valor_fmt"] = df_exib_contas["valor"].apply(lambda x: f"R$ {x:,.2f}")
+    df_exib_contas["status_pagamento"] = df_exib_contas["pago"].apply(lambda x: "Pago ✅" if x == 1 else "Pendente ⏳")
+    
+    st.dataframe(
+        df_exib_contas[["id", "vencimento_fmt", "descricao", "valor_fmt", "status_pagamento"]].rename(
+            columns={"id": "ID", "vencimento_fmt": "Vencimento", "descricao": "Descrição", "valor_fmt": "Valor", "status_pagamento": "Status"}
+        ),
+        use_container_width=True,
+        hide_index=True
+    )
   else:
     st.info("Nenhuma conta encontrada com o termo pesquisado.")
   botao_voltar()
@@ -2009,7 +2041,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
     termo_busca_extrato = st.text_input(
         "Filtrar por texto/similaridade (Descrição ou Categoria):",
         "",
-        key="filtro_extrato_similaridade",
+        key="fil_extrato_similaridade",
     )
   with col_s2:
     filtro_tipo = st.selectbox(
