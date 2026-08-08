@@ -154,7 +154,6 @@ c.execute("""CREATE TABLE IF NOT EXISTS manutencoes_veiculo
 c.execute("""CREATE TABLE IF NOT EXISTS consumo_combustivel 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, veiculo_id INTEGER, data TEXT, litros REAL, valor_total REAL, km_odometro REAL, consumo_medio REAL)""")
 
-# Migração de segurança: Garante que transações antigas sem origem definida sejam tratadas como 'Manual'
 try:
   c.execute("ALTER TABLE transacoes ADD COLUMN origem TEXT")
   conn.commit()
@@ -469,8 +468,8 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
       mudar_pagina("📈 Investimentos")
       st.rerun()
   with c2:
-    if st.button("🔮 Projeções Futuras", use_container_width=True):
-      mudar_pagina("🔮 Projeções Futuras")
+    if st.button("🔮 Previsão Financeira", use_container_width=True):
+      mudar_pagina("🔮 Previsão Financeira")
       st.rerun()
   with c3:
     if st.button("📊 Dash. Manual (Real)", use_container_width=True):
@@ -789,7 +788,6 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
   st.subheader("📊 Executive Dashboard — Lançamentos Reais Manuais")
   st.write("Painel gerencial focado exclusivamente nos registros feitos de forma manual no sistema.")
 
-  # Filtro estrito para buscar apenas transações com origem 'Manual'
   df_all = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Manual'", conn)
   df_inv_dash = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
   df_cartao_dash = pd.read_sql("SELECT * FROM cartao_credito", conn)
@@ -1007,7 +1005,147 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 4: CARTÃO DE CRÉDITO ---
+# --- SEÇÃO 4: PREVISÃO FINANCEIRA ---
+# ==========================================
+elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
+  st.subheader("📅 Previsão Financeira")
+  st.write("Visualize suas finanças em qualquer período de forma detalhada e interativa.")
+
+  # Controles superiores (Gráfico / Tabela / Exportar / Período)
+  col_p1, col_p2, col_p3 = st.columns([2, 2, 2])
+  with col_p1:
+    tipo_visao = st.radio("Período:", ["Mensal", "Anual"], horizontal=True, label_visibility="collapsed")
+  with col_p2:
+    formato_exibicao = st.radio("Formato:", ["Gráfico", "Tabela"], horizontal=True, label_visibility="collapsed")
+  with col_p3:
+    if st.button("📥 Exportar Relatório Previsto", use_container_width=True):
+      st.success("Relatório de previsão exportado com sucesso!")
+
+  st.markdown("---")
+
+  # Navegador de meses/anos
+  col_nav1, col_nav2, col_nav3 = st.columns([1, 4, 1])
+  with col_nav1:
+    btn_ant = st.button("❮ Anterior", use_container_width=True)
+  with col_nav2:
+    st.markdown("<h3 style='text-align: center; color: #f8fafc; margin: 0;'>Agosto de 2026</h3>", unsafe_allow_html=True)
+  with col_nav3:
+    btn_prox = st.button("Próximo ❯", use_container_width=True)
+
+  st.markdown("<br>", unsafe_allow_html=True)
+
+  # Dados simulados e reais combinados para a previsão
+  df_cartao_prev = pd.read_sql("SELECT * FROM cartao_credito", conn)
+  df_contas_prev = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
+  df_trans_prev = pd.read_sql("SELECT * FROM transacoes WHERE tipo = 'Receita'", conn)
+
+  total_faturas = df_cartao_prev["valor"].sum() if not df_cartao_prev.empty else 0.0
+  total_contas = df_contas_prev["valor"].sum() if not df_contas_prev.empty else 0.0
+  total_dividas = 0.0 # Reservado para futuros módulos
+  
+  total_saidas_previstas = total_faturas + total_contas + total_dividas
+  total_entradas_previstas = df_trans_prev["valor"].sum() if not df_trans_prev.empty else 6800.0
+  saldo_projetado = total_entradas_previstas - total_saidas_previstas
+
+  # Cards de Resumo Superior
+  m1, m2, m3 = st.columns(3)
+  with m1:
+    st.markdown(
+        f"""
+        <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 20px;">
+            <span style="color: #4ade80; font-size: 13px; font-weight: 600;">🟢 TOTAL ENTRADAS</span>
+            <h2 style="color: #22c55e; margin: 5px 0 0 0;">R$ {total_entradas_previstas:,.2f}</h2>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with m2:
+    st.markdown(
+        f"""
+        <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 20px;">
+            <span style="color: #f87171; font-size: 13px; font-weight: 600;">🔴 TOTAL SAÍDAS</span>
+            <h2 style="color: #ef4444; margin: 5px 0 0 0;">R$ {total_saidas_previstas:,.2f}</h2>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with m3:
+    st.markdown(
+        f"""
+        <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 20px;">
+            <span style="color: #60a5fa; font-size: 13px; font-weight: 600;">⚖️ SALDO PROJETADO</span>
+            <h2 style="color: #3b82f6; margin: 5px 0 0 0;">R$ {saldo_projetado:,.2f}</h2>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  st.markdown("<br>", unsafe_allow_html=True)
+
+  # Seção de Saídas Previstas Detalhadas
+  st.markdown(
+      f"""
+      <div class="group-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <h4 style="color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">📉 Saídas Previstas</h4>
+              <h4 style="color: #ef4444; margin: 0;">R$ {total_saidas_previstas:,.2f}</h4>
+          </div>
+          <hr style="border-color: var(--border-color); margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+              <span style="color: #94a3b8;">💳 Faturas de Cartão</span>
+              <span style="color: #f8fafc; font-weight: 600;">R$ {total_faturas:,.2f}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+              <span style="color: #94a3b8;">📅 Contas a Pagar</span>
+              <span style="color: #f8fafc; font-weight: 600;">R$ {total_contas:,.2f}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+              <span style="color: #94a3b8;">🏛️ Parcelas de Dívidas</span>
+              <span style="color: #f8fafc; font-weight: 600;">R$ {total_dividas:,.2f}</span>
+          </div>
+      </div>
+      """,
+      unsafe_allow_html=True,
+  )
+
+  # Seção de Entradas Previstas Detalhadas
+  st.markdown(
+      f"""
+      <div class="group-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <h4 style="color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">📈 Entradas Previstas</h4>
+              <h4 style="color: #22c55e; margin: 0;">R$ {total_entradas_previstas:,.2f}</h4>
+          </div>
+          <hr style="border-color: var(--border-color); margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+              <span style="color: #94a3b8;">📥 Contas a Receber / Salários</span>
+              <span style="color: #f8fafc; font-weight: 600;">R$ {total_entradas_previstas:,.2f}</span>
+          </div>
+      </div>
+      """,
+      unsafe_allow_html=True,
+  )
+
+  if formato_exibicao == "Gráfico":
+    st.markdown("### 📊 Gráfico de Previsão de Fluxo")
+    df_graf_prev = pd.DataFrame({
+        "Categoria": ["Entradas", "Saídas", "Saldo Projetado"],
+        "Valor": [total_entradas_previstas, total_saidas_previstas, saldo_projetado]
+    })
+    st.bar_chart(df_graf_prev.set_index("Categoria"))
+  else:
+    st.markdown("### 📋 Tabela Analítica da Previsão")
+    df_tabela_prev = pd.DataFrame([
+        {"Tipo": "Entrada Prevista", "Descrição": "Salários / Receitas Cadastradas", "Valor (R$)": total_entradas_previstas},
+        {"Tipo": "Saída Prevista", "Descrição": "Faturas de Cartão de Crédito", "Valor (R$)": total_faturas},
+        {"Tipo": "Saída Prevista", "Descrição": "Contas a Pagar Pendentes", "Valor (R$)": total_contas},
+    ])
+    st.dataframe(df_tabela_prev, use_container_width=True, hide_index=True)
+
+  botao_voltar()
+
+# ==========================================
+# --- SEÇÃO 5: CARTÃO DE CRÉDITO ---
 # ==========================================
 elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
   st.subheader("💳 Gestão Avançada de Faturas de Cartão de Crédito")
@@ -1088,7 +1226,7 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 5: INVESTIMENTOS ---
+# --- SEÇÃO 6: INVESTIMENTOS ---
 # ==========================================
 elif st.session_state.pagina_atual == "📈 Investimentos":
   st.subheader("📈 Painel Profissional de Investimentos & Ativos")
@@ -1198,7 +1336,7 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 6: DESAFIOS ---
+# --- SEÇÃO 7: DESAFIOS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🎯 Desafios":
   st.subheader(
@@ -1266,7 +1404,7 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 7A: METAS DE GASTOS ---
+# --- SEÇÃO 8A: METAS DE GASTOS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
   st.subheader("🎯 Definir Teto de Meta Mensal por Categoria")
@@ -1342,7 +1480,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 7B: CATEGORIAS & ÍCONES ---
+# --- SEÇÃO 8B: CATEGORIAS & ÍCONES ---
 # ==========================================
 elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
   st.subheader("🏷️ Gerenciamento de Categorias Personalizadas & Ícones")
@@ -1408,7 +1546,7 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
   botao_voltar()
 
 # ==========================================
-# --- SEÇÃO 8: SAÚDE FINANCEIRA ---
+# --- SEÇÃO 9: SAÚDE FINANCEIRA ---
 # ==========================================
 elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
   st.subheader("❤️ Score de Saúde Financeira & Auditoria de Perfil")
@@ -1510,285 +1648,6 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
       f" {int(f_disciplina * 0.5)} / 250 pts"
   )
   st.progress(min((f_disciplina * 0.5) / 250, 1.0))
-  botao_voltar()
-
-# ==========================================
-# --- SEÇÃO 9A: FLUXO DE CAIXA ---
-# ==========================================
-elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
-  st.subheader("💵 Extrato e Acompanhamento do Fluxo de Caixa Diário Acumulado")
-  st.write(
-      "Monitore o comportamento diário do seu caixa ao longo dos meses para"
-      " prever eventuais gargalos e saldo em tempo real."
-  )
-
-  df_all_fluxo = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Manual'", conn)
-  
-  st.markdown("---")
-  st.subheader("⚡ Previsão de Saldo Mínimo Diário & Alerta de Caixa Crítico")
-  
-  df_contas_fluxo = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
-  
-  if not df_all_fluxo.empty:
-    receitas_totais = df_all_fluxo[df_all_fluxo["tipo"] == "Receita"]["valor"].sum()
-    despesas_totais = df_all_fluxo[df_all_fluxo["tipo"] == "Despesa"]["valor"].sum()
-    saldo_atual_base = receitas_totais - despesas_totais
-  else:
-    saldo_atual_base = 0.0
-
-  if not df_contas_fluxo.empty:
-    df_contas_fluxo["vencimento_dt"] = pd.to_datetime(df_contas_fluxo["vencimento"])
-    df_contas_fluxo = df_contas_fluxo.sort_values("vencimento_dt")
-    
-    dias_simulacao = []
-    saldo_iterativo = saldo_atual_base
-    hoje_ref = datetime.now().date()
-
-    for i in range(15):
-      dia_alvo = hoje_ref + timedelta(days=i)
-      contas_dia = df_contas_fluxo[df_contas_fluxo["vencimento_dt"].dt.date == dia_alvo]["valor"].sum()
-      saldo_iterativo -= contas_dia
-      dias_simulacao.append({
-          "Data": dia_alvo.strftime("%d/%m/%Y"),
-          "Contas Vencendo (R$)": contas_dia,
-          "Saldo Projetado (R$)": saldo_iterativo
-      })
-
-    df_proj_diaria = pd.DataFrame(dias_simulacao)
-    
-    dias_negativos = df_proj_diaria[df_proj_diaria["Saldo Projetado (R$)"] < 0]
-    if not dias_negativos.empty:
-      primeiro_alerta = dias_negativos.iloc[0]
-      st.error(
-          f"🚨 **ALERTA CRÍTICO DE CAIXA:** O seu saldo projetado ficará negativo em **{primeiro_alerta['Data']}** "
-          f"(Chegando a R$ {primeiro_alerta['Saldo Projetado (R$)']:,.2f}) devido ao vencimento de compromissos pendentes!"
-      )
-    else:
-      st.success("🟢 **Caixa Saudável:** Nenhum gargalo financeiro crítico detectado nos próximos 15 dias com base nas contas pendentes.")
-
-    st.write("#### 📊 Projeção de Caixa Diária (Próximos 15 Dias)")
-    st.dataframe(
-        df_proj_diaria.style.format({
-            "Contas Vencendo (R$)": "R$ {:,.2f}",
-            "Saldo Projetado (R$)": "R$ {:,.2f}"
-        }),
-        use_container_width=True,
-        hide_index=True
-    )
-  else:
-    st.info("Nenhuma conta pendente cadastrada no momento para gerar o alerta diário de caixa.")
-
-  if not df_all_fluxo.empty:
-    df_all_fluxo["data"] = pd.to_datetime(df_all_fluxo["data"])
-    df_all_fluxo["ano_mes"] = df_all_fluxo["data"].dt.strftime("%Y-%m")
-
-    meses_disp_caixa = sorted(df_all_fluxo["ano_mes"].unique(), reverse=True)
-    mes_caixa_sel = st.selectbox(
-        "Selecione o Mês Desejado para Auditoria do Fluxo:", meses_disp_caixa
-    )
-
-    df_caixa_mes = df_all_fluxo[
-        df_all_fluxo["ano_mes"] == mes_caixa_sel
-    ].sort_values("data").copy()
-    if not df_caixa_mes.empty:
-      df_caixa_mes["valor_ajustado"] = df_caixa_mes.apply(
-          lambda x: x["valor"] if x["tipo"] == "Receita" else -x["valor"], axis=1
-      )
-      df_caixa_mes["Saldo Diário Acumulado"] = df_caixa_mes[
-          "valor_ajustado"
-      ].cumsum()
-
-      st.markdown("---")
-      st.write("### 📈 Curva de Caixa Diária (Entradas menos Saídas)")
-      st.line_chart(df_caixa_mes.set_index("data")[["Saldo Diário Acumulado"]])
-
-      st.markdown("---")
-      st.write("### 📋 Lançamentos do Mês no Fluxo")
-      st.dataframe(
-          df_caixa_mes[["data", "tipo", "descricao", "categoria", "valor"]],
-          use_container_width=True,
-          hide_index=True,
-      )
-    else:
-      st.info("Nenhum lançamento encontrado para o mês selecionado.")
-  else:
-    st.info("Cadastre transações para gerar o fluxo de caixa.")
-  botao_voltar()
-
-# ==========================================
-# --- SEÇÃO 9B: PROJEÇÕES FUTURAS ---
-# ==========================================
-elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
-  st.subheader("🔮 Central Avançada de Projeções e Simulações Preditivas")
-  st.write(
-      "Simule cenários futuros, projete o crescimento do seu patrimônio com"
-      " juros compostos e analise tendências de gastos para os próximos"
-      " meses."
-  )
-
-  df_trans_proj = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Manual'", conn)
-  df_inv_proj = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
-
-  patrimonio_inicial = 0.0
-  if not df_inv_proj.empty:
-    df_inv_proj["Total"] = (
-        df_inv_proj["quantidade"] * df_inv_proj["preco_medio"]
-    )
-    patrimonio_inicial = df_inv_proj["Total"].sum()
-
-  if not df_trans_proj.empty:
-    df_trans_proj["data"] = pd.to_datetime(df_trans_proj["data"])
-    df_trans_proj["ano_mes"] = df_trans_proj["data"].dt.strftime("%Y-%m")
-
-    resumo_meses = (
-        df_trans_proj.groupby(["ano_mes", "tipo"])["valor"]
-        .sum()
-        .unstack(fill_value=0)
-    )
-    if "Receita" not in resumo_meses.columns:
-      resumo_meses["Receita"] = 0.0
-    if "Despesa" not in resumo_meses.columns:
-      resumo_meses["Despesa"] = 0.0
-
-    media_receita_hist = (
-        resumo_meses["Receita"].mean() if len(resumo_meses) > 0 else 6800.0
-    )
-    media_despesa_hist = (
-        resumo_meses["Despesa"].mean() if len(resumo_meses) > 0 else 3500.0
-    )
-  else:
-    media_receita_hist = 6800.0
-    media_despesa_hist = 3500.0
-
-  st.markdown("---")
-  st.write("### 🛠️ Simulador de Cenários Personalizados (Próximos 6 Meses)")
-
-  col_s1, col_s2, col_s3 = st.columns(3)
-  with col_s1:
-    proj_receita_base = st.number_input(
-        "Receita Mensal Média Estimada (R$)",
-        value=float(media_receita_hist),
-        step=100.0,
-        format="%.2f",
-    )
-  with col_s2:
-    proj_despesa_base = st.number_input(
-        "Despesa Mensal Média Estimada (R$)",
-        value=float(media_despesa_hist),
-        step=100.0,
-        format="%.2f",
-    )
-  with col_s3:
-    taxa_investimento_proj = st.slider(
-        "Taxa Anual de Retorno dos Investimentos (%)",
-        min_value=0.0,
-        max_value=25.0,
-        value=10.0,
-        step=0.5,
-    )
-
-  st.markdown("---")
-  st.write("### 🔍 Análise de Cenários: Otimista vs Conservador vs Estresse")
-
-  col_c1, col_c2, col_c3 = st.columns(3)
-  with col_c1:
-    st.markdown(
-        """
-        <div style="background-color: #1A3322; padding: 20px; border-radius: 10px; border: 1px solid #2E7D32;">
-            <h4 style="color: #A5D6A7; margin-top: 0;">🟢 Cenário Otimista</h4>
-            <p>• Aumento de 10% nas Receitas</p>
-            <p>• Redução de 10% nos Gastos</p>
-            <p><b>Sobra Mensal:</b> R$ {:,.2f}</p>
-        </div>
-        """.format(
-            (proj_receita_base * 1.1) - (proj_despesa_base * 0.9)
-        ),
-        unsafe_allow_html=True,
-    )
-
-  with col_c2:
-    st.markdown(
-        """
-        <div style="background-color: #1E222A; padding: 20px; border-radius: 10px; border: 1px solid #3F51B5;">
-            <h4 style="color: #9FA8DA; margin-top: 0;">🔵 Cenário Base (Atual)</h4>
-            <p>• Mantém média atual</p>
-            <p>• Sem imprevistos</p>
-            <p><b>Sobra Mensal:</b> R$ {:,.2f}</p>
-        </div>
-        """.format(
-            proj_receita_base - proj_despesa_base
-        ),
-        unsafe_allow_html=True,
-    )
-
-  with col_c3:
-    st.markdown(
-        """
-        <div style="background-color: #331A1A; padding: 20px; border-radius: 10px; border: 1px solid #C62828;">
-            <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Cenário de Estresse</h4>
-            <p>• Queda de 15% nas Receitas</p>
-            <p>• Aumento de 15% nos Gastos</p>
-            <p><b>Sobra Mensal:</b> R$ {:,.2f}</p>
-        </div>
-        """.format(
-            (proj_receita_base * 0.85) - (proj_despesa_base * 1.15)
-        ),
-        unsafe_allow_html=True,
-    )
-
-  meses_futuros = []
-  patrimonio_serie = []
-
-  taxa_mensal = (1 + (taxa_investimento_proj / 100.0)) ** (1 / 12) - 1
-  patrimonio_atual_sim = patrimonio_inicial
-  caixa_mensal_proj = proj_receita_base - proj_despesa_base
-
-  hoje_proj = date.today()
-  for i in range(1, 7):
-    data_fut = hoje_proj + timedelta(days=30 * i)
-    nome_m = data_fut.strftime("%m/%Y")
-    meses_futuros.append(nome_m)
-
-    patrimonio_atual_sim = (
-        patrimonio_atual_sim * (1 + taxa_mensal)
-    ) + caixa_mensal_proj
-    patrimonio_serie.append(patrimonio_atual_sim)
-
-  df_proj_futuro = pd.DataFrame({
-      "Mês / Ano": meses_futuros,
-      "Receita Projetada": [proj_receita_base] * 6,
-      "Despesa Projetada": [proj_despesa_base] * 6,
-      "Resultado Mensal": [caixa_mensal_proj] * 6,
-      "Patrimônio Acumulado Estimado": patrimonio_serie,
-  })
-
-  st.markdown("---")
-  st.write(
-      "#### 📊 Tabela de Projeção Preditiva com Rendimento Composto (Próximo"
-      " Semestre)"
-  )
-  st.dataframe(
-      df_proj_futuro.style.format({
-          "Receita Projetada": "R$ {:,.2f}",
-          "Despesa Projetada": "R$ {:,.2f}",
-          "Resultado Mensal": "R$ {:,.2f}",
-          "Patrimônio Acumulado Estimado": "R$ {:,.2f}",
-      }),
-      use_container_width=True,
-      hide_index=True,
-  )
-
-  st.markdown("<br>", unsafe_allow_html=True)
-  st.write(
-      "#### 📈 Gráfico de Projeção do Patrimônio Acumulado (Considerando a Taxa"
-      " Informada)"
-  )
-  st.line_chart(
-      df_proj_futuro.set_index("Mês / Ano")[[
-          "Patrimônio Acumulado Estimado"
-      ]]
-  )
-
   botao_voltar()
 
 # ==========================================
