@@ -1847,8 +1847,8 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
 # ==========================================
 elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   
-  # Inicializar data no session_state de forma robusta
-  if "data_calendario_ref" not in st.session_state:
+  # Correção definitiva para inicializar 'data_calendario_ref' com data padrão com segurança antes de renderizar qualquer componente
+  if "data_calendario_ref" not in st.session_state or not isinstance(st.session_state.data_calendario_ref, (date, datetime)):
     st.session_state.data_calendario_ref = date.today()
 
   # Cabeçalho flexível com o título à esquerda e o calendário em formato real com callback direto no st.date_input para evitar qualquer falha de clique
@@ -2242,7 +2242,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             st.success(f"Conta a receber ID {cr_id} excluída com sucesso!")
             st.rerun()
 
-        # Formulário inline de edição para contas a receber com variação
+      # Formulário inline de edição para contas a receber com variação
         if st.session_state.get(f"editando_cr_{cr_id}", False):
           with st.form(f"form_editar_cr_{cr_id}"):
             st.write(f"**Editando Conta a Receber ID {cr_id}** (Ajuste de variação)")
