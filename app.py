@@ -191,8 +191,20 @@ if pd.read_sql("SELECT count(*) FROM tabela_depositos", conn).iloc[0, 0] == 0:
 
 
 # ==========================================
-# --- MOTOR DE INTELIGÊNCIA E CATEGORIZAÇÃO ---
+# --- FUNÇÕES DE SUPORTE E PT-BR ---
 # ==========================================
+def formatar_data_ptbr(data_obj):
+  if isinstance(data_obj, (date, datetime)):
+    return data_obj.strftime("%d/%m/%Y")
+  elif isinstance(data_obj, str) and "-" in data_obj and len(data_obj) >= 10:
+    try:
+      dt = datetime.strptime(data_obj[:10], "%Y-%m-%d")
+      return dt.strftime("%d/%m/%Y")
+    except:
+      return data_obj
+  return data_obj
+
+
 def categorizar_automaticamente(descricao, tipo):
   desc_upper = descricao.upper()
   if tipo == "Receita":
@@ -428,10 +440,10 @@ with st.sidebar:
 
 
 def botao_voltar():
-  st.markdown("---")
   if st.button("⬅️ Voltar para o Painel Principal", use_container_width=True):
     mudar_pagina("🏠 Início / Painel")
     st.rerun()
+  st.markdown("---")
 
 
 # ==========================================
@@ -557,6 +569,7 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
 # --- SEÇÃO 1: LANÇAR DESPESA ---
 # ==========================================
 elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
+  botao_voltar()
   st.subheader("Registrar Saída / Despesa Operacional")
   st.write(
       "Utilize o formulário abaixo para registrar despesas avulsas categorizadas"
@@ -590,7 +603,7 @@ elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
       )
     with col_d2:
       cat = st.selectbox("Categoria Orçamentária", lista_categorias)
-      data_desp = st.date_input("Data do Ocorrido do Gasto", value=date.today())
+      data_desp = st.date_input("Data do Ocorrido do Gasto (DD/MM/AAAA)", value=date.today(), format="DD/MM/YYYY")
 
     btn_salvar_desp = st.form_submit_button(
         "Salvar Despesa no Banco de Dados", use_container_width=True
@@ -615,12 +628,12 @@ elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
         st.error(
             "Preencha uma descrição válida e um valor superior a zero."
         )
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 2: ENTRADAS & SALÁRIOS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
+  botao_voltar()
   st.subheader("Registrar Entrada / Receita Financeira")
   st.write(
       "Insira salários, adiantamentos, vales, 13º, férias ou rendimentos"
@@ -648,7 +661,7 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
               "Outras Receitas",
           ],
       )
-      data_rec = st.date_input("Data de Recebimento Efetivo", value=date.today())
+      data_rec = st.date_input("Data de Recebimento Efetivo (DD/MM/AAAA)", value=date.today(), format="DD/MM/YYYY")
 
     btn_salvar_rec = st.form_submit_button(
         "Salvar Entrada Financeira", use_container_width=True
@@ -671,12 +684,12 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
         st.success("Entrada financeira registrada com sucesso como lançamento manual!")
       else:
         st.error("Informe uma descrição e um valor de receita válido.")
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 2.1: LANÇAR DESPESA POR COMANDO DE VOZ ---
 # ==========================================
 elif st.session_state.pagina_atual == "🎙️ Lançar por Voz":
+  botao_voltar()
   st.subheader("🎙️ Lançamento Inteligente de Despesas por Comando de Voz / Texto Falado")
   st.write(
       "Simule ou grave seu comando de voz. Digite ou dite no formato natural, por exemplo: "
@@ -730,16 +743,16 @@ elif st.session_state.pagina_atual == "🎙️ Lançar por Voz":
   st.subheader("📋 Últimos Lançamentos via Comando de Voz")
   df_voz_all = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Voz_IA' ORDER BY id DESC", conn)
   if not df_voz_all.empty:
+    df_voz_all["data"] = df_voz_all["data"].apply(formatar_data_ptbr)
     st.dataframe(df_voz_all[["data", "tipo", "descricao", "categoria", "valor"]], use_container_width=True, hide_index=True)
   else:
     st.info("Nenhum lançamento por voz registrado ainda.")
-
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 2.2: ASSISTENTE IA & CHATBOT ---
 # ==========================================
 elif st.session_state.pagina_atual == "🤖 Assistente IA":
+  botao_voltar()
   st.subheader("🤖 Assistente Financeiro Inteligente (Chatbot IA)")
   st.write(
       "Converse com a Inteligência Artificial do seu gestor. Tire dúvidas sobre seus gastos, "
@@ -811,12 +824,11 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
     with st.chat_message("assistant"):
       st.write(resposta_ia)
 
-  botao_voltar()
-
 # ==========================================
-# --- SEÇÃO 2.3: LEITOR AUTOMÁTICO DE NOTAS FISCAIS (COM CÂMERA) ---
+# --- SEÇÃO 2.3: LEITOR AUTOMÁTICO DE NOTAS FISCAIS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
+  botao_voltar()
   st.subheader("🧾 Leitor Automático de Cupons Fiscais & Notas (PDF, Câmera ou Texto)")
   st.write(
       "Faça o upload do PDF, tire uma **foto instantânea do cupom fiscal ou QR Code** com a câmera "
@@ -912,7 +924,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
   with tab_nf3:
     with st.form("form_texto_cupom_fiscal"):
       estab_txt = st.text_input("Nome do Estabelecimento (Ex: Supermercado Shibata, Drogaria Pacheco):", value="Supermercado Shibata")
-      data_nf_txt = st.date_input("Data da Compra:", value=date.today())
+      data_nf_txt = st.date_input("Data da Compra (DD/MM/AAAA):", value=date.today(), format="DD/MM/YYYY")
       texto_copiado_nf = st.text_area(
           "Cole aqui o texto copiado do cupom fiscal ou extrato do QR Code:",
           placeholder="Ex:\n1 Arroz Tio Joao 5kg 29,90\n2 Leite Integral 1L 9,80\nTotal da Compra: 39,70",
@@ -973,6 +985,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
   st.subheader("📋 Histórico de Notas Fiscais Processadas")
   df_nf_all = pd.read_sql("SELECT * FROM notas_fiscais ORDER BY id DESC", conn)
   if not df_nf_all.empty:
+    df_nf_all["data"] = df_nf_all["data"].apply(formatar_data_ptbr)
     st.dataframe(df_nf_all.rename(columns={"id": "ID", "data": "Data", "estabelecimento": "Estabelecimento", "valor_total": "Valor Total (R$)", "origem_arquivo": "Origem"}), use_container_width=True)
     
     sel_nf_detalhe = st.selectbox("Selecione o ID da nota fiscal para visualizar os itens detalhados:", df_nf_all["id"].tolist())
@@ -990,12 +1003,11 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
   else:
     st.info("Nenhuma nota fiscal processada até o momento.")
 
-  botao_voltar()
-
 # ==========================================
 # --- SEÇÃO 2.4: VEÍCULOS, MANUTENÇÕES & COMBUSTÍVEIS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
+  botao_voltar()
   st.subheader("🚗 Central de Veículos, Manutenções & Consumo de Combustível")
   st.write(
       "Gerencie sua frota, registre quilometragem, agende manutenções e monitore o consumo médio de combustível."
@@ -1053,7 +1065,7 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
           tipo_manut = st.selectbox("Tipo de Registro", ["Manutenção Agendada", "Histórico Realizado"])
           desc_manut = st.text_input("Descrição da Manutenção (Ex: Troca de Óleo, Pastilhas de Freio)")
         with col_m2:
-          data_manut = st.date_input("Data do Ocorrido / Agendamento", value=date.today())
+          data_manut = st.date_input("Data do Ocorrido / Agendamento (DD/MM/AAAA)", value=date.today(), format="DD/MM/YYYY")
           valor_manut = st.number_input("Valor Estimado / Pago (R$)", min_value=0.0, value=0.00, step=10.0, format="%.2f")
           status_manut = st.selectbox("Status", ["Pendente", "Concluído"])
 
@@ -1071,6 +1083,7 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
       st.markdown("---")
       df_manut_all = pd.read_sql("SELECT m.id, v.modelo, v.placa, m.tipo_registro, m.descricao, m.data, m.valor, m.status FROM manutencoes_veiculo m JOIN veiculos v ON m.veiculo_id = v.id", conn)
       if not df_manut_all.empty:
+        df_manut_all["data"] = df_manut_all["data"].apply(formatar_data_ptbr)
         st.write("### 📋 Registros de Manutenções")
         st.dataframe(df_manut_all.rename(columns={"id": "ID", "modelo": "Modelo", "placa": "Placa", "tipo_registro": "Tipo", "descricao": "Descrição", "data": "Data", "valor": "Valor (R$)", "status": "Status"}), use_container_width=True)
 
@@ -1092,7 +1105,7 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
         col_c1, col_c2 = st.columns(2)
         with col_c1:
           veic_comb = st.selectbox("Selecione o Veículo", list(veiculos_map.keys()), key="veic_comb_key")
-          data_comb = st.date_input("Data do Abastecimento", value=date.today(), key="data_comb_key")
+          data_comb = st.date_input("Data do Abastecimento (DD/MM/AAAA)", value=date.today(), key="data_comb_key", format="DD/MM/YYYY")
           litros_comb = st.number_input("Litros Abastecidos", min_value=0.01, value=40.0, step=1.0, format="%.2f")
         with col_c2:
           valor_tot_comb = st.number_input("Valor Total Pago (R$)", min_value=0.0, value=200.0, step=10.0, format="%.2f")
@@ -1117,6 +1130,7 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
       st.markdown("---")
       df_comb_all = pd.read_sql("SELECT c.id, v.modelo, v.placa, c.data, c.litros, c.valor_total, c.km_odometro, c.consumo_medio FROM consumo_combustivel c JOIN veiculos v ON c.veiculo_id = v.id", conn)
       if not df_comb_all.empty:
+        df_comb_all["data"] = df_comb_all["data"].apply(formatar_data_ptbr)
         st.write("### 📋 Histórico de Abastecimentos")
         st.dataframe(df_comb_all.rename(columns={"id": "ID", "modelo": "Modelo", "placa": "Placa", "data": "Data", "litros": "Litros", "valor_total": "Total (R$)", "km_odometro": "Odômetro (Km)", "consumo_medio": "Km/L Médio"}), use_container_width=True)
 
@@ -1130,12 +1144,12 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
         st.info("Nenhum abastecimento registrado.")
     else:
       st.warning("Cadastre ao menos um veículo na aba 'Veículos' para registrar o consumo.")
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 3A: DASHBOARD MANUAL (LANÇAMENTOS REAIS) ---
 # ==========================================
 elif st.session_state.pagina_atual == "📊 Dashboard Manual":
+  botao_voltar()
   st.subheader("📊 Executive Dashboard — Lançamentos Reais Manuais")
   st.write("Painel gerencial focado exclusivamente nos registros feitos de forma manual no sistema.")
 
@@ -1293,12 +1307,12 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
       st.area_chart(df_area_pivot)
   else:
     st.info("Nenhum lançamento manual registrado para exibir no dashboard. Utilize as abas de lançamento para adicionar dados.")
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 3B: DASHBOARD EXTRATO BANCO (PDF) ---
 # ==========================================
 elif st.session_state.pagina_atual == "📥 Dashboard Banco":
+  botao_voltar()
   st.subheader("📥 Dashboard de Auditoria & Extratos Importados do Banco")
   st.write("Painel exclusivo para analisar transações geradas automaticamente por upload de extratos bancários em PDF.")
 
@@ -1350,15 +1364,16 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
 
     st.markdown("---")
     st.subheader("📋 Relação Completa de Transações do Extrato PDF")
+    df_b["data"] = df_b["data"].dt.strftime("%d/%m/%Y")
     st.dataframe(df_b[["data", "tipo", "descricao", "categoria", "valor"]], use_container_width=True, hide_index=True)
   else:
     st.info("Nenhum extrato bancário em PDF foi importado e processado até o momento. Faça o upload na aba 'Extrato & Backup'.")
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 4: PREVISÃO FINANCEIRA ---
 # ==========================================
 elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
+  botao_voltar()
   st.subheader("📅 Previsão Financeira & Simulador de Imprevistos")
   st.write("Visualize suas finanças detalhadamente por mês ou acumulado anual, incluindo entradas previstas, contas a pagar, contas a receber e simulações.")
 
@@ -1388,9 +1403,10 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   with col_nav_cal2:
     data_calendario_escolhida = st.date_input(
-        "📅 Selecionar Data de Referência da Previsão:",
+        "📅 Selecionar Data de Referência da Previsão (DD/MM/AAAA):",
         value=st.session_state.prev_data_atual,
-        key="picker_previsao_data"
+        key="picker_previsao_data",
+        format="DD/MM/YYYY"
     )
     if data_calendario_escolhida:
       st.session_state.prev_data_atual = datetime.combine(data_calendario_escolhida, datetime.min.time()).replace(day=1)
@@ -1615,12 +1631,11 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
         hide_index=True
     )
 
-  botao_voltar()
-
 # ==========================================
 # --- SEÇÃO 5: CARTÃO DE CRÉDITO ---
 # ==========================================
 elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
+  botao_voltar()
   st.subheader("💳 Gestão Avançada de Faturas de Cartão de Crédito")
   st.write(
       "Acompanhe gastos detalhados por bandeira e controle o impacto das"
@@ -1639,7 +1654,7 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
       val_cc = st.number_input(
           "Valor da Compra (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f"
       )
-      data_cc = st.date_input("Data da Compra no Cartão", value=date.today())
+      data_cc = st.date_input("Data da Compra no Cartão (DD/MM/AAAA)", value=date.today(), format="DD/MM/YYYY")
 
     cat_cc = st.selectbox(
         "Categoria da Compra",
@@ -1677,6 +1692,7 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
   st.markdown("---")
   df_cartao = pd.read_sql("SELECT * FROM cartao_credito", conn)
   if not df_cartao.empty:
+    df_cartao["data"] = df_cartao["data"].apply(formatar_data_ptbr)
     st.write("### 📋 Extrato Consolidado de Faturas Atuais")
     st.dataframe(df_cartao, use_container_width=True)
 
@@ -1697,12 +1713,12 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
       st.rerun()
   else:
     st.info("Nenhuma despesa de cartão de crédito registrada no momento.")
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 6: INVESTIMENTOS ---
 # ==========================================
 elif st.session_state.pagina_atual == "📈 Investimentos":
+  botao_voltar()
   st.subheader("📈 Painel Profissional de Investimentos & Ativos")
   st.write(
       "Monitore a alocação de patrimônio em Renda Fixa, Ações, Fundo"
@@ -1732,7 +1748,7 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
           format="%.2f",
       )
     with col_iv3:
-      data_aporte = st.date_input("Data do Aporte Realizado", value=date.today())
+      data_aporte = st.date_input("Data do Aporte Realizado (DD/MM/AAAA)", value=date.today(), format="DD/MM/YYYY")
       st.write("")
       st.write("")
       btn_add_ativo = st.form_submit_button(
@@ -1781,10 +1797,12 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
       st.bar_chart(df_classe)
     with col_pos2:
       st.write("### 📋 Posições Detalhadas Registradas")
+      df_carteira["data"] = df_carteira["data"].apply(formatar_data_ptbr)
       st.dataframe(
           df_carteira[
-              ["ativo", "classe", "quantidade", "preco_medio", "Valor Total"]
+              ["data", "ativo", "classe", "quantidade", "preco_medio", "Valor Total"]
           ].rename(columns={
+              "data": "Data",
               "ativo": "Ativo",
               "classe": "Classe",
               "quantidade": "Qtd",
@@ -1807,12 +1825,12 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
       st.rerun()
   else:
     st.info("Nenhum investimento cadastrado na carteira até o momento.")
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 7: DESAFIOS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🎯 Desafios":
+  botao_voltar()
   st.subheader(
       "🎯 Desafio de Poupança Progressiva (R$ 20.100,00 em 200 Depósitos)"
   )
@@ -1875,12 +1893,12 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
       conn.commit()
       st.success("Todos os depósitos foram resetados para Pendente.")
       st.rerun()
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 8A: METAS DE GASTOS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
+  botao_voltar()
   st.subheader("🎯 Definir Teto de Meta Mensal por Categoria")
   st.write(
       "Estabeleça limites orçamentários para manter o controle rigoroso dos seus"
@@ -1951,12 +1969,12 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
         st.progress(0.0)
   else:
     st.info("Nenhuma meta de gasto definida até o momento.")
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 8B: CATEGORIAS & ÍCONES ---
 # ==========================================
 elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
+  botao_voltar()
   st.subheader("🏷️ Gerenciamento de Categorias Personalizadas & Ícones")
   st.write(
       "Cadastre novas categorias customizadas, edite ou exclua as existentes."
@@ -2070,12 +2088,11 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
   else:
     st.info("Nenhuma categoria customizada registrada.")
 
-  botao_voltar()
-
 # ==========================================
 # --- SEÇÃO 9: SAÚDE FINANCEIRA ---
 # ==========================================
 elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
+  botao_voltar()
   st.subheader("❤️ Score de Saúde Financeira & Auditoria de Perfil")
   st.write(
       "Pontuação calculada de 0 a 1000 com base em endividamento, taxa de"
@@ -2175,12 +2192,12 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
       f" {int(f_disciplina * 0.5)} / 250 pts"
   )
   st.progress(min((f_disciplina * 0.5) / 250, 1.0))
-  botao_voltar()
 
 # ==========================================
 # --- SEÇÃO 10: CONTAS A PAGAR & RECEBER ---
 # ==========================================
 elif st.session_state.pagina_atual == "📅 Contas a Pagar":
+  botao_voltar()
   
   if "data_calendario_ref" not in st.session_state or not isinstance(st.session_state.data_calendario_ref, (date, datetime)):
     st.session_state.data_calendario_ref = date.today()
@@ -2190,9 +2207,10 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
   st.markdown("##### 🗓️ Seleção de Data no Calendário Interativo")
   data_calendario_topo = st.date_input(
-      "Selecionar Data de Referência:",
+      "Selecionar Data de Referência (DD/MM/AAAA):",
       value=st.session_state.data_calendario_ref,
-      key="data_calendario_ref_input"
+      key="data_calendario_ref_input",
+      format="DD/MM/YYYY"
   )
   if data_calendario_topo:
     st.session_state.data_calendario_ref = data_calendario_topo
@@ -2249,7 +2267,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     with st.form("form_conta_pagar_completo", clear_on_submit=True):
       col_c1, col_c2 = st.columns(2)
       with col_c1:
-        venc = st.date_input("Data de Vencimento Inicial", value=date.today(), key="venc_cp")
+        venc = st.date_input("Data de Vencimento Inicial (DD/MM/AAAA)", value=date.today(), key="venc_cp", format="DD/MM/YYYY")
         nome_conta = st.text_input(
             "Nome / Descrição da Conta (Ex: Conta de Luz, Aluguel)"
         )
@@ -2315,7 +2333,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         st.markdown("### 🚨 Alertas de Vencimento (Pagar)")
         if not vencidas.empty:
           for _, r_venc in vencidas.iterrows():
-            st.error(f"⚠️ **Conta Vencida:** '{r_venc['descricao']}' vencia em **{pd.to_datetime(r_venc['vencimento']).strftime('%d/%m/%Y')}** no valor de **R$ {r_venc['valor']:,.2f}**!")
+            st.error(f"⚠️ **Conta Vencida:** '{r_venc['descricao']}' vencia em **{formatar_data_ptbr(r_venc['vencimento'])}** no valor de **R$ {r_venc['valor']:,.2f}**!")
         if not vencem_hoje.empty:
           for _, r_hoje in vencem_hoje.iterrows():
             st.warning(f"🔔 **Vence Hoje:** '{r_hoje['descricao']}' vence **hoje** ({hoje.strftime('%d/%m/%Y')}) no valor de **R$ {r_hoje['valor']:,.2f}**!")
@@ -2361,7 +2379,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
       st.write("### 📋 Lista de Contas a Pagar")
       for _, row_cp in contas_filtradas.iterrows():
         c_id = row_cp["id"]
-        c_venc = pd.to_datetime(row_cp["vencimento"]).strftime("%d/%m/%Y")
+        c_venc = formatar_data_ptbr(row_cp["vencimento"])
         c_desc = row_cp["descricao"]
         c_val = row_cp["valor"]
         c_pago = row_cp["pago"]
@@ -2404,7 +2422,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         if st.session_state.get(f"editando_cp_{c_id}", False):
           with st.form(f"form_editar_cp_{c_id}"):
             st.write(f"**Editando Conta ID {c_id}** (Ajuste de variação de valor ou data)")
-            novo_venc_cp = st.date_input("Nova Data de Vencimento", value=datetime.strptime(row_cp["vencimento"], "%Y-%m-%d").date(), key=f"nv_v_{c_id}")
+            novo_venc_cp = st.date_input("Nova Data de Vencimento (DD/MM/AAAA)", value=datetime.strptime(row_cp["vencimento"], "%Y-%m-%d").date(), key=f"nv_v_{c_id}", format="DD/MM/YYYY")
             nova_desc_cp = st.text_input("Nova Descrição", value=c_desc, key=f"nv_d_{c_id}")
             novo_val_cp = st.number_input("Novo Valor (R$)", min_value=0.0, value=float(c_val), step=1.0, format="%.2f", key=f"nv_val_{c_id}")
             
@@ -2431,7 +2449,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     with st.form("form_conta_receber_completo", clear_on_submit=True):
       col_cr1, col_cr2 = st.columns(2)
       with col_cr1:
-        venc_r = st.date_input("Data de Vencimento / Recebimento Inicial", value=date.today(), key="venc_cr")
+        venc_r = st.date_input("Data de Vencimento / Recebimento Inicial (DD/MM/AAAA)", value=date.today(), key="venc_cr", format="DD/MM/YYYY")
         nome_conta_r = st.text_input(
             "Nome / Descrição da Receita (Ex: Aluguel a Receber, Prestação de Serviço)"
         )
@@ -2524,7 +2542,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
       st.write("### 📋 Lista de Contas a Receber")
       for _, row_cr in receber_filtradas.iterrows():
         cr_id = row_cr["id"]
-        cr_venc = pd.to_datetime(row_cr["vencimento"]).strftime("%d/%m/%Y")
+        cr_venc = formatar_data_ptbr(row_cr["vencimento"])
         cr_desc = row_cr["descricao"]
         cr_val = row_cr["valor"]
         cr_recebido = row_cr["recebido"]
@@ -2567,7 +2585,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         if st.session_state.get(f"editando_cr_{cr_id}", False):
           with st.form(f"form_editar_cr_{cr_id}"):
             st.write(f"**Editando Conta a Receber ID {cr_id}** (Ajuste de variação)")
-            novo_venc_cr = st.date_input("Nova Data de Vencimento", value=datetime.strptime(row_cr["vencimento"], "%Y-%m-%d").date(), key=f"nv_vr_{cr_id}")
+            novo_venc_cr = st.date_input("Nova Data de Vencimento (DD/MM/AAAA)", value=datetime.strptime(row_cr["vencimento"], "%Y-%m-%d").date(), key=f"nv_vr_{cr_id}", format="DD/MM/YYYY")
             nova_desc_cr = st.text_input("Nova Descrição", value=cr_desc, key=f"nv_dr_{cr_id}")
             novo_val_cr = st.number_input("Novo Valor (R$)", min_value=0.0, value=float(cr_val), step=1.0, format="%.2f", key=f"nv_valr_{cr_id}")
             
@@ -2589,12 +2607,11 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     else:
       st.info("Nenhuma conta a receber encontrada.")
 
-  botao_voltar()
-
 # ==========================================
 # --- SEÇÃO 11: EXTRATO & BACKUP ---
 # ==========================================
 elif st.session_state.pagina_atual == "📋 Extrato & Backup":
+  botao_voltar()
   st.subheader(
       "📋 Extrato Consolidado, Importação Inteligente de Extratos PDF/CSV &"
       " Backup"
@@ -2616,6 +2633,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
   with col_exp2:
     df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
     if not df_extrato_full.empty:
+      df_extrato_full["data"] = df_extrato_full["data"].apply(formatar_data_ptbr)
       csv_data = df_extrato_full.to_csv(index=False).encode("utf-8")
       st.download_button(
           label="📊 Exportar Extrato Completo para Planilha (CSV)",
@@ -2754,6 +2772,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
         divergentes = merged_rec[merged_rec["_merge"] == "left_only"]
         
         if not divergentes.empty:
+          divergentes["data"] = divergentes["data"].apply(formatar_data_ptbr)
           st.warning(f"⚠️ Atenção: Encontramos **{len(divergentes)}** transação(ões) no PDF do extrato que constam como divergentes ou ausentes nos lançamentos manuais do sistema:")
           st.dataframe(divergentes[["data", "descricao_x", "valor", "tipo"]].rename(columns={"descricao_x": "Descrição no Extrato PDF"}), use_container_width=True)
         else:
@@ -2829,6 +2848,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
       )
 
     if not df_extrato_filtrado.empty:
+      df_extrato_filtrado["data"] = df_extrato_filtrado["data"].apply(formatar_data_ptbr)
       st.write(
           f"### 📋 Resultados Encontrados ({len(df_extrato_filtrado)} registros)"
       )
@@ -2840,12 +2860,11 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
   else:
     st.info("Nenhum extrato armazenado no banco de dados.")
 
-  botao_voltar()
-
 # ==========================================
 # --- SEÇÃO 12: HOLERITES ---
 # ==========================================
 elif st.session_state.pagina_atual == "📄 Holerites":
+  botao_voltar()
   st.subheader(
       "📄 Análise, Comparativo Mês a Mês & Leitura Dinâmica de Holerites via PDF"
   )
@@ -3101,4 +3120,3 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         st.rerun()
   else:
     st.info("Nenhum holerite cadastrado no histórico analítico até o momento.")
-  botao_voltar()
