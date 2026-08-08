@@ -1774,7 +1774,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   if "data_calendario_ref" not in st.session_state:
     st.session_state.data_calendario_ref = date.today()
 
-  # Cabeçalho flexível com o título à esquerda e o calendário em formato real com botão "Hoje" funcional fora de formulários
+  # Cabeçalho flexível com o título à esquerda e o calendário em formato real com callback direto no st.date_input para evitar qualquer falha de clique
   col_tit_h, col_cal_h = st.columns([3, 2])
   with col_tit_h:
     st.subheader("📅 Calendário de Contas & Gestão de Pagamentos / Recebimentos")
@@ -1784,7 +1784,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     
     col_c_input, col_c_btn = st.columns([3, 1])
     with col_c_input:
-      st.session_state.data_calendario_ref = st.date_input("Selecionar Data de Referência:", value=st.session_state.data_calendario_ref, key="calendario_topo_geral", label_visibility="collapsed")
+      st.date_input("Selecionar Data de Referência:", value=st.session_state.data_calendario_ref, key="data_calendario_ref", label_visibility="collapsed")
     with col_c_btn:
       if st.button("Hoje 📍", use_container_width=True, help="Retornar para o dia de hoje"):
         st.session_state.data_calendario_ref = date.today()
@@ -2631,7 +2631,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         </div>
         """,
         unsafe_allow_html=True,
-      )
+    )
 
   st.markdown("---")
   st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
@@ -2652,7 +2652,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         df_exibicao_hol.style.format({
             "salario_bruto": "R$ {:,.2f}",
             "vale": "R$ {:,.2f}",
-            "total_descontos": "R$ {:,.2f}",
+            "total_desconsos": "R$ {:,.2f}",
             "liquido": "R$ {:,.2f}",
             "inss": "R$ {:,.2f}",
             "irrf": "R$ {:,.2f}",
