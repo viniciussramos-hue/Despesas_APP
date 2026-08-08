@@ -1769,41 +1769,54 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
 # --- SEÇÃO 10: CONTAS A PAGAR & RECEBER ---
 # ==========================================
 elif st.session_state.pagina_atual == "📅 Contas a Pagar":
-  st.subheader("📅 Calendário de Contas & Gestão de Pagamentos / Recebimentos")
-  st.write(
-      "Organize boletos, contas a pagar, contas a receber e compromissos com vencimento programado."
-  )
+  
+  # Cabeçalho flexível com o título à esquerda e o calendário estilo agenda ao lado
+  col_tit_h, col_cal_h = st.columns([3, 2])
+  with col_tit_h:
+    st.subheader("📅 Calendário de Contas & Gestão de Pagamentos / Recebimentos")
+    st.write("Organize boletos, contas a pagar, contas a receber e compromissos com vencimento programado.")
+  with col_cal_h:
+    st.markdown("##### 🗓️ Agenda / Calendário Rápido")
+    data_calendario_topo = st.date_input("Selecionar Data de Referência:", value=date.today(), key="calendario_topo_geral", label_visibility="collapsed")
 
   aba_cp, aba_cr = st.tabs(["📉 Contas a Pagar", "📈 Contas a Receber"])
 
   with aba_cp:
-    st.write("### ➕ Nova Conta a Pagar")
+    st.write("### ➕ Nova Conta a Pagar (com Opção de Replicar para Outras Datas)")
     with st.form("form_conta_pagar_completo", clear_on_submit=True):
       col_c1, col_c2 = st.columns(2)
       with col_c1:
-        venc = st.date_input("Data de Vencimento da Conta", value=date.today(), key="venc_cp")
+        venc = st.date_input("Data de Vencimento Inicial", value=date.today(), key="venc_cp")
         nome_conta = st.text_input(
-            "Nome / Descrição da Conta (Ex: Conta de Luz, Seguro Auto)"
+            "Nome / Descrição da Conta (Ex: Conta de Luz, Aluguel)"
         )
       with col_c2:
         val_conta = st.number_input(
-            "Valor Estimado ou Exato (R$)", min_value=0.0, format="%.2f", key="val_cp"
+            "Valor da Conta (R$)", min_value=0.0, format="%.2f", key="val_cp"
         )
-        replicar_cr = st.checkbox("Replicar automaticamente para Contas a Receber (mesmo valor e vencimento)")
+        replicar_datas_cp = st.multiselect(
+            "Replicar esta mesma conta para outras datas de vencimento (opcional):",
+            options=[date.today() + timedelta(days=d) for d in range(1, 365)],
+            format_func=lambda x: x.strftime("%d/%m/%Y"),
+            key="rep_datas_cp"
+        )
 
-      if st.form_submit_button("Adicionar Conta ao Calendário (Pagar)", use_container_width=True):
+      if st.form_submit_button("Adicionar Conta(s) a Pagar", use_container_width=True):
         if nome_conta.strip() and val_conta > 0:
+          # Inserir data inicial
           c.execute(
               "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)",
               (venc.strftime("%Y-%m-%d"), str(nome_conta).strip(), val_conta, 0),
           )
-          if replicar_cr:
+          # Inserir datas replicadas se houver
+          for d_rep in replicar_datas_cp:
             c.execute(
-                "INSERT INTO contas_receber (vencimento, descricao, valor, recebido) VALUES (?,?,?,?)",
-                (venc.strftime("%Y-%m-%d"), str(nome_conta).strip(), val_conta, 0),
+                "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)",
+                (d_rep.strftime("%Y-%m-%d"), str(nome_conta).strip(), val_conta, 0),
             )
           conn.commit()
-          st.success("Conta a pagar cadastrada com sucesso!" + (" Também replicada para contas a receber!" if replicar_cr else ""))
+          total_inseridas = 1 + len(replicar_datas_cp)
+          st.success(f"{total_inseridas} conta(s) a pagar cadastrada(s) com sucesso!")
           st.rerun()
         else:
           st.error("Informe a descrição e o valor da conta.")
@@ -1829,22 +1842,22 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             st.warning(f"🔔 **Vence Hoje:** '{r_hoje['descricao']}' vence **hoje** ({hoje.strftime('%d/%m/%Y')}) no valor de **R$ {r_hoje['valor']:,.2f}**!")
         st.markdown("---")
 
-    st.write("### 🔍 Pesquisa & Calendário de Contas a Pagar")
+    st.write("### 🔍 Pesquisa & Relação de Contas a Pagar")
     
-    col_pesq_cp, col_agenda_cp = st.columns([3, 2])
+    col_pesq_cp, col_fil_agenda_cp = st.columns([3, 2])
     with col_pesq_cp:
       termo_busca_contas = st.text_input(
           "Pesquisar contas a pagar:", "", key="busca_contas_input"
       )
-    with col_agenda_cp:
-      filtro_data_agenda = st.date_input("🗓️ Agenda / Filtrar por Data Específica:", value=None, key="agenda_cp")
+    with col_fil_agenda_cp:
+      usar_filtro_agenda_cp = st.checkbox("Filtrar visualização pela data selecionada no calendário do topo", value=False)
 
     df_contas_all = pd.read_sql("SELECT * FROM contas", conn)
 
     if not df_contas_all.empty:
-      if filtro_data_agenda:
+      if usar_filtro_agenda_cp:
         df_contas_all["venc_dt_cmp"] = pd.to_datetime(df_contas_all["vencimento"]).dt.date
-        df_contas_all = df_contas_all[df_contas_all["venc_dt_cmp"] == filtro_data_agenda]
+        df_contas_all = df_contas_all[df_contas_all["venc_dt_cmp"] == data_calendario_topo]
 
       if termo_busca_contas.strip():
         termo_limpo = termo_busca_contas.strip().lower()
@@ -1910,11 +1923,11 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
       st.info("Nenhuma conta a pagar encontrada.")
 
   with aba_cr:
-    st.write("### ➕ Nova Conta a Receber")
+    st.write("### ➕ Nova Conta a Receber (com Opção de Replicar para Outras Datas)")
     with st.form("form_conta_receber_completo", clear_on_submit=True):
       col_cr1, col_cr2 = st.columns(2)
       with col_cr1:
-        venc_r = st.date_input("Data de Vencimento / Recebimento", value=date.today(), key="venc_cr")
+        venc_r = st.date_input("Data de Vencimento / Recebimento Inicial", value=date.today(), key="venc_cr")
         nome_conta_r = st.text_input(
             "Nome / Descrição da Receita (Ex: Aluguel a Receber, Prestação de Serviço)"
         )
@@ -1922,42 +1935,48 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         val_conta_r = st.number_input(
             "Valor a Receber (R$)", min_value=0.0, format="%.2f", key="val_cr"
         )
-        replicar_cp = st.checkbox("Replicar automaticamente para Contas a Pagar (mesmo valor e vencimento)", key="rep_cp")
+        replicar_datas_cr = st.multiselect(
+            "Replicar esta mesma conta para outras datas de vencimento (opcional):",
+            options=[date.today() + timedelta(days=d) for d in range(1, 365)],
+            format_func=lambda x: x.strftime("%d/%m/%Y"),
+            key="rep_datas_cr"
+        )
 
-      if st.form_submit_button("Adicionar Conta ao Calendário (Receber)", use_container_width=True):
+      if st.form_submit_button("Adicionar Conta(s) a Receber", use_container_width=True):
         if nome_conta_r.strip() and val_conta_r > 0:
           c.execute(
               "INSERT INTO contas_receber (vencimento, descricao, valor, recebido) VALUES (?,?,?,?)",
               (venc_r.strftime("%Y-%m-%d"), str(nome_conta_r).strip(), val_conta_r, 0),
           )
-          if replicar_cp:
+          for d_rep_r in replicar_datas_cr:
             c.execute(
-                "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)",
-                (venc_r.strftime("%Y-%m-%d"), str(nome_conta_r).strip(), val_conta_r, 0),
+                "INSERT INTO contas_receber (vencimento, descricao, valor, recebido) VALUES (?,?,?,?)",
+                (d_rep_r.strftime("%Y-%m-%d"), str(nome_conta_r).strip(), val_conta_r, 0),
             )
           conn.commit()
-          st.success("Conta a receber cadastrada com sucesso!" + (" Também replicada para contas a pagar!" if replicar_cp else ""))
+          total_inseridas_r = 1 + len(replicar_datas_cr)
+          st.success(f"{total_inseridas_r} conta(s) a receber cadastrada(s) com sucesso!")
           st.rerun()
         else:
           st.error("Informe a descrição e o valor da conta a receber.")
 
     st.markdown("---")
-    st.write("### 🔍 Pesquisa & Calendário de Contas a Receber")
+    st.write("### 🔍 Pesquisa & Relação de Contas a Receber")
     
-    col_pesq_cr, col_agenda_cr = st.columns([3, 2])
+    col_pesq_cr, col_fil_agenda_cr = st.columns([3, 2])
     with col_pesq_cr:
       termo_busca_receber = st.text_input(
           "Pesquisar contas a receber:", "", key="busca_receber_input"
       )
-    with col_agenda_cr:
-      filtro_data_agenda_r = st.date_input("🗓️ Agenda / Filtrar por Data Específica:", value=None, key="agenda_cr")
+    with col_fil_agenda_cr:
+      usar_filtro_agenda_cr = st.checkbox("Filtrar visualização pela data selecionada no calendário do topo", value=False, key="chk_agenda_cr")
 
     df_receber_all = pd.read_sql("SELECT * FROM contas_receber", conn)
 
     if not df_receber_all.empty:
-      if filtro_data_agenda_r:
+      if usar_filtro_agenda_cr:
         df_receber_all["venc_dt_cmp"] = pd.to_datetime(df_receber_all["vencimento"]).dt.date
-        df_receber_all = df_receber_all[df_receber_all["venc_dt_cmp"] == filtro_data_agenda_r]
+        df_receber_all = df_receber_all[df_receber_all["venc_dt_cmp"] == data_calendario_topo]
 
       if termo_busca_receber.strip():
         termo_limpo_r = termo_busca_receber.strip().lower()
@@ -2443,7 +2462,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Detalhamento Separado dos Descontos ({mes_ativo_ext})</h4>
                 <hr style="border-color: #C62828;">
                 <p><b>• INSS (Previdência Social):</b> R$ {inss_ativo:,.2f}</p>
-                <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:,.2f}</p>
+                <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:₂,2f}</p>
                 <p><b>• Desconto de Vale (Adiantamento):</b> R$ {vale_ativo:,.2f}</p>
                 <p><b>• Convênio / Farmácia / Outros:</b> R$ {max(0, desc_ativo - inss_ativo - irrf_ativo - vale_ativo):,.2f}</p>
                 <h3 style="color: #EF5350; margin-top: 15px;">Total Descontos: R$ {desc_ativo:,.2f}</h3>
@@ -2473,7 +2492,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         "mes_ano",
         "salario_bruto",
         "vale",
-        "total_desconsos" if "total_desconsos" in df_holerites.columns else "total_descontos",
+        "total_descontos",
         "liquido",
         "inss",
         "irrf",
