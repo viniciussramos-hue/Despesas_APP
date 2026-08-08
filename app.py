@@ -1011,8 +1011,8 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
 # --- SEÇÃO 4: PREVISÃO FINANCEIRA ---
 # ==========================================
 elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
-  st.subheader("📅 Previsão Financeira")
-  st.write("Visualize suas finanças em qualquer período de forma detalhada e interativa.")
+  st.subheader("📅 Previsão Financeira & Simulador de Imprevistos")
+  st.write("Visualize suas finanças detalhadamente por mês ou acumulado anual, incluindo entradas previstas, contas a pagar, contas a receber e simulações.")
 
   if "prev_data_atual" not in st.session_state:
     st.session_state.prev_data_atual = datetime.now().replace(day=1)
@@ -1049,7 +1049,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     if tipo_visao == "Mensal":
       st.markdown(f"<h3 style='text-align: center; color: #f8fafc; margin: 0;'>{nome_mes_exib} de {ano_ativo}</h3>", unsafe_allow_html=True)
     else:
-      st.markdown(f"<h3 style='text-align: center; color: #f8fafc; margin: 0;'>Ano de {ano_ativo}</h3>", unsafe_allow_html=True)
+      st.markdown(f"<h3 style='text-align: center; color: #f8fafc; margin: 0;'>Ano de {ano_ativo} (Acumulado)</h3>", unsafe_allow_html=True)
 
   with col_nav3:
     if st.button("Próximo ❯", use_container_width=True):
@@ -1061,53 +1061,96 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("<br>", unsafe_allow_html=True)
 
+  # Carregamento de dados de todas as fontes relevantes para previsão
   df_cartao_prev = pd.read_sql("SELECT * FROM cartao_credito", conn)
   df_contas_prev = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
+  df_receber_prev = pd.read_sql("SELECT * FROM contas_receber WHERE recebido = 0", conn)
   df_trans_prev = pd.read_sql("SELECT * FROM transacoes", conn)
 
+  # Conversão de datas para filtro
   if not df_cartao_prev.empty:
     df_cartao_prev["data_dt"] = pd.to_datetime(df_cartao_prev["data"], errors="coerce")
-    if tipo_visao == "Mensal":
-      df_cartao_filtered = df_cartao_prev[(df_cartao_prev["data_dt"].dt.year == ano_ativo) & (df_cartao_prev["data_dt"].dt.month == mes_ativo_num)]
-    else:
-      df_cartao_filtered = df_cartao_prev[df_cartao_prev["data_dt"].dt.year == ano_ativo]
-    total_faturas = df_cartao_filtered["valor"].sum()
-  else:
-    total_faturas = 0.0
-
   if not df_contas_prev.empty:
     df_contas_prev["venc_dt"] = pd.to_datetime(df_contas_prev["vencimento"], errors="coerce")
-    if tipo_visao == "Mensal":
-      df_contas_filtered = df_contas_prev[(df_contas_prev["venc_dt"].dt.year == ano_ativo) & (df_contas_prev["venc_dt"].dt.month == mes_ativo_num)]
-    else:
-      df_contas_filtered = df_contas_prev[df_contas_prev["venc_dt"].dt.year == ano_ativo]
-    total_contas = df_contas_filtered["valor"].sum()
-  else:
-    total_contas = 0.0
-
+  if not df_receber_prev.empty:
+    df_receber_prev["venc_dt"] = pd.to_datetime(df_receber_prev["vencimento"], errors="coerce")
   if not df_trans_prev.empty:
     df_trans_prev["data_dt"] = pd.to_datetime(df_trans_prev["data"], errors="coerce")
-    if tipo_visao == "Mensal":
-      df_trans_filtered = df_trans_prev[(df_trans_prev["data_dt"].dt.year == ano_ativo) & (df_trans_prev["data_dt"].dt.month == mes_ativo_num)]
-    else:
-      df_trans_filtered = df_trans_prev[df_trans_prev["data_dt"].dt.year == ano_ativo]
-    
-    total_entradas_previstas = df_trans_filtered[df_trans_filtered["tipo"] == "Receita"]["valor"].sum()
-    total_saidas_manuais = df_trans_filtered[df_trans_filtered["tipo"] == "Despesa"]["valor"].sum()
-  else:
-    total_entradas_previstas = 0.0
-    total_saidas_manuais = 0.0
 
-  total_dividas = 0.0
-  total_saidas_previstas = total_faturas + total_contas + total_dividas + total_saidas_manuais
+  if tipo_visao == "Mensal":
+    # Filtros mensais
+    f_cartao = df_cartao_prev[(df_cartao_prev["data_dt"].dt.year == ano_ativo) & (df_cartao_prev["data_dt"].dt.month == mes_ativo_num)] if not df_cartao_prev.empty else pd.DataFrame()
+    f_contas = df_contas_prev[(df_contas_prev["venc_dt"].dt.year == ano_ativo) & (df_contas_prev["venc_dt"].dt.month == mes_ativo_num)] if not df_contas_prev.empty else pd.DataFrame()
+    f_receber = df_receber_prev[(df_receber_prev["venc_dt"].dt.year == ano_ativo) & (df_receber_prev["venc_dt"].dt.month == mes_ativo_num)] if not df_receber_prev.empty else pd.DataFrame()
+    f_trans = df_trans_prev[(df_trans_prev["data_dt"].dt.year == ano_ativo) & (df_trans_prev["data_dt"].dt.month == mes_ativo_num)] if not df_trans_prev.empty else pd.DataFrame()
+    
+    total_faturas = f_cartao["valor"].sum() if not f_cartao.empty else 0.0
+    total_contas_pagar = f_contas["valor"].sum() if not f_contas.empty else 0.0
+    total_contas_receber = f_receber["valor"].sum() if not f_receber.empty else 0.0
+    
+    entradas_manuais = f_trans[f_trans["tipo"] == "Receita"]["valor"].sum() if not f_trans.empty else 0.0
+    saidas_manuais = f_trans[f_trans["tipo"] == "Despesa"]["valor"].sum() if not f_trans.empty else 0.0
+    
+    total_entradas_previstas = entradas_manuais + total_contas_receber
+    total_saidas_previstas = total_faturas + total_contas_pagar + saidas_manuais
+  else:
+    # Filtros anuais (Acumulado)
+    f_cartao = df_cartao_prev[df_cartao_prev["data_dt"].dt.year == ano_ativo] if not df_cartao_prev.empty else pd.DataFrame()
+    f_contas = df_contas_prev[df_contas_prev["venc_dt"].dt.year == ano_ativo] if not df_contas_prev.empty else pd.DataFrame()
+    f_receber = df_receber_prev[df_receber_prev["venc_dt"].dt.year == ano_ativo] if not df_receber_prev.empty else pd.DataFrame()
+    f_trans = df_trans_prev[df_trans_prev["data_dt"].dt.year == ano_ativo] if not df_trans_prev.empty else pd.DataFrame()
+
+    total_faturas = f_cartao["valor"].sum() if not f_cartao.empty else 0.0
+    total_contas_pagar = f_contas["valor"].sum() if not f_contas.empty else 0.0
+    total_contas_receber = f_receber["valor"].sum() if not f_receber.empty else 0.0
+
+    entradas_manuais = f_trans[f_trans["tipo"] == "Receita"]["valor"].sum() if not f_trans.empty else 0.0
+    saidas_manuais = f_trans[f_trans["tipo"] == "Despesa"]["valor"].sum() if not f_trans.empty else 0.0
+
+    total_entradas_previstas = entradas_manuais + total_contas_receber
+    total_saidas_previstas = total_faturas + total_contas_pagar + saidas_manuais
+
   saldo_projetado = total_entradas_previstas - total_saidas_previstas
 
+  # ==========================================
+  # --- CAMPO DE SIMULADOR DE IMPREVISTOS ---
+  # ==========================================
+  st.markdown("### 🧪 Simulador de Imprevistos & Ajustes Orçamentários")
+  st.write("Simule o impacto de receitas extras inesperadas ou gastos imprevistos no saldo projetado do período:")
+  
+  col_sim1, col_sim2 = st.columns(2)
+  with col_sim1:
+    valor_simulado_imprevisto = st.number_input(
+        "Valor do Imprevisto (R$):",
+        min_value=0.0,
+        value=0.00,
+        step=50.0,
+        format="%.2f",
+        help="Insira o valor do imprevisto financeiro."
+    )
+  with col_sim2:
+    tipo_imprevisto = st.selectbox(
+        "Tipo de Imprevisto:",
+        ["Gastos / Despesa Extra", "Entrada / Receita Extra"]
+    )
+
+  if valor_simulado_imprevisto > 0:
+    if tipo_imprevisto == "Gastos / Despesa Extra":
+      saldo_com_simulacao = saldo_projetado - valor_simulado_imprevisto
+      st.warning(f"⚠️ **Simulação Ativa (Despesa Extra):** O saldo projetado cairia de **R$ {saldo_projetado:,.2f}** para **R$ {saldo_com_simulacao:,.2f}**.")
+    else:
+      saldo_com_simulacao = saldo_projetado + valor_simulado_imprevisto
+      st.success(f"🟢 **Simulação Ativa (Receita Extra):** O saldo projetado subiria de **R$ {saldo_projetado:,.2f}** para **R$ {saldo_com_simulacao:,.2f}**.")
+
+  st.markdown("---")
+
+  # Exibição das Métricas Principais
   m1, m2, m3 = st.columns(3)
   with m1:
     st.markdown(
         f"""
         <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 20px;">
-            <span style="color: #4ade80; font-size: 13px; font-weight: 600;">🟢 TOTAL ENTRADAS</span>
+            <span style="color: #4ade80; font-size: 13px; font-weight: 600;">🟢 TOTAL ENTRADAS (Com A Receber)</span>
             <h2 style="color: #22c55e; margin: 5px 0 0 0;">R$ {total_entradas_previstas:,.2f}</h2>
         </div>
         """,
@@ -1136,63 +1179,97 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  st.markdown(
-      f"""
-      <div class="group-card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-              <h4 style="color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">📉 Saídas Previstas</h4>
-              <h4 style="color: #ef4444; margin: 0;">R$ {total_saidas_previstas:,.2f}</h4>
-          </div>
-          <hr style="border-color: var(--border-color); margin-bottom: 15px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
-              <span style="color: #94a3b8;">💳 Faturas de Cartão</span>
-              <span style="color: #f8fafc; font-weight: 600;">R$ {total_faturas:,.2f}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
-              <span style="color: #94a3b8;">📅 Contas a Pagar & Despesas</span>
-              <span style="color: #f8fafc; font-weight: 600;">R$ {total_contas + total_saidas_manuais:,.2f}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
-              <span style="color: #94a3b8;">🏛️ Parcelas de Dívidas</span>
-              <span style="color: #f8fafc; font-weight: 600;">R$ {total_dividas:,.2f}</span>
-          </div>
-      </div>
-      """,
-      unsafe_allow_html=True,
-  )
+  # Detalhamento de Saídas e Entradas Previstas
+  col_det_s, col_det_e = st.columns(2)
+  with col_det_s:
+    st.markdown(
+        f"""
+        <div class="group-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">📉 Composição de Saídas</h4>
+                <h4 style="color: #ef4444; margin: 0;">R$ {total_saidas_previstas:,.2f}</h4>
+            </div>
+            <hr style="border-color: var(--border-color); margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                <span style="color: #94a3b8;">💳 Faturas de Cartão</span>
+                <span style="color: #f8fafc; font-weight: 600;">R$ {total_faturas:,.2f}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                <span style="color: #94a3b8;">📅 Contas a Pagar & Despesas</span>
+                <span style="color: #f8fafc; font-weight: 600;">R$ {total_contas_pagar + saidas_manuais:,.2f}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-  st.markdown(
-      f"""
-      <div class="group-card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-              <h4 style="color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">📈 Entradas Previstas</h4>
-              <h4 style="color: #22c55e; margin: 0;">R$ {total_entradas_previstas:,.2f}</h4>
-          </div>
-          <hr style="border-color: var(--border-color); margin-bottom: 15px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
-              <span style="color: #94a3b8;">📥 Contas a Receber / Salários</span>
-              <span style="color: #f8fafc; font-weight: 600;">R$ {total_entradas_previstas:,.2f}</span>
-          </div>
-      </div>
-      """,
-      unsafe_allow_html=True,
-  )
+  with col_det_e:
+    st.markdown(
+        f"""
+        <div class="group-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">📈 Composição de Entradas</h4>
+                <h4 style="color: #22c55e; margin: 0;">R$ {total_entradas_previstas:,.2f}</h4>
+            </div>
+            <hr style="border-color: var(--border-color); margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                <span style="color: #94a3b8;">📥 Contas a Receber Pendentes</span>
+                <span style="color: #f8fafc; font-weight: 600;">R$ {total_contas_receber:,.2f}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                <span style="color: #94a3b8;">🟢 Salários & Entradas Manuais</span>
+                <span style="color: #f8fafc; font-weight: 600;">R$ {entradas_manuais:,.2f}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-  if formato_exibicao == "Gráfico":
-    st.markdown("### 📊 Gráfico de Previsão de Fluxo")
-    df_graf_prev = pd.DataFrame({
-        "Categoria": ["Entradas", "Saídas", "Saldo Projetado"],
-        "Valor": [total_entradas_previstas, total_saidas_previstas, saldo_projetado]
+  # ==========================================
+  # --- TABELA DE EVOLUÇÃO MÊS A MÊS DO ANO ---
+  # ==========================================
+  st.markdown("---")
+  st.subheader(f"📊 Evolução Analítica Mês a Mês ({ano_ativo})")
+  st.write("Visão consolidada do comportamento financeiro mês a mês para planejamento de longo prazo:")
+
+  meses_resumo_lista = []
+  for m_num in range(1, 13):
+    m_nome = meses_nomes_pt[m_num]
+    
+    # Filtrar cada mês individualmente no ano ativo
+    c_cart_m = df_cartao_prev[(df_cartao_prev["data_dt"].dt.year == ano_ativo) & (df_cartao_prev["data_dt"].dt.month == m_num)] if not df_cartao_prev.empty else pd.DataFrame()
+    c_pag_m = df_contas_prev[(df_contas_prev["venc_dt"].dt.year == ano_ativo) & (df_contas_prev["venc_dt"].dt.month == m_num)] if not df_contas_prev.empty else pd.DataFrame()
+    c_rec_m = df_receber_prev[(df_receber_prev["venc_dt"].dt.year == ano_ativo) & (df_receber_prev["venc_dt"].dt.month == m_num)] if not df_receber_prev.empty else pd.DataFrame()
+    c_trans_m = df_trans_prev[(df_trans_prev["data_dt"].dt.year == ano_ativo) & (df_trans_prev["data_dt"].dt.month == m_num)] if not df_trans_prev.empty else pd.DataFrame()
+
+    t_fat = c_cart_m["valor"].sum() if not c_cart_m.empty else 0.0
+    t_cp = c_pag_m["valor"].sum() if not c_pag_m.empty else 0.0
+    t_cr = c_rec_m["valor"].sum() if not c_rec_m.empty else 0.0
+    t_entradas_m = (c_trans_m[c_trans_m["tipo"] == "Receita"]["valor"].sum() if not c_trans_m.empty else 0.0) + t_cr
+    t_saidas_m = t_fat + t_cp + (c_trans_m[c_trans_m["tipo"] == "Despesa"]["valor"].sum() if not c_trans_m.empty else 0.0)
+    t_saldo_m = t_entradas_m - t_saidas_m
+
+    meses_resumo_lista.append({
+        "Mês": m_nome,
+        "Entradas (R$)": t_entradas_m,
+        "Saídas (R$)": t_saidas_m,
+        "Saldo Projetado (R$)": t_saldo_m
     })
-    st.bar_chart(df_graf_prev.set_index("Categoria"))
+
+  df_evolucao_meses = pd.DataFrame(meses_resumo_lista)
+  
+  if formato_exibicao == "Gráfico":
+    st.bar_chart(df_evolucao_meses.set_index("Mês")[["Entradas (R$)", "Saídas (R$)", "Saldo Projetado (R$)"]])
   else:
-    st.markdown("### 📋 Tabela Analítica da Previsão")
-    df_tabela_prev = pd.DataFrame([
-        {"Tipo": "Entrada Prevista", "Descrição": "Salários / Receitas Cadastradas", "Valor (R$)": total_entradas_previstas},
-        {"Tipo": "Saída Prevista", "Descrição": "Faturas de Cartão de Crédito", "Valor (R$)": total_faturas},
-        {"Tipo": "Saída Prevista", "Descrição": "Contas a Pagar Pendentes", "Valor (R$)": total_contas},
-    ])
-    st.dataframe(df_tabela_prev, use_container_width=True, hide_index=True)
+    st.dataframe(
+        df_evolucao_meses.style.format({
+            "Entradas (R$)": "R$ {:,.2f}",
+            "Saídas (R$)": "R$ {:,.2f}",
+            "Saldo Projetado (R$)": "R$ {:,.2f}",
+        }),
+        use_container_width=True,
+        hide_index=True
+    )
 
   botao_voltar()
 
