@@ -1211,17 +1211,25 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
   df_contas_dash = pd.read_sql("SELECT * FROM contas", conn)
   df_metas_dash = pd.read_sql("SELECT * FROM metas", conn)
 
+  if "dash_manual_data_ref" not in st.session_state:
+    st.session_state.dash_manual_data_ref = date.today()
+
+  col_fm1, col_fm2 = st.columns([3, 3])
+  with col_fm1:
+    data_sel_manual_cal = st.date_input(
+        "📅 Filtrar Visão Manual por Data/Mês (Calendário):",
+        value=st.session_state.dash_manual_data_ref,
+        key="picker_dash_manual_cal",
+        format="DD/MM/YYYY"
+    )
+    if data_sel_manual_cal:
+      st.session_state.dash_manual_data_ref = data_sel_manual_cal
+
+  mes_selecionado = st.session_state.dash_manual_data_ref.strftime("%Y-%m")
+
   if not df_all.empty:
     df_all["data"] = pd.to_datetime(df_all["data"])
     df_all["ano_mes"] = df_all["data"].dt.strftime("%Y-%m")
-    meses_disponiveis = sorted(df_all["ano_mes"].unique(), reverse=True)
-
-    col_f1, col_f2 = st.columns([2, 4])
-    with col_f1:
-      mes_selecionado = st.selectbox(
-          "📅 Filtrar Visão Manual por Mês/Ano:", meses_disponiveis, key="sel_mes_manual"
-      )
-
     df = df_all[df_all["ano_mes"] == mes_selecionado].copy()
   else:
     df = df_all.copy()
@@ -1241,11 +1249,12 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
     saldo_livre_pos_compromissos = saldo_caixa - total_contas_pendentes - total_faturas_cartao
 
     st.markdown("### 💼 Visão Geral & Indicadores Manuais")
-    b1, b2, b3, b4 = st.columns(4)
+    b1, b2, b3, b4, b5 = st.columns(5)
     b1.metric("⚡ Burn Rate Diário (Manual)", f"R$ {burn_rate_diario:,.2f} / dia")
-    b2.metric("💵 Saldo Livre Pós-Contas", f"R$ {saldo_livre_pos_compromissos:,.2f}")
-    b3.metric("🟢 Entradas Manuais", f"R$ {receitas:,.2f}")
-    b4.metric("🔴 Despesas Manuais", f"R$ {despesas:,.2f}")
+    b2.metric("💵 Saldo Atual (Entrada - Saída)", f"R$ {saldo_caixa:,.2f}")
+    b3.metric("💳 Saldo Livre Pós-Contas", f"R$ {saldo_livre_pos_compromissos:,.2f}")
+    b4.metric("🟢 Entradas Manuais", f"R$ {receitas:,.2f}")
+    b5.metric("🔴 Despesas Manuais", f"R$ {despesas:,.2f}")
 
     st.markdown("### 🏛️ Indicadores Patrimoniais & Passivos")
     p1, p2, p3, p4 = st.columns(4)
@@ -1429,18 +1438,49 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
   st.subheader("📅 Previsão Financeira & Simulador de Imprevistos")
   st.write("Visualize suas finanças detalhadamente por mês ou acumulado anual, incluindo entradas previstas, contas a pagar, contas a receber e simulações.")
 
-  if "prev_data_atual" not in st.session_state:
+  if "prev_data_atual" not in st.session_state or not isinstance(st.session_state.prev_data_atual, (date, datetime)):
     st.session_state.prev_data_atual = datetime.now().replace(day=1)
 
-  col_p1, col_p2, col_p3 = st.columns([3, 3, 2])
-  with col_p1:
-    tipo_visao = st.radio("Período da Visão:", ["Mensal", "Anual"], horizontal=True)
-  with col_p2:
-    formato_exibicao = st.radio("Formato de Exibição:", ["Gráfico", "Tabela"], horizontal=True)
-  with col_p3:
+  # Botões em formato de botão elegante para Período da Visão e Formato de Exibição
+  col_cfg1, col_cfg2, col_exp_btn = st.columns([3, 3, 2])
+  with col_cfg1:
+    st.write("**Período da Visão:**")
+    if "tipo_visao" not in st.session_state:
+      st.session_state.tipo_visao = "Mensal"
+    
+    cv_p1, cv_p2 = st.columns(2)
+    with cv_p1:
+      if st.button("Mensal", use_container_width=True, type="primary" if st.session_state.tipo_visao == "Mensal" else "secondary"):
+        st.session_state.tipo_visao = "Mensal"
+        st.rerun()
+    with cv_p2:
+      if st.button("Anual", use_container_width=True, type="primary" if st.session_state.tipo_visao == "Anual" else "secondary"):
+        st.session_state.tipo_visao = "Anual"
+        st.rerun()
+
+  with col_cfg2:
+    st.write("**Formato de Exibição:**")
+    if "formato_exibicao" not in st.session_state:
+      st.session_state.formato_exibicao = "Gráfico"
+
+    cv_e1, cv_e2 = st.columns(2)
+    with cv_e1:
+      if st.button("Gráfico", use_container_width=True, type="primary" if st.session_state.formato_exibicao == "Gráfico" else "secondary"):
+        st.session_state.formato_exibicao = "Gráfico"
+        st.rerun()
+    with cv_e2:
+      if st.button("Tabela", use_container_width=True, type="primary" if st.session_state.formato_exibicao == "Tabela" else "secondary"):
+        st.session_state.formato_exibicao = "Tabela"
+        st.rerun()
+
+  with col_exp_btn:
+    st.write("")
     st.write("")
     if st.button("📥 Exportar Relatório", use_container_width=True):
       st.success("Relatório de previsão exportado com sucesso!")
+
+  tipo_visao = st.session_state.tipo_visao
+  formato_exibicao = st.session_state.formato_exibicao
 
   st.markdown("---")
 
@@ -1455,9 +1495,9 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   with col_nav_cal2:
     data_calendario_escolhida = st.date_input(
-        "📅 Selecionar Data de Referência da Previsão (DD/MM/AAAA):",
+        "📅 Selecionar Data de Referência da Previsão (Calendário):",
         value=st.session_state.prev_data_atual,
-        key="picker_previsao_data",
+        key="picker_previsao_data_cal",
         format="DD/MM/YYYY"
     )
     if data_calendario_escolhida:
