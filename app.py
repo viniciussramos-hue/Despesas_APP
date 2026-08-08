@@ -1066,9 +1066,26 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
       "Gerencie sua frota, registre quilometragem, agende manutenções e monitore o consumo médio de combustível."
   )
 
-  tab_v1, tab_v2, tab_v3 = st.tabs(["🚗 Veículos", "📅 Manutenções Agendadas & Histórico", "⛽ Consumo de Combustível"])
+  if "aba_veiculos_ativa" not in st.session_state:
+    st.session_state.aba_veiculos_ativa = "veiculos"
 
-  with tab_v1:
+  col_v_btn1, col_v_btn2, col_v_btn3, _ = st.columns([1, 1, 1, 2])
+  with col_v_btn1:
+    if st.button("🚗 Veículos", use_container_width=True, type="primary" if st.session_state.aba_veiculos_ativa == "veiculos" else "secondary"):
+      st.session_state.aba_veiculos_ativa = "veiculos"
+      st.rerun()
+  with col_v_btn2:
+    if st.button("📅 Manutenções", use_container_width=True, type="primary" if st.session_state.aba_veiculos_ativa == "manutencoes" else "secondary"):
+      st.session_state.aba_veiculos_ativa = "manutencoes"
+      st.rerun()
+  with col_v_btn3:
+    if st.button("⛽ Combustível", use_container_width=True, type="primary" if st.session_state.aba_veiculos_ativa == "combustivel" else "secondary"):
+      st.session_state.aba_veiculos_ativa = "combustivel"
+      st.rerun()
+
+  st.markdown("---")
+
+  if st.session_state.aba_veiculos_ativa == "veiculos":
     st.write("### 🚗 Cadastro de Veículos")
     with st.form("form_cadastrar_veiculo", clear_on_submit=True):
       col_ve1, col_ve2 = st.columns(2)
@@ -1104,7 +1121,7 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
     else:
       st.info("Nenhum veículo cadastrado no momento.")
 
-  with tab_v2:
+  elif st.session_state.aba_veiculos_ativa == "manutencoes":
     st.write("### 🛠️ Gestão de Manutenções (Agendadas & Histórico)")
     df_veic_opts = pd.read_sql("SELECT id, modelo, placa FROM veiculos", conn)
     
@@ -1151,9 +1168,11 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
     else:
       st.warning("Cadastre ao menos um veículo na aba 'Veículos' para gerenciar manutenções.")
 
-  with tab_v3:
+  else:
     st.write("### ⛽ Controle de Consumo de Combustível")
+    df_veic_opts = pd.read_sql("SELECT id, modelo, placa FROM veiculos", conn)
     if not df_veic_opts.empty:
+      veiculos_map = {f"{row['modelo']} ({row['placa']})": row['id'] for _, row in df_veic_opts.iterrows()}
       with st.form("form_cadastrar_combustivel", clear_on_submit=True):
         col_c1, col_c2 = st.columns(2)
         with col_c1:
@@ -2310,7 +2329,7 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
   botao_voltar()
   st.subheader("❤️ Score de Saúde Financeira & Auditoria de Perfil")
   st.write(
-      "Pontuação calculada de 0 a 1000 com base em endividamento, taxa de"
+      "Pontuação calculada de 0 a 1000 com base en endividamento, taxa de"
       " poupança, disciplina e cumprimento de tetos."
   )
 
