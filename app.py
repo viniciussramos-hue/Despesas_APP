@@ -1160,9 +1160,14 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
   with col_m1:
     st.write("### ➕ Adicionar Nova Categoria com Ícone")
     with st.form("form_nova_categoria_completo", clear_on_submit=True):
+      # Lista expandida de ícones organizados por temas
       icone_escolhido = st.selectbox(
           "Escolha um Ícone Personalizado:",
-          ["✈️", "🐕", "🎮", "📚", "💻", "💄", "⚡", "🏋️‍♂️", "🍔", "🎁", "🚗", "🏠"],
+          [
+              "🏠", "🚗", "🍔", "🛒", "💊", "⚡", "✈️", "🐕", "🎮", "📚", 
+              "💻", "💄", "🎁", "🏋️‍♂️", "👕", "💡", "💰", "🎓", "🏥", "🐾", 
+              "🎬", "🎵", "🛠️", "☕", "🍺", "🍕", "📱", "💼", "🚗", "⛽"
+          ],
       )
       nome_cat_input = st.text_input("Nome da Categoria (Ex: Viagens, Pets, Jogos)")
 
@@ -1324,7 +1329,7 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
 
   df_all_fluxo = pd.read_sql("SELECT * FROM transacoes", conn)
   
-  # --- NOVO RECURSO: Previsão de Saldo Mínimo Diário & Alerta de Caixa Crítico ---
+  # --- RECURSO: Previsão de Saldo Mínimo Diário & Alerta de Caixa Crítico ---
   st.markdown("---")
   st.subheader("⚡ Previsão de Saldo Mínimo Diário & Alerta de Caixa Crítico")
   
@@ -1341,14 +1346,12 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
     df_contas_fluxo["vencimento_dt"] = pd.to_datetime(df_contas_fluxo["vencimento"])
     df_contas_fluxo = df_contas_fluxo.sort_values("vencimento_dt")
     
-    # Simula os próximos 15 dias de caixa diário
     dias_simulacao = []
     saldo_iterativo = saldo_atual_base
     hoje_ref = datetime.now().date()
 
     for i in range(15):
       dia_alvo = hoje_ref + timedelta(days=i)
-      # Soma contas que vencem neste dia exato
       contas_dia = df_contas_fluxo[df_contas_fluxo["vencimento_dt"].dt.date == dia_alvo]["valor"].sum()
       saldo_iterativo -= contas_dia
       dias_simulacao.append({
@@ -1359,7 +1362,6 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
 
     df_proj_diaria = pd.DataFrame(dias_simulacao)
     
-    # Verifica se há algum saldo negativo na projeção
     dias_negativos = df_proj_diaria[df_proj_diaria["Saldo Projetado (R$)"] < 0]
     if not dias_negativos.empty:
       primeiro_alerta = dias_negativos.iloc[0]
@@ -1415,7 +1417,7 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
           hide_index=True,
       )
     else:
-      st.info("Nenhum lançamento encontrado para el mês selecionado.")
+      st.info("Nenhum lançamento encontrado para o mês selecionado.")
   else:
     st.info("Cadastre transações para gerar o fluxo de caixa.")
   botao_voltar()
