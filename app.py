@@ -1572,7 +1572,7 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
           st.success(f"Categoria '{categoria_final}' criada com sucesso!")
           st.rerun()
         else:
-          st.error("Digite um nome válido para a categoria.")
+          st.error("Digite um nome válido para la categoria.")
 
   with col_m2:
     st.write("### ✏️ Editar ou 🗑️ Excluir Categoria")
@@ -1779,9 +1779,23 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     st.markdown("##### 🗓️ Agenda / Calendário Rápido")
     data_calendario_topo = st.date_input("Selecionar Data de Referência:", value=date.today(), key="calendario_topo_geral", label_visibility="collapsed")
 
-  aba_cp, aba_cr = st.tabs(["📉 Contas a Pagar", "📈 Contas a Receber"])
+  # Gerenciamento de abas estilo botões modernos/limpos via session_state
+  if "aba_contas_ativa" not in st.session_state:
+    st.session_state.aba_contas_ativa = "pagar"
 
-  with aba_cp:
+  col_tab_btn1, col_tab_btn2, _ = st.columns([1, 1, 4])
+  with col_tab_btn1:
+    if st.button("📉 Contas a Pagar", use_container_width=True, type="primary" if st.session_state.aba_contas_ativa == "pagar" else "secondary"):
+      st.session_state.aba_contas_ativa = "pagar"
+      st.rerun()
+  with col_tab_btn2:
+    if st.button("📈 Contas a Receber", use_container_width=True, type="primary" if st.session_state.aba_contas_ativa == "receber" else "secondary"):
+      st.session_state.aba_contas_ativa = "receber"
+      st.rerun()
+
+  st.markdown("---")
+
+  if st.session_state.aba_contas_ativa == "pagar":
     st.write("### ➕ Nova Conta a Pagar (com Opção de Replicar para Outras Datas)")
     with st.form("form_conta_pagar_completo", clear_on_submit=True):
       col_c1, col_c2 = st.columns(2)
@@ -1803,12 +1817,10 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
       if st.form_submit_button("Adicionar Conta(s) a Pagar", use_container_width=True):
         if nome_conta.strip() and val_conta > 0:
-          # Inserir data inicial
           c.execute(
               "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)",
               (venc.strftime("%Y-%m-%d"), str(nome_conta).strip(), val_conta, 0),
           )
-          # Inserir datas replicadas se houver
           for d_rep in replicar_datas_cp:
             c.execute(
                 "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)",
@@ -1887,7 +1899,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         c_val = row_cp["valor"]
         c_pago = row_cp["pago"]
 
-        col_row1, col_row2, col_row3, col_row4 = st.columns([1, 2, 2, 1])
+        col_row1, col_row2, col_row3, col_row4, col_row5 = st.columns([1, 2, 2, 1, 1])
         with col_row1:
           st.write(f"**ID:** {c_id}")
         with col_row2:
@@ -1911,9 +1923,15 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
               conn.commit()
               st.success(f"Conta '{c_desc}' marcada como pendente!")
               st.rerun()
+        with col_row5:
+          if st.button("Excluir 🗑️", key=f"btn_del_cp_{c_id}", use_container_width=True):
+            c.execute("DELETE FROM contas WHERE id = ?", (c_id,))
+            conn.commit()
+            st.success(f"Conta ID {c_id} excluída com sucesso!")
+            st.rerun()
       
       st.markdown("---")
-      id_del_cp = st.selectbox("Selecione o ID da conta a pagar para exclusão:", contas_filtradas["id"].tolist(), key="del_cp_sel")
+      id_del_cp = st.selectbox("Selecione o ID da conta a pagar para exclusão geral:", contas_filtradas["id"].tolist(), key="del_cp_sel")
       if st.button("Excluir Conta a Pagar Selecionada", use_container_width=True):
         c.execute("DELETE FROM contas WHERE id = ?", (id_del_cp,))
         conn.commit()
@@ -1922,7 +1940,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     else:
       st.info("Nenhuma conta a pagar encontrada.")
 
-  with aba_cr:
+  else:
     st.write("### ➕ Nova Conta a Receber (com Opção de Replicar para Outras Datas)")
     with st.form("form_conta_receber_completo", clear_on_submit=True):
       col_cr1, col_cr2 = st.columns(2)
@@ -2006,7 +2024,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         cr_val = row_cr["valor"]
         cr_recebido = row_cr["recebido"]
 
-        col_r1, col_r2, col_r3, col_r4 = st.columns([1, 2, 2, 1])
+        col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns([1, 2, 2, 1, 1])
         with col_r1:
           st.write(f"**ID:** {cr_id}")
         with col_r2:
@@ -2030,9 +2048,15 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
               conn.commit()
               st.success(f"Recebimento '{cr_desc}' marcado como pendente!")
               st.rerun()
+        with col_r5:
+          if st.button("Excluir 🗑️", key=f"btn_del_cr_{cr_id}", use_container_width=True):
+            c.execute("DELETE FROM contas_receber WHERE id = ?", (cr_id,))
+            conn.commit()
+            st.success(f"Conta a receber ID {cr_id} excluída com sucesso!")
+            st.rerun()
 
       st.markdown("---")
-      id_del_cr = st.selectbox("Selecione o ID da conta a receber para exclusão:", receber_filtradas["id"].tolist(), key="del_cr_sel")
+      id_del_cr = st.selectbox("Selecione o ID da conta a receber para exclusão geral:", receber_filtradas["id"].tolist(), key="del_cr_sel")
       if st.button("Excluir Conta a Receber Selecionada", use_container_width=True):
         c.execute("DELETE FROM contas_receber WHERE id = ?", (id_del_cr,))
         conn.commit()
@@ -2462,7 +2486,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 <h4 style="color: #EF9A9A; margin-top: 0;">🔴 Detalhamento Separado dos Descontos ({mes_ativo_ext})</h4>
                 <hr style="border-color: #C62828;">
                 <p><b>• INSS (Previdência Social):</b> R$ {inss_ativo:,.2f}</p>
-                <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:₂,2f}</p>
+                <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:,.2f}</p>
                 <p><b>• Desconto de Vale (Adiantamento):</b> R$ {vale_ativo:,.2f}</p>
                 <p><b>• Convênio / Farmácia / Outros:</b> R$ {max(0, desc_ativo - inss_ativo - irrf_ativo - vale_ativo):,.2f}</p>
                 <h3 style="color: #EF5350; margin-top: 15px;">Total Descontos: R$ {desc_ativo:,.2f}</h3>
