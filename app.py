@@ -116,12 +116,11 @@ if not st.session_state.autenticado:
   st.stop()
 
 # ==========================================
-# --- CONEXÃO E RECONHECIMENTO AUTOMÁTICO DO DB ---
+# --- CONEXÃO E MIGRAÇÃO AUTOMÁTICA DO DB ---
 # ==========================================
 conn = sqlite3.connect("gestor_financeiro.db", check_same_thread=False)
 c = conn.cursor()
 
-# Criação automática de todas as tabelas necessárias
 c.execute("""CREATE TABLE IF NOT EXISTS transacoes 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, tipo TEXT, descricao TEXT, categoria TEXT, valor REAL, origem TEXT)""")
 
@@ -146,7 +145,6 @@ c.execute("""CREATE TABLE IF NOT EXISTS cartao_credito
 c.execute("""CREATE TABLE IF NOT EXISTS holerites 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, mes_ano TEXT, salario_bruto REAL, total_descontos REAL, liquido REAL, inss REAL, irrf REAL, vale REAL)""")
 
-# Novas tabelas para Gestão de Veículos, Manutenções e Combustíveis
 c.execute("""CREATE TABLE IF NOT EXISTS veiculos 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, placa TEXT, modelo TEXT, ano TEXT, km_atual REAL)""")
 
@@ -156,12 +154,15 @@ c.execute("""CREATE TABLE IF NOT EXISTS manutencoes_veiculo
 c.execute("""CREATE TABLE IF NOT EXISTS consumo_combustivel 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, veiculo_id INTEGER, data TEXT, litros REAL, valor_total REAL, km_odometro REAL, consumo_medio REAL)""")
 
-# Garantia de colunas essenciais caso o banco já exista
+# Migração de segurança: Garante que transações antigas sem origem definida sejam tratadas como 'Manual'
 try:
   c.execute("ALTER TABLE transacoes ADD COLUMN origem TEXT")
   conn.commit()
 except:
   pass
+
+c.execute("UPDATE transacoes SET origem = 'Manual' WHERE origem IS NULL OR origem = ''")
+conn.commit()
 
 try:
   c.execute("ALTER TABLE holerites ADD COLUMN vale REAL")
@@ -749,7 +750,6 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
 
         if st.form_submit_button("Registrar Abastecimento & Calcular Consumo", use_container_width=True):
           v_id_c = veiculos_map[veic_comb]
-          # Tenta calcular o consumo médio com base no último abastecimento do veículo
           df_ant = pd.read_sql("SELECT km_odometro FROM consumo_combustivel WHERE veiculo_id = ? ORDER BY id DESC LIMIT 1", conn, params=(v_id_c,))
           consumo_medio = 0.0
           if not df_ant.empty:
@@ -789,7 +789,8 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
   st.subheader("📊 Executive Dashboard — Lançamentos Reais Manuais")
   st.write("Painel gerencial focado exclusivamente nos registros feitos de forma manual no sistema.")
 
-  df_all = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Manual' OR origem IS NULL", conn)
+  # Filtro estrito para buscar apenas transações com origem 'Manual'
+  df_all = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Manual'", conn)
   df_inv_dash = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
   df_cartao_dash = pd.read_sql("SELECT * FROM cartao_credito", conn)
   df_contas_dash = pd.read_sql("SELECT * FROM contas", conn)
@@ -942,7 +943,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
       df_area_pivot = df_empilhado.pivot_table(index="ano_mes", columns="Pilar", values="valor", aggfunc="sum").fillna(0)
       st.area_chart(df_area_pivot)
   else:
-    st.info("Nenhum lançamento manual registrado para exibir no dashboard.")
+    st.info("Nenhum lançamento manual registrado para exibir no dashboard. Utilize as abas de lançamento para adicionar dados.")
   botao_voltar()
 
 # ==========================================
@@ -1310,7 +1311,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
   st.subheader("📋 Acompanhamento Visual das Metas de Gastos")
   df_metas = pd.read_sql("SELECT * FROM metas", conn)
   df_trans_meta = pd.read_sql(
-      "SELECT * FROM transacoes WHERE tipo = 'Despesa'", conn
+      "SELECT * FROM transacoes WHERE tipo = 'Despesa' AND origem = 'Manual'", conn
   )
 
   if not df_metas.empty:
@@ -1416,7 +1417,7 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
       " poupança, disciplina e cumprimento de tetos."
   )
 
-  df_saude = pd.read_sql("SELECT * FROM transacoes", conn)
+  df_saude = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Manual'", conn)
   receitas_s = (
       df_saude[df_saude["tipo"] == "Receita"]["valor"].sum()
       if not df_saude.empty
@@ -1521,7 +1522,7 @@ elif st.session_state.pagina_atual == "💵 Fluxo de Caixa":
       " prever eventuais gargalos e saldo em tempo real."
   )
 
-  df_all_fluxo = pd.read_sql("SELECT * FROM transacoes", conn)
+  df_all_fluxo = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Manual'", conn)
   
   st.markdown("---")
   st.subheader("⚡ Previsão de Saldo Mínimo Diário & Alerta de Caixa Crítico")
@@ -1625,7 +1626,7 @@ elif st.session_state.pagina_atual == "🔮 Projeções Futuras":
       " meses."
   )
 
-  df_trans_proj = pd.read_sql("SELECT * FROM transacoes", conn)
+  df_trans_proj = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Manual'", conn)
   df_inv_proj = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
 
   patrimonio_inicial = 0.0
@@ -1986,19 +1987,19 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
     
     if transacoes_pdf_temp:
       df_pdf_temp = pd.DataFrame(transacoes_pdf_temp)
-      df_banco_atual = pd.read_sql("SELECT data, descricao, valor, tipo FROM transacoes", conn)
+      df_banco_atual = pd.read_sql("SELECT data, descricao, valor, tipo FROM transacoes WHERE origem = 'Manual'", conn)
       
       if not df_banco_atual.empty:
         merged_rec = pd.merge(df_pdf_temp, df_banco_atual, on=["data", "valor", tipo_trans := "tipo"], how="left", indicator=True)
         divergentes = merged_rec[merged_rec["_merge"] == "left_only"]
         
         if not divergentes.empty:
-          st.warning(f"⚠️ Atenção: Encontramos **{len(divergentes)}** transação(ões) no PDF do extrato que constam como divergentes ou ausentes nos lançamentos do sistema:")
+          st.warning(f"⚠️ Atenção: Encontramos **{len(divergentes)}** transação(ões) no PDF do extrato que constam como divergentes ou ausentes nos lançamentos manuais do sistema:")
           st.dataframe(divergentes[["data", "descricao_x", "valor", "tipo"]].rename(columns={"descricao_x": "Descrição no Extrato PDF"}), use_container_width=True)
         else:
-          st.success("✅ **Reconciliação Perfeita:** Todos os lançamentos do extrato PDF conferem com os registros salvos no sistema!")
+          st.success("✅ **Reconciliação Perfeita:** Todos os lançamentos do extrato PDF conferem com os registros manuais salvos no sistema!")
       else:
-        st.info("Cadastre transações no sistema para ativar o cruzamento da reconciliação com o PDF.")
+        st.info("Cadastre transações manuais no sistema para ativar o cruzamento da reconciliação com o PDF.")
     else:
       st.info("Nenhuma transação válida lida no PDF atual para reconciliação.")
   else:
