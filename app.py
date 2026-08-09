@@ -1477,7 +1477,7 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
   st.markdown("---")
 
   if st.session_state.aba_veiculos_ativa == "veiculos":
-    st.write("### 🚗 Cadastro de Veículos")
+    st.write("### 🚗 Cadastro & Edição de Veículos")
     with st.form("form_cadastrar_veiculo", clear_on_submit=True):
       col_ve1, col_ve2 = st.columns(2)
       with col_ve1:
@@ -1513,7 +1513,7 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
     st.markdown("---")
     df_veiculos_reg = pd.read_sql("SELECT * FROM veiculos", conn)
     if not df_veiculos_reg.empty:
-      st.write("### 📋 Veículos Cadastrados")
+      st.write("### 📋 Veículos Cadastrados (Gerenciamento & Edição)")
       st.dataframe(
           df_veiculos_reg.rename(
               columns={
@@ -1525,13 +1525,57 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
               }
           ),
           use_container_width=True,
+          hide_index=True,
       )
 
-      id_del_veiculo = st.selectbox(
-          "Selecione o ID do veículo para exclusão:",
-          df_veiculos_reg["id"].tolist(),
-          key="del_veiculo_sel",
-      )
+      col_ed_v1, col_ed_v2 = st.columns(2)
+      with col_ed_v1:
+        id_edit_veiculo = st.selectbox(
+            "Selecione o ID do veículo para EDITAR:",
+            df_veiculos_reg["id"].tolist(),
+            key="edit_veiculo_sel",
+        )
+      with col_ed_v2:
+        id_del_veiculo = st.selectbox(
+            "Selecione o ID do veículo para EXCLUIR:",
+            df_veiculos_reg["id"].tolist(),
+            key="del_veiculo_sel",
+        )
+
+      if id_edit_veiculo:
+        veic_atual_row = df_veiculos_reg[
+            df_veiculos_reg["id"] == id_edit_veiculo
+        ].iloc[0]
+        with st.form(f"form_editar_veiculo_{id_edit_veiculo}"):
+          st.write(f"**Editando Veículo ID {id_edit_veiculo}**")
+          nv_placa = st.text_input("Placa:", value=veic_atual_row["placa"])
+          nv_modelo = st.text_input("Modelo:", value=veic_atual_row["modelo"])
+          nv_ano = st.text_input("Ano:", value=veic_atual_row["ano"])
+          nv_km = st.number_input(
+              "Km Atual:",
+              min_value=0.0,
+              value=float(veic_atual_row["km_atual"]),
+              step=100.0,
+          )
+
+          if st.form_submit_button(
+              "Salvar Alterações do Veículo", use_container_width=True
+          ):
+            c.execute(
+                "UPDATE veiculos SET placa = ?, modelo = ?, ano = ?, km_atual ="
+                " ? WHERE id = ?",
+                (
+                    nv_placa.upper().strip(),
+                    nv_modelo.strip(),
+                    nv_ano.strip(),
+                    nv_km,
+                    id_edit_veiculo,
+                ),
+            )
+            conn.commit()
+            st.success("Veículo atualizado com sucesso!")
+            st.rerun()
+
       if st.button("Excluir Veículo Selecionado", use_container_width=True):
         c.execute("DELETE FROM veiculos WHERE id = ?", (id_del_veiculo,))
         conn.commit()
@@ -1788,13 +1832,15 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
       " manual no sistema."
   )
 
-  # Considera apenas lançamentos manuais (ignora upload do banco)
   df_all = pd.read_sql(
       (
           "SELECT * FROM transacoes WHERE origem = 'Manual' OR origem ="
           " 'Nota_Fiscal' OR origem = 'Voz_IA' OR origem = 'Chat_IA'"
       ),
       conn,
+  )
+  df_banco_dash = pd.read_sql(
+      "SELECT * FROM transacoes WHERE origem = 'Banco_PDF'", conn
   )
   df_inv_dash = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
   df_cartao_dash = pd.read_sql("SELECT * FROM cartao_credito", conn)
@@ -1847,6 +1893,20 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
   else:
     df = df_all.copy()
 
+  # Saldo real do banco (calculado dos PDFs importados)
+  saldo_real_banco_pdf = 0.0
+  if not df_banco_dash.empty:
+    df_banco_dash["valor"] = pd.to_numeric(
+        df_banco_dash["valor"], errors="coerce"
+    ).fillna(0)
+    rec_banco_tot = df_banco_dash[df_banco_dash["tipo"] == "Receita"][
+        "valor"
+    ].sum()
+    desp_banco_tot = df_banco_dash[df_banco_dash["tipo"] == "Despesa"][
+        "valor"
+    ].sum()
+    saldo_real_banco_pdf = rec_banco_tot - desp_banco_tot
+
   if not df_all.empty:
     df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
     receitas = df[df["tipo"] == "Receita"]["valor"].sum()
@@ -1887,7 +1947,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
       )
     with b3:
       st.markdown(
-          f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💳 SALDO LIVRE PÓS-CONTAS</span><h3 style="color: #f59e0b; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_livre_pos_compromissos:,.2f}</h3></div>""",
+          f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🏦 SALDO REAL NO BANCO (PDF)</span><h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_real_banco_pdf:,.2f}</h3></div>""",
           unsafe_allow_html=True,
       )
     with b4:
@@ -2143,19 +2203,41 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
     desp_b = df_b[df_b["tipo"] == "Despesa"]["valor"].sum()
     saldo_b = rec_b - desp_b
 
+    # Saldo real acumulado total de todos os PDFs do banco
+    df_banco_all["valor"] = pd.to_numeric(
+        df_banco_all["valor"], errors="coerce"
+    ).fillna(0)
+    total_geral_rec_banco = df_banco_all[df_banco_all["tipo"] == "Receita"][
+        "valor"
+    ].sum()
+    total_geral_desp_banco = df_banco_all[df_banco_all["tipo"] == "Despesa"][
+        "valor"
+    ].sum()
+    saldo_real_total_banco = total_geral_rec_banco - total_geral_desp_banco
+
     st.markdown("### 📊 Indicadores Consolidados do Extrato Bancário")
-    cb1, cb2, cb3 = st.columns(3)
+    cb1, cb2, cb3, cb4 = st.columns(4)
     with cb1:
       st.markdown(
           f"""
           <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💰 SALDO LÍQUIDO DO EXTRATO</span>
-              <h3 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 20px;">R$ {saldo_b:,.2f}</h3>
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🏦 SALDO REAL TOTAL DO BANCO</span>
+              <h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 20px;">R$ {saldo_real_total_banco:,.2f}</h3>
           </div>
           """,
           unsafe_allow_html=True,
       )
     with cb2:
+      st.markdown(
+          f"""
+          <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💰 SALDO LÍQUIDO DO MÊS</span>
+              <h3 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 20px;">R$ {saldo_b:,.2f}</h3>
+          </div>
+          """,
+          unsafe_allow_html=True,
+      )
+    with cb3:
       st.markdown(
           f"""
           <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
@@ -2165,7 +2247,7 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
           """,
           unsafe_allow_html=True,
       )
-    with cb3:
+    with cb4:
       st.markdown(
           f"""
           <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
@@ -2469,7 +2551,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
         else pd.DataFrame()
     )
 
-  # Separação estrita: Manuais (EXCLUINDO Banco_PDF completamente da previsão geral)
+  # Separação estrita: Manuais (EXCLUINDO Banco_PDF completamente)
   f_trans_manuais = (
       f_trans[f_trans["origem"] != "Banco_PDF"]
       if not f_trans.empty
@@ -2493,6 +2575,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
       else 0.0
   )
 
+  # Agora as ENTRADAS incluem Entradas Manuais + Contas a Receber para não zerar as entradas na previsão!
   total_entradas_previstas = entradas_manuais + total_contas_receber
   total_saidas_previstas = total_faturas + total_contas_pagar + saidas_manuais
   saldo_projetado = total_entradas_previstas - total_saidas_previstas
@@ -2536,6 +2619,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
       <div class="group-card">
           <h4 style="color: #60a5fa; margin-top: 0;">💼 Lançamentos Manuais & Previstos</h4>
           <p><b>🟢 Entradas Manuais:</b> R$ {entradas_manuais:,.2f}</p>
+          <p><b>📈 Contas a Receber:</b> R$ {total_contas_receber:,.2f}</p>
           <p><b>🔴 Saídas Manuais:</b> R$ {saidas_manuais:,.2f}</p>
           <p><b>📅 Contas a Pagar:</b> R$ {total_contas_pagar:,.2f}</p>
           <p><b>💳 Faturas de Cartão:</b> R$ {total_faturas:,.2f}</p>
@@ -3505,7 +3589,8 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
   st.markdown("---")
 
-  st.markdown("##### 🗓️ Seleção de Data no Calendário Interativo")
+  # --- AJUSTE SOLICITADO: PERÍODO DO CALENDÁRIO VINDO ANTES DE ADICIONAR A CONTA ---
+  st.markdown("##### 🗓️ Seleção de Data no Calendário Interativo & Período")
   data_calendario_topo = st.date_input(
       "Selecionar Data de Referência (DD/MM/AAAA):",
       value=st.session_state.data_calendario_ref,
@@ -4738,7 +4823,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         f"""
         <div style="background: rgba(25, 29, 38, 0.85); padding: 20px; border-radius: 14px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
             <h4 style="color: #94a3b8; margin: 0; font-size: 13px; font-weight: 600;">💵 RECEITA LÍQUIDA ({mes_ativo_ext})</h4>
-            <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {liquido_ativo:,.2f}</h4>
+            <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {liquido_ativo:,.2f}</h2>
         </div>
         """,
         unsafe_allow_html=True,
@@ -4755,7 +4840,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         "vale",
         "total_descontos",
         "liquido",
-        _ := "inss",
+        "inss",
         "irrf",
     ]].copy()
 
