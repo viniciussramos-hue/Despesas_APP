@@ -1781,7 +1781,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
         unsafe_allow_html=True,
     )
 
-  # NOVA TABELA SOLICITADA: DETALHAMENTO DOS GASTOS PREVISTOS DENTRO DO MÊS
+  # TABELA DE DETALHAMENTO DOS GASTOS PREVISTOS DENTRO DO MÊS
   st.markdown("---")
   st.subheader(f"📋 Tabela Detalhada dos Gastos Previstos ({nome_mes_exib} de {ano_ativo})")
   
@@ -2567,12 +2567,12 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   if st.session_state.aba_contas_ativa == "pagar":
     st.subheader("➕ Nova Conta a Pagar (com Opção de Recorrência Mensal, Semanal ou Replicar datas)")
     
-    # ATALHOS / BOTÕES DE SELEÇÃO RÁPIDA DE DATA SOLICITADOS
-    st.markdown("<span style='font-size:12px; color:#94a3b8; font-weight:600;'>⚡ Atalhos de Seleção Rápida de Vencimento:</span>", unsafe_allow_html=True)
-    col_at1, col_at2, col_at3, col_at4, col_at5 = st.columns(5)
-    
+    # INICIALIZAÇÃO CORRETA DA DATA NO SESSION STATE PARA OS BOTÕES DE ATALHO E O DATE_INPUT
     if "venc_cp_state" not in st.session_state:
       st.session_state.venc_cp_state = date.today()
+
+    st.markdown("<span style='font-size:12px; color:#94a3b8; font-weight:600;'>⚡ Atalhos de Seleção Rápida de Vencimento:</span>", unsafe_allow_html=True)
+    col_at1, col_at2, col_at3, col_at4, col_at5 = st.columns(5)
 
     with col_at1:
       if st.button("Hoje", use_container_width=True):
@@ -2606,7 +2606,8 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     with st.form("form_conta_pagar_completo", clear_on_submit=True):
       col_c1, col_c2 = st.columns(2)
       with col_c1:
-        venc = st.date_input("Data de Vencimento Inicial (DD/MM/AAAA)", value=st.session_state.venc_cp_state, key="venc_cp", format="DD/MM/YYYY")
+        # CONECTADO DIRETAMENTE AO ST.SESSION_STATE PARA RESPEITAR OS ATALHOS OU A DATA ESCOLHIDA
+        venc = st.date_input("Data de Vencimento Inicial (DD/MM/AAAA)", value=st.session_state.venc_cp_state, key="venc_cp_input_field", format="DD/MM/YYYY")
         nome_conta = st.text_input(
             "Nome / Descrição da Conta (Ex: Conta de Luz, Aluguel)"
         )
@@ -2637,11 +2638,26 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             for i in range(1, 5):
               datas_para_inserir.append(venc + timedelta(weeks=i))
           elif tipo_recorrencia == "Recorrência Mensal (próximos 12 meses)":
+            # LÓGICA CORRIGIDA: SOMA OS MESES CORRETAMENTE A PARTIR DA DATA DE VENCIMENTO INICIAL ESCOLHIDA
+            dia_original = venc.day
             for i in range(1, 13):
-              ano_m = venc.year + (venc.month - 1 + i) // 12
-              mes_m = (venc.month - 1 + i) % 12 + 1
-              dia_m = min(venc.day, 28)
-              datas_para_inserir.append(date(ano_m, mes_m, dia_m))
+              novo_mes = venc.month + i
+              novo_ano = venc.year + (novo_mes - 1) // 12
+              novo_mes = (novo_mes - 1) % 12 + 1
+              
+              # Tratamento robusto para meses com menos dias (ex: 31 para fevereiro/abril)
+              if novo_mes in [4, 6, 9, 11] and dia_original > 30:
+                dia_ajustado = 30
+              elif novo_mes == 2:
+                # Ano bissexto check simples
+                bissexto = (novo_ano % 4 == 0 and novo_ano % 100 != 0) or (novo_ano % 400 == 0)
+                max_fevereiro = 29 if bissexto else 28
+                dia_ajustado = min(dia_original, max_fevereiro)
+              else:
+                dia_ajustado = min(dia_original, 31)
+
+              datas_para_inserir.append(date(novo_ano, novo_mes, dia_ajustado))
+
           elif tipo_recorrencia == "Replicar datas específicas customizadas":
             for d_rep in replicar_datas_cp:
               if d_rep not in datas_para_inserir:
@@ -2819,11 +2835,23 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             for i in range(1, 5):
               datas_para_inserir_r.append(venc_r + timedelta(weeks=i))
           elif tipo_recorrencia_r == "Recorrência Mensal (próximos 12 meses)":
+            dia_original_r = venc_r.day
             for i in range(1, 13):
-              ano_m = venc_r.year + (venc_r.month - 1 + i) // 12
-              mes_m = (venc_r.month - 1 + i) % 12 + 1
-              dia_m = min(venc_r.day, 28)
-              datas_para_inserir_r.append(date(ano_m, mes_m, dia_m))
+              novo_mes_r = venc_r.month + i
+              novo_ano_r = venc_r.year + (novo_mes_r - 1) // 12
+              novo_mes_r = (novo_mes_r - 1) % 12 + 1
+              
+              if novo_mes_r in [4, 6, 9, 11] and dia_original_r > 30:
+                dia_ajustado_r = 30
+              elif novo_mes_r == 2:
+                bissexto_r = (novo_ano_r % 4 == 0 and novo_ano_r % 100 != 0) or (novo_ano_r % 400 == 0)
+                max_fevereiro_r = 29 if bissexto_r else 28
+                dia_ajustado_r = min(dia_original_r, max_fevereiro_r)
+              else:
+                dia_ajustado_r = min(dia_original_r, 31)
+
+              datas_para_inserir_r.append(date(novo_ano_r, novo_mes_r, dia_ajustado_r))
+
           elif tipo_recorrencia_r == "Replicar datas específicas customizadas":
             for d_rep_r in replicar_datas_cr:
               if d_rep_r not in datas_para_inserir_r:
