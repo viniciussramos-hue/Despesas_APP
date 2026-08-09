@@ -2270,7 +2270,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
         )
         st.dataframe(df_resumo, use_container_width=True)
 
-    # --- NOVO GRÁFICO POR DESCRIÇÃO (PET, MERCADO, LAZER, ETC.) ---
+    # --- GRÁFICO POR DESCRIÇÃO (PET, MERCADO, LAZER, ETC.) ---
     st.markdown("---")
     st.subheader("🏷️ Distribuição de Despesas Manuais por Descrição Específica")
     if not df_desp.empty:
@@ -2362,7 +2362,6 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
       desp_b = 0.0
       saldo_b = 0.0
 
-    # Saldo real total do banco (cadastrado manualmente ou via PDF)
     saldo_real_total_banco = 0.0
     limite_utilizado_val = 0.0
     limite_disponivel_val = 0.0
@@ -2387,7 +2386,6 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
 
     st.markdown("### 📊 Indicadores Consolidados do Extrato Bancário & Saldo Real")
     
-    # --- QUADRO DE ACOMPANHAMENTO DO SALDO REAL DO BANCO SOLICITADO ---
     st.markdown(
         f"""
         <div style="background: rgba(34, 197, 94, 0.06); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
@@ -2486,7 +2484,7 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
         )
         st.dataframe(df_res_b, use_container_width=True)
 
-    # --- NOVO GRÁFICO POR DESCRIÇÃO NO DASHBOARD DO BANCO ---
+    # --- GRÁFICO POR DESCRIÇÃO NO DASHBOARD DO BANCO ---
     st.markdown("---")
     st.subheader("🏷️ Distribuição de Gastos do Extrato por Descrição Específica")
     if not df_desp_banco.empty:
@@ -2757,7 +2755,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
         else pd.DataFrame()
     )
 
-  # Separação estrita: Manuais (EXCLUINDO Banco_PDF completamente)
   f_trans_manuais = (
       f_trans[f_trans["origem"] != "Banco_PDF"]
       if not f_trans.empty
@@ -2781,7 +2778,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
       else 0.0
   )
 
-  # Agora as ENTRADAS incluem Entradas Manuais + Contas a Receber para não zerar as entradas na previsão!
   total_entradas_previstas = entradas_manuais + total_contas_receber
   total_saidas_previstas = total_faturas + total_contas_pagar + saidas_manuais
   saldo_projetado = total_entradas_previstas - total_saidas_previstas
@@ -2879,7 +2875,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   lista_gastos_previstos_detalhe = []
   
-  # --- ADIÇÃO DAS CONTAS A RECEBER NA TABELA DE PREVISÃO ---
   if not f_receber.empty:
     for _, rcr in f_receber.iterrows():
       lista_gastos_previstos_detalhe.append({
@@ -3769,15 +3764,11 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
 elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   botao_voltar()
 
-  # --- CRITÉRIO DE ATUALIZAÇÃO AUTOMÁTICA CONFORME O DIA PASSA ---
   hoje_atual = date.today()
   if "data_calendario_ref" not in st.session_state or not isinstance(
       st.session_state.data_calendario_ref, (date, datetime)
   ):
     st.session_state.data_calendario_ref = hoje_atual
-  else:
-    # Se o dia passou, garante que acompanha a data atual se necessário
-    pass
 
   st.subheader("📅 Contas a Pagar & Receber / Gestão de Pagamentos")
   st.write(
@@ -3816,7 +3807,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
   st.markdown("---")
 
-  # --- AJUSTE SOLICITADO: PERÍODO DO CALENDÁRIO VINDO ANTES DE ADICIONAR A CONTA ---
   st.markdown("##### 🗓️ Seleção de Data no Calendário Interativo & Período")
   data_calendario_topo = st.date_input(
       "Selecionar Data de Referência (DD/MM/AAAA):",
@@ -4023,20 +4013,27 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
           key="busca_contas_input",
       )
     with col_fil_agenda_cp:
-      usar_filtro_agenda_cp = st.checkbox(
-          "Filtrar visualização pela data selecionada no calendário do topo",
+      # Otimização padrão para mostrar apenas o mês vigente por padrão, com checkbox para exibir tudo se desejar
+      mostrar_tudo_cp = st.checkbox(
+          "Exibir todas as datas (desmarcado mostra apenas o mês vigente)",
           value=False,
+          key="chk_mostrar_tudo_cp",
       )
 
     df_contas_all = pd.read_sql("SELECT * FROM contas", conn)
 
     if not df_contas_all.empty:
-      if usar_filtro_agenda_cp:
-        df_contas_all["venc_dt_cmp"] = pd.to_datetime(
-            df_contas_all["vencimento"]
-        ).dt.date
+      df_contas_all["venc_dt_cmp"] = pd.to_datetime(
+          df_contas_all["vencimento"]
+      ).dt.date
+
+      # Filtragem por mês vigente por padrão (ano e mês da data selecionada no topo)
+      if not mostrar_tudo_cp:
+        ano_vig = st.session_state.data_calendario_ref.year
+        mes_vig = st.session_state.data_calendario_ref.month
         df_contas_all = df_contas_all[
-            df_contas_all["venc_dt_cmp"] == st.session_state.data_calendario_ref
+            (pd.to_datetime(df_contas_all["vencimento"]).dt.year == ano_vig)
+            & (pd.to_datetime(df_contas_all["vencimento"]).dt.month == mes_vig)
         ]
 
       if termo_busca_contas.strip():
@@ -4059,7 +4056,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
       contas_filtradas = df_contas_all
 
     if not contas_filtradas.empty:
-      st.write("### 📋 Lista de Contas a Pagar")
+      st.write("### 📋 Lista de Contas a Pagar (Mês Vigente)")
       for _, row_cp in contas_filtradas.iterrows():
         c_id = row_cp["id"]
         c_venc = formatar_data_ptbr(row_cp["vencimento"])
@@ -4181,7 +4178,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         st.success("Conta a pagar removida com sucesso!")
         st.rerun()
     else:
-      st.info("Nenhuma conta a pagar encontrada.")
+      st.info("Nenhuma conta a pagar encontrada para o mês vigente.")
 
   else:
     st.subheader(
@@ -4306,21 +4303,25 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
           key="busca_receber_input",
       )
     with col_fil_agenda_cr:
-      usar_filtro_agenda_cr = st.checkbox(
-          "Filtrar visualização pela data selecionada no calendário do topo",
+      mostrar_tudo_cr = st.checkbox(
+          "Exibir todas as datas (desmarcado mostra apenas o mês vigente)",
           value=False,
-          key="chk_agenda_cr",
+          key="chk_mostrar_tudo_cr",
       )
 
     df_receber_all = pd.read_sql("SELECT * FROM contas_receber", conn)
 
     if not df_receber_all.empty:
-      if usar_filtro_agenda_cr:
-        df_receber_all["venc_dt_cmp"] = pd.to_datetime(
-            df_receber_all["vencimento"]
-        ).dt.date
+      df_receber_all["venc_dt_cmp"] = pd.to_datetime(
+          df_receber_all["vencimento"]
+      ).dt.date
+
+      if not mostrar_tudo_cr:
+        ano_vig_r = st.session_state.data_calendario_ref.year
+        mes_vig_r = st.session_state.data_calendario_ref.month
         df_receber_all = df_receber_all[
-            df_receber_all["venc_dt_cmp"] == st.session_state.data_calendario_ref
+            (pd.to_datetime(df_receber_all["vencimento"]).dt.year == ano_vig_r)
+            & (pd.to_datetime(df_receber_all["vencimento"]).dt.month == mes_vig_r)
         ]
 
       if termo_busca_receber.strip():
@@ -4343,7 +4344,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
       receber_filtradas = df_receber_all
 
     if not receber_filtradas.empty:
-      st.write("### 📋 Lista de Contas a Receber")
+      st.write("### 📋 Lista de Contas a Receber (Mês Vigente)")
       for _, row_cr in receber_filtradas.iterrows():
         cr_id = row_cr["id"]
         cr_venc = formatar_data_ptbr(row_cr["vencimento"])
@@ -4474,7 +4475,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         st.success("Conta a receber removida com sucesso!")
         st.rerun()
     else:
-      st.info("Nenhuma conta a receber encontrada.")
+      st.info("Nenhuma conta a receber encontrada para o mês vigente.")
 
 # ==========================================
 # --- SEÇÃO 11: EXTRATO & BACKUP ---
