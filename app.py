@@ -15,8 +15,8 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
- VERSAO_SISTEMA = "v2.5.0"
- DATA_ATUALIZACAO = "09/08/2026"
+VERSAO_SISTEMA = "v2.5.1"
+DATA_ATUALIZACAO = "09/08/2026"
 
 st.markdown(
     """
@@ -476,28 +476,34 @@ with st.sidebar:
     st.rerun()
 
   st.markdown("---")
-  st.markdown("### 🧮 Calculadora Regra 50/30/20")
-  renda_calc_input = st.number_input(
-      "Renda Mensal Líquida (R$):",
-      min_value=0.0,
-      value=5000.0,
-      step=100.0,
-      format="%.2f",
-      key="calc_renda_sidebar",
-  )
-  calc_nec = renda_calc_input * 0.50
-  calc_des = renda_calc_input * 0.30
-  calc_inv = renda_calc_input * 0.20
-  st.markdown(
-      f"""
-      <div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; font-size: 13px;">
-          <p style="margin: 0 0 6px 0; color: #4ade80;"><b>50% Necessidades:</b> R$ {calc_nec:,.2f}</p>
-          <p style="margin: 0 0 6px 0; color: #60a5fa;"><b>30% Desejos:</b> R$ {calc_des:,.2f}</p>
-          <p style="margin: 0; color: #f59e0b;"><b>20% Investimentos:</b> R$ {calc_inv:,.2f}</p>
-      </div>
-      """,
-      unsafe_allow_html=True,
-  )
+  
+  # --- CALCULADORA REGRA 50/30/20 (MINIMIZADA EM EXPANDER COM BOTÃO DE CÁLCULO) ---
+  with st.expander("🧮 Calculadora Regra 50/30/20", expanded=False):
+    with st.form("form_calc_sidebar"):
+      renda_calc_input = st.number_input(
+          "Renda Mensal Líquida (R$):",
+          min_value=0.0,
+          value=5000.0,
+          step=100.0,
+          format="%.2f",
+          key="calc_renda_sidebar",
+      )
+      btn_calcular = st.form_submit_button("Calcular", use_container_width=True)
+
+    if btn_calcular:
+      calc_nec = renda_calc_input * 0.50
+      calc_des = renda_calc_input * 0.30
+      calc_inv = renda_calc_input * 0.20
+      st.markdown(
+          f"""
+          <div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; font-size: 13px; margin-top: 8px;">
+              <p style="margin: 0 0 6px 0; color: #4ade80;"><b>50% Necessidades:</b> R$ {calc_nec:,.2f}</p>
+              <p style="margin: 0 0 6px 0; color: #60a5fa;"><b>30% Desejos:</b> R$ {calc_des:,.2f}</p>
+              <p style="margin: 0; color: #f59e0b;"><b>20% Investimentos:</b> R$ {calc_inv:,.2f}</p>
+          </div>
+          """,
+          unsafe_allow_html=True,
+      )
 
   st.markdown("---")
   if st.button("🔒 Bloquear / Sair do Sistema", use_container_width=True):
