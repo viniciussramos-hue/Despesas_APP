@@ -271,9 +271,20 @@ def categorizar_automaticamente(descricao, tipo):
             "PAPEL",
             "BUDWEISER",
             "CERV",
+            "MERCADO",
         ]
     ):
       return "🛒 Supermercado (Necessidade)"
+    elif any(
+        x in desc_upper
+        for x in ["PET", "PETSHOP", "CACHORRO", "GATO", "VET", "RACAO"]
+    ):
+      return "🐾 Pet"
+    elif any(
+        x in desc_upper
+        for x in ["LAZER", "CINEMA", "VIAGEM", "PASSEIO", "JOGO", "FESTA"]
+    ):
+      return "🎉 Lazer & Entretenimento"
     elif any(
         x in desc_upper
         for x in [
@@ -461,6 +472,30 @@ with st.sidebar:
     st.rerun()
 
   st.markdown("---")
+  st.markdown("### 🧮 Calculadora Regra 50/30/20")
+  renda_calc_input = st.number_input(
+      "Renda Mensal Líquida (R$):",
+      min_value=0.0,
+      value=5000.0,
+      step=100.0,
+      format="%.2f",
+      key="calc_renda_sidebar",
+  )
+  calc_nec = renda_calc_input * 0.50
+  calc_des = renda_calc_input * 0.30
+  calc_inv = renda_calc_input * 0.20
+  st.markdown(
+      f"""
+      <div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; font-size: 13px;">
+          <p style="margin: 0 0 6px 0; color: #4ade80;"><b>50% Necessidades:</b> R$ {calc_nec:,.2f}</p>
+          <p style="margin: 0 0 6px 0; color: #60a5fa;"><b>30% Desejos:</b> R$ {calc_des:,.2f}</p>
+          <p style="margin: 0; color: #f59e0b;"><b>20% Investimentos:</b> R$ {calc_inv:,.2f}</p>
+      </div>
+      """,
+      unsafe_allow_html=True,
+  )
+
+  st.markdown("---")
   if st.button("🔒 Bloquear / Sair do Sistema", use_container_width=True):
     st.session_state.autenticado = False
     st.rerun()
@@ -494,6 +529,66 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
     """,
       unsafe_allow_html=True,
   )
+
+  # --- ALERTA DE CONTAS PRÓXIMAS AO VENCIMENTO NA PÁGINA INICIAL ---
+  try:
+    hoje_alerta = date.today()
+    daqui_5_dias = hoje_alerta + timedelta(days=5)
+    df_cp_alerta = pd.read_sql(
+        "SELECT * FROM contas WHERE pago = 0", conn
+    )
+    df_cr_alerta = pd.read_sql(
+        "SELECT * FROM contas_receber WHERE recebido = 0", conn
+    )
+
+    contas_proximas = []
+    if not df_cp_alerta.empty:
+      for _, cp in df_cp_alerta.iterrows():
+        try:
+          v_dt = datetime.strptime(str(cp["vencimento"])[:10], "%Y-%m-%d").date()
+          if hoje_alerta <= v_dt <= daqui_5_dias:
+            contas_proximas.append({
+                "tipo": "Conta a Pagar",
+                "desc": cp["descricao"],
+                "val": cp["valor"],
+                "data": v_dt,
+            })
+        except:
+          pass
+
+    if not df_cr_alerta.empty:
+      for _, cr in df_cr_alerta.iterrows():
+        try:
+          v_dt = datetime.strptime(str(cr["vencimento"])[:10], "%Y-%m-%d").date()
+          if hoje_alerta <= v_dt <= daqui_5_dias:
+            contas_proximas.append({
+                "tipo": "Conta a Receber",
+                "desc": cr["descricao"],
+                "val": cr["valor"],
+                "data": v_dt,
+            })
+        except:
+          pass
+
+    if contas_proximas:
+      st.markdown(
+          """
+          <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 18px; margin-bottom: 22px;">
+              <h4 style="color: #f59e0b; margin-top: 0; display: flex; align-items: center; gap: 8px;">🔔 Alerta: Contas Próximas ao Vencimento (Próximos 5 Dias)</h4>
+          """,
+          unsafe_allow_html=True,
+      )
+      for cp_prox in contas_proximas:
+        cor_badge = (
+            "#ef4444" if cp_prox["tipo"] == "Conta a Pagar" else "#22c55e"
+        )
+        st.markdown(
+            f"""<p style="margin: 4px 0; color: #f8fafc; font-size: 14px;">• <span style="color: {cor_badge}; font-weight: 600;">{cp_prox['tipo']}</span>: <b>{cp_prox['desc']}</b> no valor de <b>R$ {cp_prox['val']:,.2f}</b> com vencimento em <b>{cp_prox['data'].strftime('%d/%m/%Y')}</b></p>""",
+            unsafe_allow_html=True,
+        )
+      st.markdown("</div>", unsafe_allow_html=True)
+  except Exception as e:
+    pass
 
   # Grupo 1: Painel de Gestão Diária
   st.markdown(
@@ -613,6 +708,8 @@ elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
   cats_padrao = [
       "🏠 Contas Fixas (Necessidade)",
       "🛒 Supermercado (Necessidade)",
+      "🐾 Pet",
+      "🎉 Lazer & Entretenimento",
       "🚗 Transporte (Necessidade)",
       "💊 Saúde (Necessidade)",
       "🍔 Lazer & Alimentação Fora (Desejos)",
@@ -630,7 +727,7 @@ elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
     col_d1, col_d2 = st.columns(2)
     with col_d1:
       desc = st.text_input(
-          "Descrição do Gasto (Ex: Supermercado Shibata, Aluguel)"
+          "Descrição do Gasto (Ex: Supermercado Shibata, Petshop, Aluguel)"
       )
       valor = st.number_input(
           "Valor da Despesa (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f"
@@ -2050,7 +2147,8 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
         unsafe_allow_html=True,
     )
 
-    st.markdown("### 🚨 Top 3 Maiores Vilões Manuais do Mês")
+    st.markdown("---")
+    st.subheader("🚨 Top 3 Maiores Vilões Manuais do Mês")
     df_desp_mes = df[df["tipo"] == "Despesa"].copy()
     if not df_desp_mes.empty:
       top_viloes = df_desp_mes.sort_values(by="valor", ascending=False).head(3)
@@ -2172,6 +2270,24 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
         )
         st.dataframe(df_resumo, use_container_width=True)
 
+    # --- NOVO GRÁFICO POR DESCRIÇÃO (PET, MERCADO, LAZER, ETC.) ---
+    st.markdown("---")
+    st.subheader("🏷️ Distribuição de Despesas Manuais por Descrição Específica")
+    if not df_desp.empty:
+      gasto_desc = df_desp.groupby("descricao")["valor"].sum().sort_values(ascending=False)
+      col_gd1, col_gd2 = st.columns(2)
+      with col_gd1:
+        st.bar_chart(gasto_desc)
+      with col_gd2:
+        df_resumo_desc = (
+            gasto_desc.reset_index()
+            .rename(columns={"descricao": "Descrição", "valor": "Total Gasto (R$)"})
+        )
+        df_resumo_desc["Total Gasto (R$)"] = df_resumo_desc["Total Gasto (R$)"].apply(
+            lambda x: f"R$ {x:,.2f}"
+        )
+        st.dataframe(df_resumo_desc, use_container_width=True)
+
     st.markdown("---")
     st.subheader("📊 Gráfico de Área Empilhada: Dinâmica 50/30/20 (Manual)")
     df_empilhado = df_all[df_all["tipo"] == "Despesa"].copy()
@@ -2184,6 +2300,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
             or "Contas Fixas" in str(cat)
             or "Transporte" in str(cat)
             or "Saúde" in str(cat)
+            or "Pet" in str(cat)
         ):
           return "Necessidades (50%)"
         elif "Desejos" in str(cat) or "Lazer" in str(cat):
@@ -2368,6 +2485,24 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
             lambda x: f"R$ {x:,.2f}"
         )
         st.dataframe(df_res_b, use_container_width=True)
+
+    # --- NOVO GRÁFICO POR DESCRIÇÃO NO DASHBOARD DO BANCO ---
+    st.markdown("---")
+    st.subheader("🏷️ Distribuição de Gastos do Extrato por Descrição Específica")
+    if not df_desp_banco.empty:
+      gasto_desc_b = df_desp_banco.groupby("descricao")["valor"].sum().sort_values(ascending=False)
+      col_gdb1, col_gdb2 = st.columns(2)
+      with col_gdb1:
+        st.bar_chart(gasto_desc_b)
+      with col_gdb2:
+        df_res_desc_b = (
+            gasto_desc_b.reset_index()
+            .rename(columns={"descricao": "Descrição", "valor": "Total (R$)"})
+        )
+        df_res_desc_b["Total (R$)"] = df_res_desc_b["Total (R$)"].apply(
+            lambda x: f"R$ {x:,.2f}"
+        )
+        st.dataframe(df_res_desc_b, use_container_width=True)
 
     if not df_b.empty:
       st.markdown("---")
@@ -2841,6 +2976,8 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
         [
             "🛒 Supermercado (Necessidade)",
             "🏠 Contas Fixas (Necessidade)",
+            "🐾 Pet",
+            "🎉 Lazer & Entretenimento",
             "🚗 Transporte (Necessidade)",
             "💊 Saúde (Necessidade)",
             "🍔 Lazer & Alimentação Fora (Desejos)",
@@ -3145,6 +3282,8 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
   cats_padrao_meta = [
       "🏠 Contas Fixas (Necessidade)",
       "🛒 Supermercado (Necessidade)",
+      "🐾 Pet",
+      "🎉 Lazer & Entretenimento",
       "🚗 Transporte (Necessidade)",
       "💊 Saúde (Necessidade)",
       "🍔 Lazer & Alimentação Fora (Desejos)",
@@ -3630,10 +3769,15 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
 elif st.session_state.pagina_atual == "📅 Contas a Pagar":
   botao_voltar()
 
+  # --- CRITÉRIO DE ATUALIZAÇÃO AUTOMÁTICA CONFORME O DIA PASSA ---
+  hoje_atual = date.today()
   if "data_calendario_ref" not in st.session_state or not isinstance(
       st.session_state.data_calendario_ref, (date, datetime)
   ):
-    st.session_state.data_calendario_ref = date.today()
+    st.session_state.data_calendario_ref = hoje_atual
+  else:
+    # Se o dia passou, garante que acompanha a data atual se necessário
+    pass
 
   st.subheader("📅 Contas a Pagar & Receber / Gestão de Pagamentos")
   st.write(
@@ -3736,7 +3880,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     )
 
     if "venc_cp_state" not in st.session_state:
-      st.session_state.venc_cp_state = date.today()
+      st.session_state.venc_cp_state = hoje_atual
 
     with st.form("form_conta_pagar_completo", clear_on_submit=True):
       col_c1, col_c2 = st.columns(2)
@@ -3773,7 +3917,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         if tipo_recorrencia == "Replicar datas específicas customizadas":
           replicar_datas_cp = st.multiselect(
               "Selecione as datas adicionais de vencimento:",
-              options=[date.today() + timedelta(days=d) for d in range(1, 365)],
+              options=[hoje_atual + timedelta(days=d) for d in range(1, 365)],
               format_func=lambda x: x.strftime("%d/%m/%Y"),
               key="rep_datas_cp",
           )
@@ -3844,13 +3988,12 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
     df_contas_alerta = pd.read_sql("SELECT * FROM contas WHERE pago = 0", conn)
     if not df_contas_alerta.empty:
-      hoje = date.today()
       df_contas_alerta["venc_dt"] = pd.to_datetime(
           df_contas_alerta["vencimento"]
       ).dt.date
 
-      vencidas = df_contas_alerta[df_contas_alerta["venc_dt"] < hoje]
-      vencem_hoje = df_contas_alerta[df_contas_alerta["venc_dt"] == hoje]
+      vencidas = df_contas_alerta[df_contas_alerta["venc_dt"] < hoje_atual]
+      vencem_hoje = df_contas_alerta[df_contas_alerta["venc_dt"] == hoje_atual]
 
       if not vencidas.empty or not vencem_hoje.empty:
         st.markdown("### 🚨 Alertas de Vencimento (Pagar)")
@@ -3865,7 +4008,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
           for _, r_hoje in vencem_hoje.iterrows():
             st.warning(
                 f"🔔 **Vence Hoje:** '{r_hoje['descricao']}' vence **hoje**"
-                f" ({hoje.strftime('%d/%m/%Y')}) no valor de **R$"
+                f" ({hoje_atual.strftime('%d/%m/%Y')}) no valor de **R$"
                 f" {r_hoje['valor']:,.2f}**!"
             )
         st.markdown("---")
@@ -3946,7 +4089,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                   "INSERT INTO transacoes (data, tipo, descricao, categoria,"
                   " valor, origem) VALUES (?,?,?,?,?,?)",
                   (
-                      date.today().strftime("%Y-%m-%d"),
+                      hoje_atual.strftime("%Y-%m-%d"),
                       "Despesa",
                       f"Pgto: {c_desc}",
                       "🏠 Contas Fixas (Necessidade)",
@@ -4050,7 +4193,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
       with col_cr1:
         venc_r = st.date_input(
             "Data de Vencimento / Recebimento Inicial (DD/MM/AAAA)",
-            value=date.today(),
+            value=hoje_atual,
             key="venc_cr",
             format="DD/MM/YYYY",
         )
@@ -4080,7 +4223,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         if tipo_recorrencia_r == "Replicar datas específicas customizadas":
           replicar_datas_cr = st.multiselect(
               "Selecione as datas adicionais de vencimento:",
-              options=[date.today() + timedelta(days=d) for d in range(1, 365)],
+              options=[hoje_atual + timedelta(days=d) for d in range(1, 365)],
               format_func=lambda x: x.strftime("%d/%m/%Y"),
               key="rep_datas_cr",
           )
@@ -4235,7 +4378,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                   "INSERT INTO transacoes (data, tipo, descricao, categoria,"
                   " valor, origem) VALUES (?,?,?,?,?,?)",
                   (
-                      date.today().strftime("%Y-%m-%d"),
+                      hoje_atual.strftime("%Y-%m-%d"),
                       "Receita",
                       f"Recebimento: {cr_desc}",
                       "Freelance / Extra",
@@ -4922,7 +5065,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         "mes_ano",
         "salario_bruto",
         "vale",
-        "total_depositos",
         "liquido",
         "inss",
         "irrf",
@@ -4932,7 +5074,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         df_exibicao_hol.style.format({
             "salario_bruto": "R$ {:,.2f}",
             "vale": "R$ {:,.2f}",
-            "total_desconsos": "R$ {:,.2f}",
             "liquido": "R$ {:,.2f}",
             "inss": "R$ {:,.2f}",
             "irrf": "R$ {:,.2f}",
