@@ -14,6 +14,10 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide"
 )
 
+# Versão atual e data da última alteração do sistema
+ VERSAO_SISTEMA = "v2.5.0"
+ DATA_ATUALIZACAO = "09/08/2026"
+
 st.markdown(
     """
     <style>
@@ -501,6 +505,18 @@ with st.sidebar:
     st.rerun()
 
   st.markdown("---")
+  # --- BLOCO DE VERSÃO DO SISTEMA NO MENU ---
+  st.markdown(
+      f"""
+      <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 10px; padding: 10px; text-align: center; font-size: 12px;">
+          <p style="margin: 0; color: #60a5fa; font-weight: 700;">Versão do Sistema: {VERSAO_SISTEMA}</p>
+          <p style="margin: 4px 0 0 0; color: #94a3b8;">Atualizado em: {DATA_ATUALIZACAO}</p>
+      </div>
+      """,
+      unsafe_allow_html=True,
+  )
+
+  st.markdown("---")
   st.markdown(
       "<p style='text-align: center; color: #888; font-size: 11px;'>Desenvolvido"
       " sob medida para Vinicius Ramos<br>© 2026</p>",
@@ -934,6 +950,25 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
       " seus gastos, peça insights gerenciais ou faça lançamentos automáticos"
       " digitando no chat."
   )
+
+  # --- CAMPO DE AJUDA / EXEMPLOS DE COMANDOS PARA O CHATBOT ---
+  with st.expander("💡 Ajuda: O que ou como pedir para o Chatbot IA? (Clique para expandir)", expanded=False):
+    st.markdown(
+        """
+        Você pode interagir com o assistente usando frases naturais. Veja exemplos de comandos que você pode digitar:
+        * 📊 **Consultar Resumo ou Saldo:** 
+          * *"Qual é o meu saldo atual?"*
+          * *"Como estão minhas finanças?"*
+          * *"Me dê um resumo geral"*
+        * 🏆 **Identificar Maiores Gastos:** 
+          * *"Qual foi o meu maior gasto?"*
+          * *"Quais são os meus maiores gastos?"*
+        * 💸 **Lançar Despesas Rapidamente:** 
+          * *"Gastei 45 reais no mercado"*
+          * *"Comprei remédio na farmácia por 35.50"*
+          * *"Paguei 120 de luz"*
+        """
+    )
 
   if "historico_chat" not in st.session_state:
     st.session_state.historico_chat = [{
