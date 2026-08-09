@@ -3649,13 +3649,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             key="venc_cp_input_field",
             format="DD/MM/YYYY",
         )
-        nome_conta = st.text_input(
-            "Nome / Descrição da Conta (Ex: Conta de Luz, Aluguel)"
-        )
-      with col_c2:
-        val_conta = st.number_input(
-            "Valor da Conta (R$)", min_value=0.0, format="%.2f", key="val_cp"
-        )
         tipo_recorrencia = st.selectbox(
             "Tipo de Recorrência / Lançamento:",
             [
@@ -3667,24 +3660,32 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             key="recorrencia_cp",
         )
 
-      quantidade_periodos = 1
-      if tipo_recorrencia in ["Recorrência Semanal", "Recorrência Mensal"]:
-        quantidade_periodos = st.number_input(
-            "Quantidade de Períodos (Repetições):",
-            min_value=1,
-            max_value=60,
-            value=12,
-            step=1,
-            key="qtd_periodos_cp",
-        )
+        quantidade_periodos = 1
+        if tipo_recorrencia in ["Recorrência Semanal", "Recorrência Mensal"]:
+          quantidade_periodos = st.number_input(
+              "Quantidade de Períodos (Repetições):",
+              min_value=1,
+              max_value=60,
+              value=12,
+              step=1,
+              key="qtd_periodos_cp",
+          )
 
-      replicar_datas_cp = []
-      if tipo_recorrencia == "Replicar datas específicas customizadas":
-        replicar_datas_cp = st.multiselect(
-            "Selecione as datas adicionais de vencimento:",
-            options=[date.today() + timedelta(days=d) for d in range(1, 365)],
-            format_func=lambda x: x.strftime("%d/%m/%Y"),
-            key="rep_datas_cp",
+        replicar_datas_cp = []
+        if tipo_recorrencia == "Replicar datas específicas customizadas":
+          replicar_datas_cp = st.multiselect(
+              "Selecione as datas adicionais de vencimento:",
+              options=[date.today() + timedelta(days=d) for d in range(1, 365)],
+              format_func=lambda x: x.strftime("%d/%m/%Y"),
+              key="rep_datas_cp",
+          )
+
+      with col_c2:
+        val_conta = st.number_input(
+            "Valor da Conta (R$)", min_value=0.0, format="%.2f", key="val_cp"
+        )
+        nome_conta = st.text_input(
+            "Nome / Descrição da Conta (Ex: Conta de Luz, Aluguel)"
         )
 
       if st.form_submit_button(
@@ -3955,16 +3956,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             key="venc_cr",
             format="DD/MM/YYYY",
         )
-        nome_conta_r = st.text_input(
-            (
-                "Nome / Descrição da Receita (Ex: Aluguel a Receber, Prestação"
-                " de Serviço)"
-            )
-        )
-      with col_cr2:
-        val_conta_r = st.number_input(
-            "Valor a Receber (R$)", min_value=0.0, format="%.2f", key="val_cr"
-        )
         tipo_recorrencia_r = st.selectbox(
             "Tipo de Recorrência / Lançamento:",
             [
@@ -3976,24 +3967,35 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
             key="recorrencia_cr",
         )
 
-      quantidade_periodos_r = 1
-      if tipo_recorrencia_r in ["Recorrência Semanal", "Recorrência Mensal"]:
-        quantidade_periodos_r = st.number_input(
-            "Quantidade de Períodos (Repetições):",
-            min_value=1,
-            max_value=60,
-            value=12,
-            step=1,
-            key="qtd_periodos_cr",
-        )
+        quantidade_periodos_r = 1
+        if tipo_recorrencia_r in ["Recorrência Semanal", "Recorrência Mensal"]:
+          quantidade_periodos_r = st.number_input(
+              "Quantidade de Períodos (Repetições):",
+              min_value=1,
+              max_value=60,
+              value=12,
+              step=1,
+              key="qtd_periodos_cr",
+          )
 
-      replicar_datas_cr = []
-      if tipo_recorrencia_r == "Replicar datas específicas customizadas":
-        replicar_datas_cr = st.multiselect(
-            "Selecione as datas adicionais de vencimento:",
-            options=[date.today() + timedelta(days=d) for d in range(1, 365)],
-            format_func=lambda x: x.strftime("%d/%m/%Y"),
-            key="rep_datas_cr",
+        replicar_datas_cr = []
+        if tipo_recorrencia_r == "Replicar datas específicas customizadas":
+          replicar_datas_cr = st.multiselect(
+              "Selecione as datas adicionais de vencimento:",
+              options=[date.today() + timedelta(days=d) for d in range(1, 365)],
+              format_func=lambda x: x.strftime("%d/%m/%Y"),
+              key="rep_datas_cr",
+          )
+
+      with col_cr2:
+        val_conta_r = st.number_input(
+            "Valor a Receber (R$)", min_value=0.0, format="%.2f", key="val_cr"
+        )
+        nome_conta_r = st.text_input(
+            (
+                "Nome / Descrição da Receita (Ex: Aluguel a Receber, Prestação"
+                " de Serviço)"
+            )
         )
 
       if st.form_submit_button(
