@@ -2487,7 +2487,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
       f_receber["valor"].sum() if not f_receber.empty else 0.0
   )
 
-  # Manuais
+  # Manuais (EXCLUINDO o cartão de crédito e contas a pagar do bloco manual para evitar duplicidade/confusão)
   entradas_manuais = (
       f_trans_manuais[f_trans_manuais["tipo"] == "Receita"]["valor"].sum()
       if not f_trans_manuais.empty
@@ -2548,20 +2548,18 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("---")
 
-  # SEPARAÇÃO VISUAL CLARA DA PREVISÃO: MANUAIS VS EXTRATO BANCO
+  # SEPARAÇÃO VISUAL CLARA DA PREVISÃO: MANUAIS VS EXTRATO BANCO (Cartão isolado e separado)
   st.markdown("### 📊 Previsão Separada: Lançamentos Manuais vs Extrato Bancário")
   cp_m1, cp_m2 = st.columns(2)
   with cp_m1:
     st.markdown(
         f"""
         <div class="group-card">
-            <h4 style="color: #60a5fa; margin-top: 0;">💼 Lançamentos Manuais & Previstos</h4>
+            <h4 style="color: #60a5fa; margin-top: 0;">💼 Lançamentos Manuais Puros</h4>
             <p><b>🟢 Entradas Manuais:</b> R$ {entradas_manuais:,.2f}</p>
             <p><b>🔴 Saídas Manuais:</b> R$ {saidas_manuais:,.2f}</p>
-            <p><b>📅 Contas a Pagar:</b> R$ {total_contas_pagar:,.2f}</p>
-            <p><b>💳 Faturas de Cartão:</b> R$ {total_faturas:,.2f}</p>
             <hr style="border-color: var(--border-color);">
-            <h4 style="color: #f8fafc;">Saldo Líquido Manual: R$ {entradas_manuais - (saidas_manuais + total_contas_pagar + total_faturas):,.2f}</h4>
+            <h4 style="color: #f8fafc;">Saldo Líquido Manual: R$ {entradas_manuais - saidas_manuais:,.2f}</h4>
         </div>
         """,
         unsafe_allow_html=True,
@@ -3603,42 +3601,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
     if "venc_cp_state" not in st.session_state:
       st.session_state.venc_cp_state = date.today()
-
-    st.markdown(
-        "<span style='font-size:12px; color:#94a3b8;"
-        " font-weight:600;'>⚡ Atalhos de Seleção Rápida de Vencimento:</span>",
-        unsafe_allow_html=True,
-    )
-    col_at1, col_at2, col_at3, col_at4, col_at5 = st.columns(5)
-
-    with col_at1:
-      if st.button("Hoje", use_container_width=True):
-        st.session_state.venc_cp_state = date.today()
-        st.rerun()
-    with col_at2:
-      if st.button("Amanhã", use_container_width=True):
-        st.session_state.venc_cp_state = date.today() + timedelta(days=1)
-        st.rerun()
-    with col_at3:
-      if st.button("Daqui a 7 Dias", use_container_width=True):
-        st.session_state.venc_cp_state = date.today() + timedelta(days=7)
-        st.rerun()
-    with col_at4:
-      if st.button("Dia 10", use_container_width=True):
-        hoje_t = date.today()
-        try:
-          st.session_state.venc_cp_state = date(hoje_t.year, hoje_t.month, 10)
-        except:
-          st.session_state.venc_cp_state = hoje_t
-        st.rerun()
-    with col_at5:
-      if st.button("Dia 20", use_container_width=True):
-        hoje_t = date.today()
-        try:
-          st.session_state.venc_cp_state = date(hoje_t.year, hoje_t.month, 20)
-        except:
-          st.session_state.venc_cp_state = hoje_t
-        st.rerun()
 
     with st.form("form_conta_pagar_completo", clear_on_submit=True):
       col_c1, col_c2 = st.columns(2)
