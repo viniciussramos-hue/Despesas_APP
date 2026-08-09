@@ -2738,11 +2738,23 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("---")
   st.subheader(
-      f"📋 Tabela Detalhada dos Gastos Previstos ({nome_mes_exib} de"
+      f"📋 Tabela Detalhada dos Movimentos Previstos ({nome_mes_exib} de"
       f" {ano_ativo})"
   )
 
   lista_gastos_previstos_detalhe = []
+  
+  # --- ADIÇÃO DAS CONTAS A RECEBER NA TABELA DE PREVISÃO ---
+  if not f_receber.empty:
+    for _, rcr in f_receber.iterrows():
+      lista_gastos_previstos_detalhe.append({
+          "Origem / Tipo": "📈 Conta a Receber",
+          "Descrição": rcr["descricao"],
+          "Categoria": "Freelance / Extra / Recebível",
+          "Vencimento / Data": formatar_data_ptbr(rcr["vencimento"]),
+          "Valor (R$)": rcr["valor"],
+      })
+
   if not f_cartao.empty:
     for _, rc in f_cartao.iterrows():
       lista_gastos_previstos_detalhe.append({
@@ -2783,7 +2795,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     )
   else:
     st.info(
-        f"Nenhum gasto previsto registrado para {nome_mes_exib} de {ano_ativo}."
+        f"Nenhum movimento previsto registrado para {nome_mes_exib} de {ano_ativo}."
     )
 
 # ==========================================
@@ -4910,7 +4922,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         "mes_ano",
         "salario_bruto",
         "vale",
-        "total_descontos",
+        "total_depositos",
         "liquido",
         "inss",
         "irrf",
