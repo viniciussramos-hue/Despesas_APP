@@ -1781,6 +1781,50 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
         unsafe_allow_html=True,
     )
 
+  # NOVA TABELA SOLICITADA: DETALHAMENTO DOS GASTOS PREVISTOS DENTRO DO MÊS
+  st.markdown("---")
+  st.subheader(f"📋 Tabela Detalhada dos Gastos Previstos ({nome_mes_exib} de {ano_ativo})")
+  
+  lista_gastos_previstos_detalhe = []
+  if not f_cartao.empty:
+    for _, rc in f_cartao.iterrows():
+      lista_gastos_previstos_detalhe.append({
+          "Origem / Tipo": "💳 Fatura de Cartão",
+          "Descrição": rc["descricao"],
+          "Categoria": rc.get("categoria", "Cartão de Crédito"),
+          "Vencimento / Data": formatar_data_ptbr(rc["data"]),
+          "Valor (R$)": rc["valor"]
+      })
+  if not f_contas.empty:
+    for _, rcp in f_contas.iterrows():
+      lista_gastos_previstos_detalhe.append({
+          "Origem / Tipo": "📉 Conta a Pagar",
+          "Descrição": rcp["descricao"],
+          "Categoria": "Contas Fixas / Boletos",
+          "Vencimento / Data": formatar_data_ptbr(rcp["vencimento"]),
+          "Valor (R$)": rcp["valor"]
+      })
+  if not f_trans.empty:
+    df_trans_desp_mes = f_trans[f_trans["tipo"] == "Despesa"]
+    for _, rtd in df_trans_desp_mes.iterrows():
+      lista_gastos_previstos_detalhe.append({
+          "Origem / Tipo": "🔴 Despesa Manual",
+          "Descrição": rtd["descricao"],
+          "Categoria": rtd["categoria"],
+          "Vencimento / Data": formatar_data_ptbr(rtd["data"]),
+          "Valor (R$)": rtd["valor"]
+      })
+
+  if lista_gastos_previstos_detalhe:
+    df_detalhe_gastos_mes = pd.DataFrame(lista_gastos_previstos_detalhe)
+    st.dataframe(
+        df_detalhe_gastos_mes.style.format({"Valor (R$)": "R$ {:,.2f}"}),
+        use_container_width=True,
+        hide_index=True
+    )
+  else:
+    st.info(f"Nenhum gasto previsto registrado para {nome_mes_exib} de {ano_ativo}.")
+
   st.markdown("---")
   st.subheader(f"📊 Evolução Analítica Mês a Mês ({ano_ativo})")
   st.write("Visão consolidada do comportamento financeiro mês a mês para planejamento de longo prazo:")
@@ -2522,10 +2566,47 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
   if st.session_state.aba_contas_ativa == "pagar":
     st.subheader("➕ Nova Conta a Pagar (com Opção de Recorrência Mensal, Semanal ou Replicar datas)")
+    
+    # ATALHOS / BOTÕES DE SELEÇÃO RÁPIDA DE DATA SOLICITADOS
+    st.markdown("<span style='font-size:12px; color:#94a3b8; font-weight:600;'>⚡ Atalhos de Seleção Rápida de Vencimento:</span>", unsafe_allow_html=True)
+    col_at1, col_at2, col_at3, col_at4, col_at5 = st.columns(5)
+    
+    if "venc_cp_state" not in st.session_state:
+      st.session_state.venc_cp_state = date.today()
+
+    with col_at1:
+      if st.button("Hoje", use_container_width=True):
+        st.session_state.venc_cp_state = date.today()
+        st.rerun()
+    with col_at2:
+      if st.button("Amanhã", use_container_width=True):
+        st.session_state.venc_cp_state = date.today() + timedelta(days=1)
+        st.rerun()
+    with col_at3:
+      if st.button("Daqui a 7 Dias", use_container_width=True):
+        st.session_state.venc_cp_state = date.today() + timedelta(days=7)
+        st.rerun()
+    with col_at4:
+      if st.button("Dia 10", use_container_width=True):
+        hoje_t = date.today()
+        try:
+          st.session_state.venc_cp_state = date(hoje_t.year, hoje_t.month, 10)
+        except:
+          st.session_state.venc_cp_state = hoje_t
+        st.rerun()
+    with col_at5:
+      if st.button("Dia 20", use_container_width=True):
+        hoje_t = date.today()
+        try:
+          st.session_state.venc_cp_state = date(hoje_t.year, hoje_t.month, 20)
+        except:
+          st.session_state.venc_cp_state = hoje_t
+        st.rerun()
+
     with st.form("form_conta_pagar_completo", clear_on_submit=True):
       col_c1, col_c2 = st.columns(2)
       with col_c1:
-        venc = st.date_input("Data de Vencimento Inicial (DD/MM/AAAA)", value=date.today(), key="venc_cp", format="DD/MM/YYYY")
+        venc = st.date_input("Data de Vencimento Inicial (DD/MM/AAAA)", value=st.session_state.venc_cp_state, key="venc_cp", format="DD/MM/YYYY")
         nome_conta = st.text_input(
             "Nome / Descrição da Conta (Ex: Conta de Luz, Aluguel)"
         )
