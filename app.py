@@ -2469,14 +2469,9 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
         else pd.DataFrame()
     )
 
-  # Separação estrita: Manuais vs Extrato do Banco (salvos em banco)
+  # Separação estrita: Manuais (EXCLUINDO Banco_PDF completamente da previsão geral)
   f_trans_manuais = (
       f_trans[f_trans["origem"] != "Banco_PDF"]
-      if not f_trans.empty
-      else pd.DataFrame()
-  )
-  f_trans_banco = (
-      f_trans[f_trans["origem"] == "Banco_PDF"]
       if not f_trans.empty
       else pd.DataFrame()
   )
@@ -2487,7 +2482,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
       f_receber["valor"].sum() if not f_receber.empty else 0.0
   )
 
-  # Manuais (EXCLUINDO o cartão de crédito e contas a pagar do bloco manual para evitar duplicidade/confusão)
   entradas_manuais = (
       f_trans_manuais[f_trans_manuais["tipo"] == "Receita"]["valor"].sum()
       if not f_trans_manuais.empty
@@ -2499,20 +2493,8 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
       else 0.0
   )
 
-  # Extrato Banco
-  entradas_banco = (
-      f_trans_banco[f_trans_banco["tipo"] == "Receita"]["valor"].sum()
-      if not f_trans_banco.empty
-      else 0.0
-  )
-  saidas_banco = (
-      f_trans_banco[f_trans_banco["tipo"] == "Despesa"]["valor"].sum()
-      if not f_trans_banco.empty
-      else 0.0
-  )
-
-  total_entradas_previstas = entradas_manuais + entradas_banco + total_contas_receber
-  total_saidas_previstas = total_faturas + total_contas_pagar + saidas_manuais + saidas_banco
+  total_entradas_previstas = entradas_manuais + total_contas_receber
+  total_saidas_previstas = total_faturas + total_contas_pagar + saidas_manuais
   saldo_projetado = total_entradas_previstas - total_saidas_previstas
 
   st.markdown("### 🧪 Simulador de Imprevistos & Ajustes Orçamentários")
@@ -2548,36 +2530,21 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("---")
 
-  # SEPARAÇÃO VISUAL CLARA DA PREVISÃO: MANUAIS VS EXTRATO BANCO (Cartão isolado e separado)
-  st.markdown("### 📊 Previsão Separada: Lançamentos Manuais vs Extrato Bancário")
-  cp_m1, cp_m2 = st.columns(2)
-  with cp_m1:
-    st.markdown(
-        f"""
-        <div class="group-card">
-            <h4 style="color: #60a5fa; margin-top: 0;">💼 Lançamentos Manuais Puros</h4>
-            <p><b>🟢 Entradas Manuais:</b> R$ {entradas_manuais:,.2f}</p>
-            <p><b>🔴 Saídas Manuais:</b> R$ {saidas_manuais:,.2f}</p>
-            <hr style="border-color: var(--border-color);">
-            <h4 style="color: #f8fafc;">Saldo Líquido Manual: R$ {entradas_manuais - saidas_manuais:,.2f}</h4>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with cp_m2:
-    st.markdown(
-        f"""
-        <div class="group-card">
-            <h4 style="color: #34d399; margin-top: 0;">📥 Extratos Importados do Banco (PDF)</h4>
-            <p><b>🟢 Entradas do Banco:</b> R$ {entradas_banco:,.2f}</p>
-            <p><b>🔴 Saídas do Banco:</b> R$ {saidas_banco:,.2f}</p>
-            <p><b>📈 Contas a Receber:</b> R$ {total_contas_receber:,.2f}</p>
-            <hr style="border-color: var(--border-color);">
-            <h4 style="color: #f8fafc;">Saldo Líquido Bancário: R$ {(entradas_banco + total_contas_receber) - saidas_banco:,.2f}</h4>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+  st.markdown("### 📊 Previsão Exclusiva de Lançamentos Manuais")
+  st.markdown(
+      f"""
+      <div class="group-card">
+          <h4 style="color: #60a5fa; margin-top: 0;">💼 Lançamentos Manuais & Previstos</h4>
+          <p><b>🟢 Entradas Manuais:</b> R$ {entradas_manuais:,.2f}</p>
+          <p><b>🔴 Saídas Manuais:</b> R$ {saidas_manuais:,.2f}</p>
+          <p><b>📅 Contas a Pagar:</b> R$ {total_contas_pagar:,.2f}</p>
+          <p><b>💳 Faturas de Cartão:</b> R$ {total_faturas:,.2f}</p>
+          <hr style="border-color: var(--border-color);">
+          <h4 style="color: #f8fafc;">Saldo Líquido Manual: R$ {saldo_projetado:,.2f}</h4>
+      </div>
+      """,
+      unsafe_allow_html=True,
+  )
 
   st.markdown("---")
   m1, m2, m3 = st.columns(3)
@@ -2585,7 +2552,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     st.markdown(
         f"""
         <div style="background: rgba(34, 197, 94, 0.06); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-            <span style="color: #4ade80; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🟢 TOTAL ENTRADAS (Geral)</span>
+            <span style="color: #4ade80; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🟢 TOTAL ENTRADAS MANUAIS</span>
             <h2 style="color: #22c55e; margin: 8px 0 0 0; font-size: 22px;">R$ {total_entradas_previstas:,.2f}</h2>
         </div>
         """,
@@ -2595,7 +2562,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     st.markdown(
         f"""
         <div style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-            <span style="color: #f87171; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🔴 TOTAL SAÍDAS (Geral)</span>
+            <span style="color: #f87171; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🔴 TOTAL SAÍDAS MANUAIS</span>
             <h2 style="color: #ef4444; margin: 8px 0 0 0; font-size: 22px;">R$ {total_saidas_previstas:,.2f}</h2>
         </div>
         """,
@@ -2605,7 +2572,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     st.markdown(
         f"""
         <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-            <span style="color: #60a5fa; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">⚖️ SALDO PROJETADO GLOBAL</span>
+            <span style="color: #60a5fa; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">⚖️ SALDO PROJETADO MANUAL</span>
             <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {saldo_projetado:,.2f}</h2>
         </div>
         """,
@@ -2614,7 +2581,6 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # TABELA DE DETALHAMENTO DOS GASTOS PREVISTOS DENTRO DO MÊS
   st.markdown("---")
   st.subheader(
       f"📋 Tabela Detalhada dos Gastos Previstos ({nome_mes_exib} de"
@@ -2641,7 +2607,9 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
           "Valor (R$)": rcp["valor"],
       })
   if not f_trans.empty:
-    df_trans_desp_mes = f_trans[f_trans["tipo"] == "Despesa"]
+    df_trans_desp_mes = f_trans[
+        (f_trans["tipo"] == "Despesa") & (f_trans["origem"] != "Banco_PDF")
+    ]
     for _, rtd in df_trans_desp_mes.iterrows():
       lista_gastos_previstos_detalhe.append({
           "Origem / Tipo": f"🔴 Despesa ({rtd['origem']})",
@@ -3506,16 +3474,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
       " vencimento programado."
   )
 
-  st.markdown("##### 🗓️ Seleção de Data no Calendário Interativo")
-  data_calendario_topo = st.date_input(
-      "Selecionar Data de Referência (DD/MM/AAAA):",
-      value=st.session_state.data_calendario_ref,
-      key="data_calendario_ref_input",
-      format="DD/MM/YYYY",
-  )
-  if data_calendario_topo:
-    st.session_state.data_calendario_ref = data_calendario_topo
-
   if "aba_contas_ativa" not in st.session_state:
     st.session_state.aba_contas_ativa = "pagar"
 
@@ -3546,6 +3504,16 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
       st.rerun()
 
   st.markdown("---")
+
+  st.markdown("##### 🗓️ Seleção de Data no Calendário Interativo")
+  data_calendario_topo = st.date_input(
+      "Selecionar Data de Referência (DD/MM/AAAA):",
+      value=st.session_state.data_calendario_ref,
+      key="data_calendario_ref_input",
+      format="DD/MM/YYYY",
+  )
+  if data_calendario_topo:
+    st.session_state.data_calendario_ref = data_calendario_topo
 
   st.markdown(
       f"""
@@ -4770,7 +4738,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         f"""
         <div style="background: rgba(25, 29, 38, 0.85); padding: 20px; border-radius: 14px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
             <h4 style="color: #94a3b8; margin: 0; font-size: 13px; font-weight: 600;">💵 RECEITA LÍQUIDA ({mes_ativo_ext})</h4>
-            <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {liquido_ativo:,.2f}</h2>
+            <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {liquido_ativo:,.2f}</h4>
         </div>
         """,
         unsafe_allow_html=True,
@@ -4787,7 +4755,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         "vale",
         "total_descontos",
         "liquido",
-        "inss",
+        _ := "inss",
         "irrf",
     ]].copy()
 
