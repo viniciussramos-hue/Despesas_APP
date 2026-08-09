@@ -182,6 +182,9 @@ c.execute("""CREATE TABLE IF NOT EXISTS notas_fiscais
 c.execute("""CREATE TABLE IF NOT EXISTS itens_nota_fiscal 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, nota_id INTEGER, produto TEXT, quantidade REAL, valor_unitario REAL, valor_total REAL, categoria TEXT)""")
 
+c.execute("""CREATE TABLE IF NOT EXISTS saldo_banco_manual 
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, banco TEXT, saldo_conta REAL, limite_utilizado REAL, limite_disponivel REAL, limite_total REAL)""")
+
 try:
   c.execute("ALTER TABLE transacoes ADD COLUMN origem TEXT")
   conn.commit()
@@ -1846,6 +1849,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
   df_cartao_dash = pd.read_sql("SELECT * FROM cartao_credito", conn)
   df_contas_dash = pd.read_sql("SELECT * FROM contas", conn)
   df_metas_dash = pd.read_sql("SELECT * FROM metas", conn)
+  df_saldo_banco_manual = pd.read_sql("SELECT * FROM saldo_banco_manual ORDER BY id DESC LIMIT 1", conn)
 
   if "dash_manual_mes_ref" not in st.session_state:
     st.session_state.dash_manual_mes_ref = date.today().month
@@ -1893,9 +1897,11 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
   else:
     df = df_all.copy()
 
-  # Saldo real do banco (calculado dos PDFs importados)
+  # Saldo real do banco (calculado dos PDFs importados ou cadastrado manualmente)
   saldo_real_banco_pdf = 0.0
-  if not df_banco_dash.empty:
+  if not df_saldo_banco_manual.empty:
+    saldo_real_banco_pdf = float(df_saldo_banco_manual.iloc[0]["saldo_conta"])
+  elif not df_banco_dash.empty:
     df_banco_dash["valor"] = pd.to_numeric(
         df_banco_dash["valor"], errors="coerce"
     ).fillna(0)
@@ -1907,11 +1913,16 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
     ].sum()
     saldo_real_banco_pdf = rec_banco_tot - desp_banco_tot
 
-  if not df_all.empty:
-    df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
-    receitas = df[df["tipo"] == "Receita"]["valor"].sum()
-    despesas = df[df["tipo"] == "Despesa"]["valor"].sum()
-    saldo_caixa = receitas - despesas
+  if not df_all.empty or not df_saldo_banco_manual.empty:
+    if not df_all.empty:
+      df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
+      receitas = df[df["tipo"] == "Receita"]["valor"].sum()
+      despesas = df[df["tipo"] == "Despesa"]["valor"].sum()
+      saldo_caixa = receitas - despesas
+    else:
+      receitas = 0.0
+      despesas = 0.0
+      saldo_caixa = 0.0
 
     patrimonio_investido = (
         (df_inv_dash["quantidade"] * df_inv_dash["preco_medio"]).sum()
@@ -1947,7 +1958,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
       )
     with b3:
       st.markdown(
-          f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🏦 SALDO REAL NO BANCO (PDF)</span><h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_real_banco_pdf:,.2f}</h3></div>""",
+          f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🏦 SALDO REAL NO BANCO</span><h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_real_banco_pdf:,.2f}</h3></div>""",
           unsafe_allow_html=True,
       )
     with b4:
@@ -1962,6 +1973,28 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
       )
 
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- NOVO QUADRO DE SALDO DO BANCO (CADASTRO/ACOMPANHAMENTO RÁPIDO) ---
+    st.markdown("### 🏦 Acompanhamento de Saldo do Banco & Limites (Itaú)")
+    with st.form("form_atualizar_saldo_banco_dash"):
+      col_sb1, col_sb2, col_sb3, col_sb4 = st.columns(4)
+      with col_sb1:
+        val_sb_conta = st.number_input("Saldo em Conta (R$)", value=-157.15, step=1.0, format="%.2f")
+      with col_sb2:
+        val_sb_util = st.number_input("Limite Utilizado (R$)", value=157.15, step=1.0, format="%.2f")
+      with col_sb3:
+        val_sb_disp = st.number_input("Limite Disponível (R$)", value=2.85, step=1.0, format="%.2f")
+      with col_sb4:
+        val_sb_tot = st.number_input("Limite Total (R$)", value=160.00, step=1.0, format="%.2f")
+
+      if st.form_submit_button("Salvar / Atualizar Saldo e Limites do Banco", use_container_width=True):
+        c.execute("INSERT INTO saldo_banco_manual (data, banco, saldo_conta, limite_utilizado, limite_disponivel, limite_total) VALUES (?,?,?,?,?,?)",
+                  (date.today().strftime("%Y-%m-%d"), "Itaú", val_sb_conta, val_sb_util, val_sb_disp, val_sb_tot))
+        conn.commit()
+        st.success("Saldo e limites do banco atualizados com sucesso!")
+        st.rerun()
+
+    st.markdown("---")
     st.markdown("### 🏛️ Indicadores Patrimoniais & Passivos")
     p1, p2, p3, p4 = st.columns(4)
     with p1:
@@ -2185,11 +2218,15 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
   df_banco_all = pd.read_sql(
       "SELECT * FROM transacoes WHERE origem = 'Banco_PDF'", conn
   )
+  df_saldo_banco_manual_db = pd.read_sql("SELECT * FROM saldo_banco_manual ORDER BY id DESC LIMIT 1", conn)
 
-  if not df_banco_all.empty:
-    df_banco_all["data"] = pd.to_datetime(df_banco_all["data"])
-    df_banco_all["ano_mes"] = df_banco_all["data"].dt.strftime("%Y-%m")
-    meses_banco = sorted(df_banco_all["ano_mes"].unique(), reverse=True)
+  if not df_banco_all.empty or not df_saldo_banco_manual_db.empty:
+    if not df_banco_all.empty:
+      df_banco_all["data"] = pd.to_datetime(df_banco_all["data"])
+      df_banco_all["ano_mes"] = df_banco_all["data"].dt.strftime("%Y-%m")
+      meses_banco = sorted(df_banco_all["ano_mes"].unique(), reverse=True)
+    else:
+      meses_banco = ["2026-08"]
 
     col_fb1, col_fb2 = st.columns([2, 4])
     with col_fb1:
@@ -2197,31 +2234,64 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
           "📅 Selecionar Mês do Extrato Bancário:", meses_banco
       )
 
-    df_b = df_banco_all[df_banco_all["ano_mes"] == mes_banco_sel].copy()
+    if not df_banco_all.empty:
+      df_b = df_banco_all[df_banco_all["ano_mes"] == mes_banco_sel].copy()
+      rec_b = df_b[df_b["tipo"] == "Receita"]["valor"].sum()
+      desp_b = df_b[df_b["tipo"] == "Despesa"]["valor"].sum()
+      saldo_b = rec_b - desp_b
+    else:
+      df_b = pd.DataFrame()
+      rec_b = 0.0
+      desp_b = 0.0
+      saldo_b = 0.0
 
-    rec_b = df_b[df_b["tipo"] == "Receita"]["valor"].sum()
-    desp_b = df_b[df_b["tipo"] == "Despesa"]["valor"].sum()
-    saldo_b = rec_b - desp_b
+    # Saldo real total do banco (cadastrado manualmente ou via PDF)
+    saldo_real_total_banco = 0.0
+    limite_utilizado_val = 0.0
+    limite_disponivel_val = 0.0
+    limite_total_val = 0.0
 
-    # Saldo real acumulado total de todos os PDFs do banco
-    df_banco_all["valor"] = pd.to_numeric(
-        df_banco_all["valor"], errors="coerce"
-    ).fillna(0)
-    total_geral_rec_banco = df_banco_all[df_banco_all["tipo"] == "Receita"][
-        "valor"
-    ].sum()
-    total_geral_desp_banco = df_banco_all[df_banco_all["tipo"] == "Despesa"][
-        "valor"
-    ].sum()
-    saldo_real_total_banco = total_geral_rec_banco - total_geral_desp_banco
+    if not df_saldo_banco_manual_db.empty:
+      saldo_real_total_banco = float(df_saldo_banco_manual_db.iloc[0]["saldo_conta"])
+      limite_utilizado_val = float(df_saldo_banco_manual_db.iloc[0]["limite_utilizado"])
+      limite_disponivel_val = float(df_saldo_banco_manual_db.iloc[0]["limite_disponivel"])
+      limite_total_val = float(df_saldo_banco_manual_db.iloc[0]["limite_total"])
+    elif not df_banco_all.empty:
+      df_banco_all["valor"] = pd.to_numeric(
+          df_banco_all["valor"], errors="coerce"
+      ).fillna(0)
+      total_geral_rec_banco = df_banco_all[df_banco_all["tipo"] == "Receita"][
+          "valor"
+      ].sum()
+      total_geral_desp_banco = df_banco_all[df_banco_all["tipo"] == "Despesa"][
+          "valor"
+      ].sum()
+      saldo_real_total_banco = total_geral_rec_banco - total_geral_desp_banco
 
-    st.markdown("### 📊 Indicadores Consolidados do Extrato Bancário")
+    st.markdown("### 📊 Indicadores Consolidados do Extrato Bancário & Saldo Real")
+    
+    # --- QUADRO DE ACOMPANHAMENTO DO SALDO REAL DO BANCO SOLICITADO ---
+    st.markdown(
+        f"""
+        <div style="background: rgba(34, 197, 94, 0.06); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+            <h4 style="color: #4ade80; margin-top: 0;">🏦 Acompanhamento de Saldo e Limites (Extrato Real Itaú)</h4>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px;">
+                <div><span style="color: #94a3b8; font-size: 12px;">Saldo em Conta:</span><h3 style="color: #ef4444; margin: 2px 0 0 0;">R$ {saldo_real_total_banco:,.2f}</h3></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Limite Utilizado:</span><h3 style="color: #f59e0b; margin: 2px 0 0 0;">R$ {limite_utilizado_val:,.2f}</h3></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Limite Disponível:</span><h3 style="color: #34d399; margin: 2px 0 0 0;">R$ {limite_disponivel_val:,.2f}</h3></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Limite Total:</span><h3 style="color: #60a5fa; margin: 2px 0 0 0;">R$ {limite_total_val:,.2f}</h3></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     cb1, cb2, cb3, cb4 = st.columns(4)
     with cb1:
       st.markdown(
           f"""
           <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🏦 SALDO REAL TOTAL DO BANCO</span>
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🏦 SALDO REAL NO BANCO</span>
               <h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 20px;">R$ {saldo_real_total_banco:,.2f}</h3>
           </div>
           """,
@@ -2260,7 +2330,7 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
 
     st.markdown("---")
     st.subheader("🔥 Dias de Pico de Saídas (Extrato Bancário)")
-    df_desp_banco = df_b[df_b["tipo"] == "Despesa"]
+    df_desp_banco = df_b[df_b["tipo"] == "Despesa"] if not df_b.empty else pd.DataFrame()
     if not df_desp_banco.empty:
       picos_banco = (
           df_desp_banco.groupby("data")["valor"]
@@ -2299,14 +2369,15 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
         )
         st.dataframe(df_res_b, use_container_width=True)
 
-    st.markdown("---")
-    st.subheader("📋 Relação Completa de Transações do Extrato PDF")
-    df_b["data"] = df_b["data"].dt.strftime("%d/%m/%Y")
-    st.dataframe(
-        df_b[["data", "tipo", "descricao", "categoria", "valor"]],
-        use_container_width=True,
-        hide_index=True,
-    )
+    if not df_b.empty:
+      st.markdown("---")
+      st.subheader("📋 Relação Completa de Transações do Extrato PDF")
+      df_b["data"] = df_b["data"].dt.strftime("%d/%m/%Y")
+      st.dataframe(
+          df_b[["data", "tipo", "descricao", "categoria", "valor"]],
+          use_container_width=True,
+          hide_index=True,
+      )
   else:
     st.info(
         "Nenhum extrato bancário em PDF foi importado e processado até o"
@@ -4324,6 +4395,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
         c.execute("DELETE FROM notas_fiscais")
         c.execute("DELETE FROM itens_nota_fiscal")
         c.execute("DELETE FROM metas")
+        c.execute("DELETE FROM saldo_banco_manual")
         conn.commit()
         st.success("Todos os dados do sistema foram apagados com sucesso!")
         st.rerun()
