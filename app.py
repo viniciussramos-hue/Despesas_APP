@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.5.1"
+VERSAO_SISTEMA = "v2.5.2"
 DATA_ATUALIZACAO = "09/08/2026"
 
 st.markdown(
@@ -4907,260 +4907,291 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
     st.info("Nenhum extrato armazenado no banco de dados.")
 
 # ==========================================
-# --- SEÇÃO 12: HOLERITES ---
+# --- SEÇÃO 12: HOLERITES (COM SENHA DE ACESSO) ---
 # ==========================================
 elif st.session_state.pagina_atual == "📄 Holerites":
   botao_voltar()
-  st.subheader(
-      "📄 Análise, Comparativo Mês a Mês & Leitura Dinâmica de Holerites via PDF"
-  )
-  st.info(
-      "Faça o upload de arquivos PDF de contracheques. O sistema lerá com"
-      " precisão cirúrgica os impostos e proventos."
-  )
+  
+  if "holerites_desbloqueado" not in st.session_state:
+    st.session_state.holerites_desbloqueado = False
 
-  pdfs_holerites = st.file_uploader(
-      "Escolha os arquivos PDF dos Holerites Corporativos",
-      type=["pdf"],
-      accept_multiple_files=True,
-      key="upload_multiplos_holerites",
-  )
-
-  if pdfs_holerites:
-    upload_ids = "-".join([f"{f.name}-{f.size}" for f in pdfs_holerites])
-    if st.session_state.get("ultimo_upload_processado") != upload_ids:
-      importados_automaticos = 0
-      for arquivo_pdf in pdfs_holerites:
-        texto_holerite = ""
-        try:
-          with pdfplumber.open(arquivo_pdf) as pdf:
-            for pagina in pdf.pages:
-              ext = pagina.extract_text()
-              if ext:
-                texto_holerite += ext + "\n"
-
-          (
-              mes_ano_extraido,
-              bruto_val,
-              desc_val,
-              liquido_val,
-              inss_val,
-              irrf_val,
-              vale_val,
-          ) = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
-
-          cursor_check = c.execute(
-              "SELECT id FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,)
-          )
-          row_existente = cursor_check.fetchone()
-
-          if not row_existente:
-            c.execute(
-                "INSERT INTO holerites (mes_ano, salario_bruto,"
-                " total_descontos, liquido, inss, irrf, vale) VALUES"
-                " (?,?,?,?,?,?,?)",
-                (
-                    mes_ano_extraido,
-                    bruto_val,
-                    desc_val,
-                    liquido_val,
-                    inss_val,
-                    irrf_val,
-                    vale_val,
-                ),
-            )
-            conn.commit()
-            importados_automaticos += 1
-          else:
-            c.execute(
-                "UPDATE holerites SET salario_bruto = ?, total_descontos = ?,"
-                " liquido = ?, inss = ?, irrf = ?, vale = ? WHERE mes_ano = ?",
-                (
-                    bruto_val,
-                    desc_val,
-                    liquido_val,
-                    inss_val,
-                    irrf_val,
-                    vale_val,
-                    mes_ano_extraido,
-                ),
-            )
-            conn.commit()
-        except Exception as e:
-          pass
-      st.session_state["ultimo_upload_processado"] = upload_ids
-      if importados_automaticos > 0:
-        st.success(
-            f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) com"
-            " sucesso!"
-        )
-
-  df_holerites = pd.read_sql(
-      "SELECT * FROM holerites ORDER BY mes_ano DESC", conn
-  )
-
-  if not df_holerites.empty:
-    st.markdown("---")
-    st.subheader(
-        "📑 Navegação Analítica por Mês / Contracheque (Salvo no Banco)"
-    )
-
-    if "holerite_selecionado_db_idx" not in st.session_state:
-      st.session_state.holerite_selecionado_db_idx = 0
-
-    if st.session_state.holerite_selecionado_db_idx >= len(df_holerites):
-      st.session_state.holerite_selecionado_db_idx = 0
-
-    lista_meses_db = df_holerites["mes_ano"].tolist()
-    cols_botoes = st.columns(min(len(lista_meses_db), 6))
-
-    for idx, mes_ref in enumerate(lista_meses_db):
-      col_pos = idx % len(cols_botoes)
-      with cols_botoes[col_pos]:
-        tipo_botao = (
-            "primary"
-            if st.session_state.holerite_selecionado_db_idx == idx
-            else "secondary"
-        )
-        if st.button(
-            f"Mês {mes_ref}",
-            key=f"btn_mes_db_{idx}",
-            type=tipo_botao,
-            use_container_width=True,
-        ):
-          st.session_state.holerite_selecionado_db_idx = idx
+  if not st.session_state.holerites_desbloqueado:
+    st.subheader("🔒 Acesso Restrito à Seção de Holerites")
+    st.markdown("Esta seção contém informações salariais e fiscais confidenciais. Digite a senha para prosseguir:")
+    
+    senha_holerite = st.text_input("Senha de Acesso aos Holerites:", type="password", key="input_senha_holerite")
+    
+    col_h_b1, col_h_b2 = st.columns(2)
+    with col_h_b1:
+      if st.button("Desbloquear Holerites", use_container_width=True):
+        if senha_holerite == "1234":  # Senha padrão configurada
+          st.session_state.holerites_desbloqueado = True
+          st.success("Acesso liberado com sucesso!")
           st.rerun()
-
-    row_ativo = df_holerites.iloc[
-        st.session_state.holerite_selecionado_db_idx
-    ]
-    mes_ativo_ext = row_ativo["mes_ano"]
-    bruto_ativo = row_ativo["salario_bruto"]
-    desc_ativo = row_ativo["total_descontos"]
-    liquido_ativo = row_ativo["liquido"]
-    inss_ativo = row_ativo["inss"]
-    irrf_ativo = row_ativo["irrf"]
-    vale_ativo = (
-        row_ativo["vale"] if row_ativo["vale"] is not None else 2220.00
-    )
-
-    st.markdown(
-        f"<p style='text-align: center; color: #AAA; font-size: 14px;"
-        f" margin-top: 15px;'>Referência ativa no painel:"
-        f" <b>{mes_ativo_ext}</b></p>",
-        unsafe_allow_html=True,
-    )
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    col_rec, col_desc = st.columns(2)
-
-    with col_rec:
-      st.markdown(
-          f"""
-            <div style="background: rgba(25, 29, 38, 0.85); padding: 25px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
-                <h4 style="color: #4ade80; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale ({mes_ativo_ext})</h4>
-                <hr style="border-color: rgba(255,255,255,0.08);">
-                <p><b>Salário Bruto / Base:</b> R$ {bruto_ativo:,.2f}</p>
-                <p><b>Adiantamento / Vale Quinzenal:</b> R$ {vale_ativo:,.2f}</p>
-                <p><b>Horas Extras / Adicionais:</b> R$ 0,00</p>
-                <p><b>Outros Proventos:</b> R$ 0,00</p>
-                <h3 style="color: #22c55e; margin-top: 15px; font-size: 20px;">Total Bruto & Vales: R$ {bruto_ativo + vale_ativo:,.2f}</h3>
-            </div>
-            """,
-          unsafe_allow_html=True,
-      )
-
-    with col_desc:
-      st.markdown(
-          f"""
-            <div style="background: rgba(25, 29, 38, 0.85); padding: 25px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
-                <h4 style="color: #f87171; margin-top: 0;">🔴 Detalhamento Separado dos Descontos ({mes_ativo_ext})</h4>
-                <hr style="border-color: rgba(255,255,255,0.08);">
-                <p><b>• INSS (Previdência Social):</b> R$ {inss_ativo:,.2f}</p>
-                <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:,.2f}</p>
-                <p><b>• Desconto de Vale (Adiantamento):</b> R$ {vale_ativo:,.2f}</p>
-                <p><b>• Convênio / Farmácia / Outros:</b> R$ {max(0, desc_ativo - inss_ativo - irrf_ativo - vale_ativo):,.2f}</p>
-                <h3 style="color: #ef4444; margin-top: 15px; font-size: 20px;">Total Descontos: R$ {desc_ativo:,.2f}</h3>
-            </div>
-            """,
-          unsafe_allow_html=True,
-      )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    st.markdown(
-        f"""
-        <div style="background: rgba(25, 29, 38, 0.85); padding: 20px; border-radius: 14px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
-            <h4 style="color: #94a3b8; margin: 0; font-size: 13px; font-weight: 600;">💵 RECEITA LÍQUIDA ({mes_ativo_ext})</h4>
-            <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {liquido_ativo:,.2f}</h2>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-  st.markdown("---")
-  st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
-
-  if not df_holerites.empty:
-    df_exibicao_hol = df_holerites[[
-        "id",
-        "mes_ano",
-        "salario_bruto",
-        "vale",
-        "liquido",
-        "inss",
-        "irrf",
-    ]].copy()
-
-    st.dataframe(
-        df_exibicao_hol.style.format({
-            "salario_bruto": "R$ {:,.2f}",
-            "vale": "R$ {:,.2f}",
-            "liquido": "R$ {:,.2f}",
-            "inss": "R$ {:,.2f}",
-            "irrf": "R$ {:,.2f}",
-        }),
-        use_container_width=True,
-    )
-
-    st.write(
-        "**Gráfico Comparativo de Evolução: Salário Bruto vs Líquido vs"
-        " Descontos**"
-    )
-    st.line_chart(
-        df_holerites.set_index("mes_ano")[[
-            "salario_bruto",
-            "liquido",
-            "total_descontos",
-        ]]
-    )
-
-    st.markdown("### ⚙️ Opções de Gerenciamento do Histórico")
-    col_del1, col_del2 = st.columns(2)
-
-    with col_del1:
-      id_del_hol = st.selectbox(
-          "Selecione o ID exato para remoção:",
-          df_holerites["id"].tolist(),
-          key="del_hol_unique",
-      )
-      if st.button("Excluir Holerite Selecionado", use_container_width=True):
-        c.execute("DELETE FROM holerites WHERE id = ?", (id_del_hol,))
-        conn.commit()
-        st.success("Holerite excluído com sucesso!")
-        st.rerun()
-
-    with col_del2:
-      st.write("")
-      st.write("")
-      if st.button(
-          "🗑️ EXCLUIR TODO HISTÓRICO DE HOLERITES",
-          use_container_width=True,
-          type="primary",
-      ):
-        c.execute("DELETE FROM holerites")
-        conn.commit()
-        st.success("Todo o histórico de holerites foi apagado com sucesso!")
+        else:
+          st.error("Senha incorreta!")
+    with col_h_b2:
+      if st.button("Bloquear / Sair da Seção", use_container_width=True):
+        st.session_state.holerites_desbloqueado = False
+        mudar_pagina("🏠 Início / Painel")
         st.rerun()
   else:
-    st.info("Nenhum holerite cadastrado no histórico analítico até o momento.")
+    col_sup1, col_sup2 = st.columns([4, 1])
+    with col_sup1:
+      st.subheader(
+          "📄 Análise, Comparativo Mês a Mês & Leitura Dinâmica de Holerites via PDF"
+      )
+      st.info(
+          "Faça o upload de arquivos PDF de contracheques. O sistema lerá com"
+          " precisão cirúrgica os impostos e proventos."
+      )
+    with col_sup2:
+      if st.button("🔒 Bloquear Seção", use_container_width=True):
+        st.session_state.holerites_desbloqueado = False
+        st.rerun()
+
+    pdfs_holerites = st.file_uploader(
+        "Escolha os arquivos PDF dos Holerites Corporativos",
+        type=["pdf"],
+        accept_multiple_files=True,
+        key="upload_multiplos_holerites",
+    )
+
+    if pdfs_holerites:
+      upload_ids = "-".join([f"{f.name}-{f.size}" for f in pdfs_holerites])
+      if st.session_state.get("ultimo_upload_processado") != upload_ids:
+        importados_automaticos = 0
+        for arquivo_pdf in pdfs_holerites:
+          texto_holerite = ""
+          try:
+            with pdfplumber.open(arquivo_pdf) as pdf:
+              for pagina in pdf.pages:
+                ext = pagina.extract_text()
+                if ext:
+                  texto_holerite += ext + "\n"
+
+            (
+                mes_ano_extraido,
+                bruto_val,
+                desc_val,
+                liquido_val,
+                inss_val,
+                irrf_val,
+                vale_val,
+            ) = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
+
+            cursor_check = c.execute(
+                "SELECT id FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,)
+            )
+            row_existente = cursor_check.fetchone()
+
+            if not row_existente:
+              c.execute(
+                  "INSERT INTO holerites (mes_ano, salario_bruto,"
+                  " total_descontos, liquido, inss, irrf, vale) VALUES"
+                  " (?,?,?,?,?,?,?)",
+                  (
+                      mes_ano_extraido,
+                      bruto_val,
+                      desc_val,
+                      liquido_val,
+                      inss_val,
+                      irrf_val,
+                      vale_val,
+                  ),
+              )
+              conn.commit()
+              importados_automaticos += 1
+            else:
+              c.execute(
+                  "UPDATE holerites SET salario_bruto = ?, total_descontos = ?,"
+                  " liquido = ?, inss = ?, irrf = ?, vale = ? WHERE mes_ano = ?",
+                  (
+                      bruto_val,
+                      desc_val,
+                      liquido_val,
+                      inss_val,
+                      irrf_val,
+                      vale_val,
+                      mes_ano_extraido,
+                  ),
+              )
+              conn.commit()
+          except Exception as e:
+            pass
+        st.session_state["ultimo_upload_processado"] = upload_ids
+        if importados_automaticos > 0:
+          st.success(
+              f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) com"
+              " sucesso!"
+          )
+
+    df_holerites = pd.read_sql(
+        "SELECT * FROM holerites ORDER BY mes_ano DESC", conn
+    )
+
+    if not df_holerites.empty:
+      st.markdown("---")
+      st.subheader(
+          "📑 Navegação Analítica por Mês / Contracheque (Salvo no Banco)"
+      )
+
+      if "holerite_selecionado_db_idx" not in st.session_state:
+        st.session_state.holerite_selecionado_db_idx = 0
+
+      if st.session_state.holerite_selecionado_db_idx >= len(df_holerites):
+        st.session_state.holerite_selecionado_db_idx = 0
+
+      lista_meses_db = df_holerites["mes_ano"].tolist()
+      cols_botoes = st.columns(min(len(lista_meses_db), 6))
+
+      for idx, mes_ref in enumerate(lista_meses_db):
+        col_pos = idx % len(cols_botoes)
+        with cols_botoes[col_pos]:
+          tipo_botao = (
+              "primary"
+              if st.session_state.holerite_selecionado_db_idx == idx
+              else "secondary"
+          )
+          if st.button(
+              f"Mês {mes_ref}",
+              key=f"btn_mes_db_{idx}",
+              type=tipo_botao,
+              use_container_width=True,
+          ):
+            st.session_state.holerite_selecionado_db_idx = idx
+            st.rerun()
+
+      row_ativo = df_holerites.iloc[
+          st.session_state.holerite_selecionado_db_idx
+      ]
+      mes_ativo_ext = row_ativo["mes_ano"]
+      bruto_ativo = row_ativo["salario_bruto"]
+      desc_ativo = row_ativo["total_descontos"]
+      liquido_ativo = row_ativo["liquido"]
+      inss_ativo = row_ativo["inss"]
+      irrf_ativo = row_ativo["irrf"]
+      vale_ativo = (
+          row_ativo["vale"] if row_ativo["vale"] is not None else 2220.00
+      )
+
+      st.markdown(
+          f"<p style='text-align: center; color: #AAA; font-size: 14px;"
+          f" margin-top: 15px;'>Referência ativa no painel:"
+          f" <b>{mes_ativo_ext}</b></p>",
+          unsafe_allow_html=True,
+      )
+      st.markdown("<br>", unsafe_allow_html=True)
+
+      col_rec, col_desc = st.columns(2)
+
+      with col_rec:
+        st.markdown(
+            f"""
+              <div style="background: rgba(25, 29, 38, 0.85); padding: 25px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
+                  <h4 style="color: #4ade80; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale ({mes_ativo_ext})</h4>
+                  <hr style="border-color: rgba(255,255,255,0.08);">
+                  <p><b>Salário Bruto / Base:</b> R$ {bruto_ativo:,.2f}</p>
+                  <p><b>Adiantamento / Vale Quinzenal:</b> R$ {vale_ativo:,.2f}</p>
+                  <p><b>Horas Extras / Adicionais:</b> R$ 0,00</p>
+                  <p><b>Outros Proventos:</b> R$ 0,00</p>
+                  <h3 style="color: #22c55e; margin-top: 15px; font-size: 20px;">Total Bruto & Vales: R$ {bruto_ativo + vale_ativo:,.2f}</h3>
+              </div>
+              """,
+            unsafe_allow_html=True,
+        )
+
+      with col_desc:
+        st.markdown(
+            f"""
+              <div style="background: rgba(25, 29, 38, 0.85); padding: 25px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
+                  <h4 style="color: #f87171; margin-top: 0;">🔴 Detalhamento Separado dos Descontos ({mes_ativo_ext})</h4>
+                  <hr style="border-color: rgba(255,255,255,0.08);">
+                  <p><b>• INSS (Previdência Social):</b> R$ {inss_ativo:,.2f}</p>
+                  <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:,.2f}</p>
+                  <p><b>• Desconto de Vale (Adiantamento):</b> R$ {vale_ativo:,.2f}</p>
+                  <p><b>• Convênio / Farmácia / Outros:</b> R$ {max(0, desc_ativo - inss_ativo - irrf_ativo - vale_ativo):,.2f}</p>
+                  <h3 style="color: #ef4444; margin-top: 15px; font-size: 20px;">Total Descontos: R$ {desc_ativo:,.2f}</h3>
+              </div>
+              """,
+            unsafe_allow_html=True,
+        )
+
+      st.markdown("<br>", unsafe_allow_html=True)
+
+      st.markdown(
+          f"""
+          <div style="background: rgba(25, 29, 38, 0.85); padding: 20px; border-radius: 14px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
+              <h4 style="color: #94a3b8; margin: 0; font-size: 13px; font-weight: 600;">💵 RECEITA LÍQUIDA ({mes_ativo_ext})</h4>
+              <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {liquido_ativo:,.2f}</h2>
+          </div>
+          """,
+          unsafe_allow_html=True,
+      )
+
+    st.markdown("---")
+    st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
+
+    if not df_holerites.empty:
+      df_exibicao_hol = df_holerites[[
+          "id",
+          "mes_ano",
+          "salario_bruto",
+          "vale",
+          "liquido",
+          "inss",
+          "irrf",
+      ]].copy()
+
+      st.dataframe(
+          df_exibicao_hol.style.format({
+              "salario_bruto": "R$ {:,.2f}",
+              "vale": "R$ {:,.2f}",
+              "liquido": "R$ {:,.2f}",
+              "inss": "R$ {:,.2f}",
+              "irrf": "R$ {:,.2f}",
+          }),
+          use_container_width=True,
+      )
+
+      st.write(
+          "**Gráfico Comparativo de Evolução: Salário Bruto vs Líquido vs"
+          " Descontos**"
+      )
+      st.line_chart(
+          df_holerites.set_index("mes_ano")[[
+              "salario_bruto",
+              "liquido",
+              "total_descontos",
+          ]]
+      )
+
+      st.markdown("### ⚙️ Opções de Gerenciamento do Histórico")
+      col_del1, col_del2 = st.columns(2)
+
+      with col_del1:
+        id_del_hol = st.selectbox(
+            "Selecione o ID exato para remoção:",
+            df_holerites["id"].tolist(),
+            key="del_hol_unique",
+        )
+        if st.button("Excluir Holerite Selecionado", use_container_width=True):
+          c.execute("DELETE FROM holerites WHERE id = ?", (id_del_hol,))
+          conn.commit()
+          st.success("Holerite excluído com sucesso!")
+          st.rerun()
+
+      with col_del2:
+        st.write("")
+        st.write("")
+        if st.button(
+            "🗑️ EXCLUIR TODO HISTÓRICO DE HOLERITES",
+            use_container_width=True,
+            type="primary",
+        ):
+          c.execute("DELETE FROM holerites")
+          conn.commit()
+          st.success("Todo o histórico de holerites foi apagado com sucesso!")
+          st.rerun()
+    else:
+      st.info("Nenhum holerite cadastrado no histórico analítico até o momento.")
