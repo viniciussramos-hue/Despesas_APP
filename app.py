@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.5.5"
+VERSAO_SISTEMA = "v2.5.6"
 DATA_ATUALIZACAO = "10/08/2026"
 
 st.markdown(
@@ -243,7 +243,6 @@ def formatar_data_ptbr(data_obj):
 
 
 def calcular_mes_fatura(data_compra, dia_fechamento):
-  """Calcula automaticamente a qual mês/ano pertence a fatura com base na data da compra e no dia de fechamento."""
   if not isinstance(data_compra, (date, datetime)):
     try:
       data_compra = datetime.strptime(str(data_compra)[:10], "%Y-%m-%d").date()
@@ -251,7 +250,6 @@ def calcular_mes_fatura(data_compra, dia_fechamento):
       data_compra = date.today()
 
   if data_compra.day > dia_fechamento:
-    # Vai para o mês seguinte
     proximo_mes = data_compra.month + 1
     ano = data_compra.year
     if proximo_mes > 12:
@@ -312,12 +310,12 @@ def categorizar_automaticamente(descricao, tipo):
         x in desc_upper
         for x in ["PET", "PETSHOP", "CACHORRO", "GATO", "VET", "RACAO"]
     ):
-      return "🐾 Pet"
+      return "🐾 Pet (Necessidade)"
     elif any(
         x in desc_upper
         for x in ["LAZER", "CINEMA", "VIAGEM", "PASSEIO", "JOGO", "FESTA"]
     ):
-      return "🎉 Lazer & Entretenimento"
+      return "🎉 Lazer & Entretenimento (Desejos)"
     elif any(
         x in desc_upper
         for x in [
@@ -754,11 +752,11 @@ elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
   cats_padrao = [
       "🏠 Contas Fixas (Necessidade)",
       "🛒 Supermercado (Necessidade)",
-      "🐾 Pet",
-      "🎉 Lazer & Entretenimento",
+      "🐾 Pet (Necessidade)",
       "🚗 Transporte (Necessidade)",
       "💊 Saúde (Necessidade)",
       "🍔 Lazer & Alimentação Fora (Desejos)",
+      "🎉 Lazer & Entretenimento (Desejos)",
       "🎉 Outros Desejos (Desejos)",
       "📈 Investimentos / Poupança (20%)",
   ]
@@ -3080,11 +3078,11 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
         [
             "🛒 Supermercado (Necessidade)",
             "🏠 Contas Fixas (Necessidade)",
-            "🐾 Pet",
-            "🎉 Lazer & Entretenimento",
+            "🐾 Pet (Necessidade)",
             "🚗 Transporte (Necessidade)",
             "💊 Saúde (Necessidade)",
             "🍔 Lazer & Alimentação Fora (Desejos)",
+            "🎉 Lazer & Entretenimento (Desejos)",
             "🎉 Outros Desejos (Desejos)",
         ],
     )
@@ -3171,7 +3169,7 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
     st.info("Nenhuma despesa de cartão de crédito registrada no momento.")
 
 # ==========================================
-# --- SEÇÃO 6: INVESTIMENTOS (AJUSTADO PARA CAIXINHAS & RENDA FIXA) ---
+# --- SEÇÃO 6: INVESTIMENTOS ---
 # ==========================================
 elif st.session_state.pagina_atual == "📈 Investimentos":
   botao_voltar()
@@ -3427,11 +3425,11 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
   cats_padrao_meta = [
       "🏠 Contas Fixas (Necessidade)",
       "🛒 Supermercado (Necessidade)",
-      "🐾 Pet",
-      "🎉 Lazer & Entretenimento",
+      "🐾 Pet (Necessidade)",
       "🚗 Transporte (Necessidade)",
       "💊 Saúde (Necessidade)",
       "🍔 Lazer & Alimentação Fora (Desejos)",
+      "🎉 Lazer & Entretenimento (Desejos)",
       "🎉 Outros Desejos (Desejos)",
       "📈 Investimentos / Poupança (20%)",
   ]
@@ -3590,7 +3588,7 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
               "⭐",
           ],
       )
-      nome_cat_input = st.text_input("Nome da Categoria (Ex: Viagens, Pets, Jogos)")
+      nome_cat_input = st.text_input("Nome da Categoria (Ex: Viagens (Desejos), Cursos (Investimento))")
 
       if st.form_submit_button("Salvar Nova Categoria", use_container_width=True):
         if nome_cat_input.strip():
