@@ -13,12 +13,18 @@ import streamlit as st
 # --- CONFIGURAÇÃO DA PÁGINA E TEMA ---
 # ==========================================
 st.set_page_config(
-    page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide"
+    page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.5.7"
+VERSAO_SISTEMA = "v2.5.8"
 DATA_ATUALIZACAO = "10/08/2026"
+
+# ==========================================
+# --- CONTROLE DE ESTADO DA BARRA LATERAL ---
+# ==========================================
+if "sidebar_state" not in st.session_state:
+    st.session_state.sidebar_state = "expanded"
 
 st.markdown(
     """
@@ -34,10 +40,11 @@ st.markdown(
         footer {display: none !important;}
         header {visibility: hidden;}
         
-        /* Garante que a barra lateral permaneça acessível e fixa em telas grandes/médias */
+        /* Garante que a barra lateral permaneça visível e funcional */
         section[data-testid="stSidebar"] {
             display: block !important;
             visibility: visible !important;
+            transform: none !important;
         }
 
         :root {
@@ -489,11 +496,25 @@ def mudar_pagina(nome_pagina):
 # ==========================================
 # --- CABEÇALHO E BARRA LATERAL (SIDEBAR) ---
 # ==========================================
-st.title("💸 Gestor Financeiro Profissional")
-st.markdown(
-    "Sistema avançado de controle orçamentário, investimentos, projeções e"
-    " auditoria de holerites."
-)
+col_tit, col_btn_sb = st.columns([5, 1])
+with col_tit:
+    st.title("💸 Gestor Financeiro Profissional")
+    st.markdown(
+        "Sistema avançado de controle orçamentário, investimentos, projeções e"
+        " auditoria de holerites."
+    )
+with col_btn_sb:
+    st.write("") # Espaçamento
+    if st.button("📂 Menu Lateral", use_container_width=True, help="Clique para alternar a exibição da barra lateral"):
+        if st.session_state.sidebar_state == "expanded":
+            st.session_state.sidebar_state = "collapsed"
+        else:
+            st.session_state.sidebar_state = "expanded"
+        st.rerun()
+
+# Força o estado da sidebar no Streamlit moderno
+if hasattr(st, "set_sidebar_state"):
+    st.set_sidebar_state(st.session_state.sidebar_state)
 
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/combo-chart.png", width=70)
@@ -505,7 +526,7 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # --- NOVO BLOCO DE BACKUP E RESTAURAÇÃO RÁPIDA NA BARRA LATERAL ---
+    # --- BLOCO DE BACKUP E RESTAURAÇÃO RÁPIDA NA BARRA LATERAL ---
     with st.expander("💾 Central de Backup & Segurança", expanded=False):
         st.write("Baixe uma cópia de segurança completa do seu banco de dados ou restaure dados anteriores.")
         
