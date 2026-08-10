@@ -5,6 +5,7 @@ import re
 import sqlite3
 import pandas as pd
 import pdfplumber
+import plotly.express as px
 import streamlit as st
 
 # ==========================================
@@ -15,7 +16,7 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.5.4"
+VERSAO_SISTEMA = "v2.5.5"
 DATA_ATUALIZACAO = "10/08/2026"
 
 st.markdown(
@@ -166,7 +167,7 @@ c.execute("""CREATE TABLE IF NOT EXISTS tabela_depositos
              (id INTEGER PRIMARY KEY AUTOINCREMENT, numero_deposito INTEGER, valor REAL, status TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS cartao_credito 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, cartao TEXT, descricao TEXT, categoria TEXT, valor REAL)""")
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, cartao TEXT, descricao TEXT, categoria TEXT, valor REAL, dia_fechamento INTEGER, dia_vencimento INTEGER, mes_fatura TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS holerites 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, mes_ano TEXT, salario_bruto REAL, total_descontos REAL, liquido REAL, inss REAL, irrf REAL, vale REAL)""")
@@ -206,6 +207,14 @@ try:
 except:
   pass
 
+try:
+  c.execute("ALTER TABLE cartao_credito ADD COLUMN dia_fechamento INTEGER")
+  c.execute("ALTER TABLE cartao_credito ADD COLUMN dia_vencimento INTEGER")
+  c.execute("ALTER TABLE cartao_credito ADD COLUMN mes_fatura TEXT")
+  conn.commit()
+except:
+  pass
+
 conn.commit()
 
 if pd.read_sql("SELECT count(*) FROM tabela_depositos", conn).iloc[0, 0] == 0:
@@ -231,6 +240,26 @@ def formatar_data_ptbr(data_obj):
     except:
       return data_obj
   return data_obj
+
+
+def calcular_mes_fatura(data_compra, dia_fechamento):
+  """Calcula automaticamente a qual mês/ano pertence a fatura com base na data da compra e no dia de fechamento."""
+  if not isinstance(data_compra, (date, datetime)):
+    try:
+      data_compra = datetime.strptime(str(data_compra)[:10], "%Y-%m-%d").date()
+    except:
+      data_compra = date.today()
+
+  if data_compra.day > dia_fechamento:
+    # Vai para o mês seguinte
+    proximo_mes = data_compra.month + 1
+    ano = data_compra.year
+    if proximo_mes > 12:
+      proximo_mes = 1
+      ano += 1
+    return f"{ano}-{proximo_mes:02d}"
+  else:
+    return f"{data_compra.year}-{data_compra.month:02d}"
 
 
 def categorizar_automaticamente(descricao, tipo):
@@ -2282,39 +2311,59 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
         st.progress(min(pct_atingido, 1.0))
 
     st.markdown("---")
-    st.subheader("📈 Distribuição de Despesas Manuais por Categoria")
+    st.subheader("📈 Distribuição de Despesas Manuais por Categoria (Gráfico de Rosca Interativo)")
     df_desp = df[df["tipo"] == "Despesa"]
     if not df_desp.empty:
-      gasto_cat = df_desp.groupby("categoria")["valor"].sum()
+      gasto_cat = df_desp.groupby("categoria")["valor"].sum().reset_index()
       col_g1, col_g2 = st.columns(2)
       with col_g1:
-        st.bar_chart(gasto_cat)
-      with col_g2:
-        df_resumo = (
-            gasto_cat.reset_index()
-            .rename(columns={"valor": "Total Gasto (R$)"})
+        fig_pie = px.pie(
+            gasto_cat,
+            names="categoria",
+            values="valor",
+            hole=0.4,
+            color_discrete_sequence=px.colors.sequential.RdBu,
         )
+        fig_pie.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#f8fafc",
+            margin=dict(t=10, b=10, l=10, r=10),
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
+      with col_g2:
+        df_resumo = gasto_cat.rename(columns={"categoria": "Categoria", "valor": "Total Gasto (R$)"})
         df_resumo["Total Gasto (R$)"] = df_resumo["Total Gasto (R$)"].apply(
             lambda x: f"R$ {x:,.2f}"
         )
-        st.dataframe(df_resumo, use_container_width=True)
+        st.dataframe(df_resumo, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     st.subheader("🏷️ Distribuição de Despesas Manuais por Descrição Específica")
     if not df_desp.empty:
-      gasto_desc = df_desp.groupby("descricao")["valor"].sum().sort_values(ascending=False)
+      gasto_desc = df_desp.groupby("descricao")["valor"].sum().reset_index().sort_values(by="valor", ascending=False)
       col_gd1, col_gd2 = st.columns(2)
       with col_gd1:
-        st.bar_chart(gasto_desc)
-      with col_gd2:
-        df_resumo_desc = (
-            gasto_desc.reset_index()
-            .rename(columns={"descricao": "Descrição", "valor": "Total Gasto (R$)"})
+        fig_pie_desc = px.pie(
+            gasto_desc.head(8),
+            names="descricao",
+            values="valor",
+            hole=0.4,
+            color_discrete_sequence=px.colors.sequential.Viridis,
         )
+        fig_pie_desc.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#f8fafc",
+            margin=dict(t=10, b=10, l=10, r=10),
+        )
+        st.plotly_chart(fig_pie_desc, use_container_width=True)
+      with col_gd2:
+        df_resumo_desc = gasto_desc.rename(columns={"descricao": "Descrição", "valor": "Total Gasto (R$)"})
         df_resumo_desc["Total Gasto (R$)"] = df_resumo_desc["Total Gasto (R$)"].apply(
             lambda x: f"R$ {x:,.2f}"
         )
-        st.dataframe(df_resumo_desc, use_container_width=True)
+        st.dataframe(df_resumo_desc, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     st.subheader("📊 Gráfico de Área Empilhada: Dinâmica 50/30/20 (Manual)")
@@ -2497,37 +2546,58 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
             )
 
     st.markdown("---")
-    st.subheader("📈 Distribuição de Gastos do Extrato por Categoria")
+    st.subheader("📈 Distribuição de Gastos do Extrato por Categoria (Gráfico de Rosca)")
     if not df_desp_banco.empty:
-      gasto_cat_b = df_desp_banco.groupby("categoria")["valor"].sum()
+      gasto_cat_b = df_desp_banco.groupby("categoria")["valor"].sum().reset_index()
       col_gb1, col_gb2 = st.columns(2)
       with col_gb1:
-        st.bar_chart(gasto_cat_b)
-      with col_gb2:
-        df_res_b = (
-            gasto_cat_b.reset_index().rename(columns={"valor": "Total (R$)"})
+        fig_pie_b = px.pie(
+            gasto_cat_b,
+            names="categoria",
+            values="valor",
+            hole=0.4,
+            color_discrete_sequence=px.colors.sequential.Teal,
         )
+        fig_pie_b.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#f8fafc",
+            margin=dict(t=10, b=10, l=10, r=10),
+        )
+        st.plotly_chart(fig_pie_b, use_container_width=True)
+      with col_gb2:
+        df_res_b = gasto_cat_b.rename(columns={"categoria": "Categoria", "valor": "Total (R$)"})
         df_res_b["Total (R$)"] = df_res_b["Total (R$)"].apply(
             lambda x: f"R$ {x:,.2f}"
         )
-        st.dataframe(df_res_b, use_container_width=True)
+        st.dataframe(df_res_b, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     st.subheader("🏷️ Distribuição de Gastos do Extrato por Descrição Específica")
     if not df_desp_banco.empty:
-      gasto_desc_b = df_desp_banco.groupby("descricao")["valor"].sum().sort_values(ascending=False)
+      gasto_desc_b = df_desp_banco.groupby("descricao")["valor"].sum().reset_index().sort_values(by="valor", ascending=False)
       col_gdb1, col_gdb2 = st.columns(2)
       with col_gdb1:
-        st.bar_chart(gasto_desc_b)
-      with col_gdb2:
-        df_res_desc_b = (
-            gasto_desc_b.reset_index()
-            .rename(columns={"descricao": "Descrição", "valor": "Total (R$)"})
+        fig_pie_db = px.pie(
+            gasto_desc_b.head(8),
+            names="descricao",
+            values="valor",
+            hole=0.4,
+            color_discrete_sequence=px.colors.sequential.Plasma,
         )
+        fig_pie_db.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#f8fafc",
+            margin=dict(t=10, b=10, l=10, r=10),
+        )
+        st.plotly_chart(fig_pie_db, use_container_width=True)
+      with col_gdb2:
+        df_res_desc_b = gasto_desc_b.rename(columns={"descricao": "Descrição", "valor": "Total (R$)"})
         df_res_desc_b["Total (R$)"] = df_res_desc_b["Total (R$)"].apply(
             lambda x: f"R$ {x:,.2f}"
         )
-        st.dataframe(df_res_desc_b, use_container_width=True)
+        st.dataframe(df_res_desc_b, use_container_width=True, hide_index=True)
 
     if not df_b.empty:
       st.markdown("---")
@@ -2727,14 +2797,20 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
         df_trans_prev["data"], errors="coerce"
     )
 
+  mes_ref_filtro_str = f"{ano_ativo}-{mes_ativo_num:02d}"
+
   if tipo_visao == "Mensal":
     f_cartao = (
-        df_cartao_prev[
-            (df_cartao_prev["data_dt"].dt.year == ano_ativo)
-            & (df_cartao_prev["data_dt"].dt.month == mes_ativo_num)
-        ]
-        if not df_cartao_prev.empty
-        else pd.DataFrame()
+        df_cartao_prev[df_cartao_prev["mes_fatura"] == mes_ref_filtro_str]
+        if not df_cartao_prev.empty and "mes_fatura" in df_cartao_prev.columns
+        else (
+            df_cartao_prev[
+                (df_cartao_prev["data_dt"].dt.year == ano_ativo)
+                & (df_cartao_prev["data_dt"].dt.month == mes_ativo_num)
+            ]
+            if not df_cartao_prev.empty
+            else pd.DataFrame()
+        )
     )
     f_contas = (
         df_contas_prev[
@@ -2960,10 +3036,10 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 # ==========================================
 elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
   botao_voltar()
-  st.subheader("💳 Gestão Avançada de Faturas de Cartão de Crédito")
+  st.subheader("💳 Gestão Avançada de Faturas de Cartão de Crédito (Fechamento & Vencimento)")
   st.write(
       "Acompanhe gastos detalhados por bandeira e controle o impacto das"
-      " compras parceladas."
+      " compras alocadas na fatura correta conforme o dia de fechamento."
   )
 
   with st.form("form_cartao_credito_completo", clear_on_submit=True):
@@ -2983,14 +3059,20 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
           ],
       )
       desc_cc = st.text_input("Descrição da Compra Específica")
-    with col_cc2:
       val_cc = st.number_input(
           "Valor da Compra (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f"
       )
+    with col_cc2:
       data_cc = st.date_input(
           "Data da Compra no Cartão (DD/MM/AAAA)",
           value=date.today(),
           format="DD/MM/YYYY",
+      )
+      dia_fechamento_cc = st.number_input(
+          "Dia de Fechamento da Fatura", min_value=1, max_value=31, value=10, step=1
+      )
+      dia_vencimento_cc = st.number_input(
+          "Dia de Vencimento da Fatura", min_value=1, max_value=31, value=17, step=1
       )
 
     cat_cc = st.selectbox(
@@ -3011,19 +3093,23 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
         "Lançar Gasto na Fatura do Cartão", use_container_width=True
     ):
       if desc_cc.strip() and val_cc > 0:
+        mes_fatura_calc = calcular_mes_fatura(data_cc, dia_fechamento_cc)
         c.execute(
             "INSERT INTO cartao_credito (data, cartao, descricao, categoria,"
-            " valor) VALUES (?,?,?,?,?)",
+            " valor, dia_fechamento, dia_vencimento, mes_fatura) VALUES (?,?,?,?,?,?,?,?)",
             (
                 data_cc.strftime("%Y-%m-%d"),
                 nome_cartao,
                 desc_cc.strip(),
                 cat_cc,
                 val_cc,
+                dia_fechamento_cc,
+                dia_vencimento_cc,
+                mes_fatura_calc,
             ),
         )
         conn.commit()
-        st.success("Compra adicionada à fatura com sucesso!")
+        st.success(f"Compra adicionada com sucesso! Alocada para a fatura do mês: **{mes_fatura_calc}**")
         st.rerun()
       else:
         st.error("Informe a descrição e o valor da compra.")
@@ -3031,15 +3117,40 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
   st.markdown("---")
   df_cartao = pd.read_sql("SELECT * FROM cartao_credito", conn)
   if not df_cartao.empty:
-    df_cartao["data"] = df_cartao["data"].apply(formatar_data_ptbr)
     st.write("### 📋 Extrato Consolidado de Faturas Atuais")
-    st.dataframe(df_cartao, use_container_width=True)
+    
+    if "mes_fatura" in df_cartao.columns:
+      meses_fatura_disp = sorted(df_cartao["mes_fatura"].dropna().unique(), reverse=True)
+      if meses_fatura_disp:
+        sel_mes_fat = st.selectbox("Filtrar por Mês de Fatura:", meses_fatura_disp)
+        df_cartao_exib = df_cartao[df_cartao["mes_fatura"] == sel_mes_fat].copy()
+      else:
+        df_cartao_exib = df_cartao.copy()
+    else:
+      df_cartao_exib = df_cartao.copy()
 
-    total_fatura = df_cartao["valor"].sum()
+    df_cartao_exib["data"] = df_cartao_exib["data"].apply(formatar_data_ptbr)
+    st.dataframe(
+        df_cartao_exib.rename(columns={
+            "id": "ID",
+            "data": "Data Compra",
+            "cartao": "Cartão",
+            "descricao": "Descrição",
+            "categoria": "Categoria",
+            "valor": "Valor (R$)",
+            "dia_fechamento": "Fechamento",
+            "dia_vencimento": "Vencimento",
+            "mes_fatura": "Mês Fatura"
+        }),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    total_fatura = df_cartao_exib["valor"].sum()
     st.markdown(
         f"""
         <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; margin-top: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-            <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💳 MONTANTE TOTAL ACUMULADO EM CARTÕES</span>
+            <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💳 MONTANTE TOTAL DA FATURA SELECIONADA</span>
             <h3 style="color: #f59e0b; margin: 8px 0 0 0; font-size: 20px;">R$ {total_fatura:,.2f}</h3>
         </div>
         """,
@@ -3167,9 +3278,22 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
     st.markdown("---")
     col_pos1, col_pos2 = st.columns(2)
     with col_pos1:
-      st.write("### 📊 Alocação por Classe de Renda Fixa / Ativos")
-      df_classe = df_carteira.groupby("classe")["Valor Total"].sum()
-      st.bar_chart(df_classe)
+      st.write("### 📊 Alocação por Classe de Renda Fixa / Ativos (Gráfico de Rosca)")
+      df_classe = df_carteira.groupby("classe")["Valor Total"].sum().reset_index()
+      fig_pie_inv = px.pie(
+          df_classe,
+          names="classe",
+          values="Valor Total",
+          hole=0.4,
+          color_discrete_sequence=px.colors.sequential.Sunset,
+      )
+      fig_pie_inv.update_layout(
+          paper_bgcolor="rgba(0,0,0,0)",
+          plot_bgcolor="rgba(0,0,0,0)",
+          font_color="#f8fafc",
+          margin=dict(t=10, b=10, l=10, r=10),
+      )
+      st.plotly_chart(fig_pie_inv, use_container_width=True)
     with col_pos2:
       st.write("### 📋 Posições Detalhadas Registradas")
       df_carteira["data"] = df_carteira["data"].apply(formatar_data_ptbr)
