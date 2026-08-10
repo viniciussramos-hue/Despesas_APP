@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.5.2"
+VERSAO_SISTEMA = "v2.5.3"
 DATA_ATUALIZACAO = "09/08/2026"
 
 st.markdown(
@@ -5089,13 +5089,12 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         st.markdown(
             f"""
               <div style="background: rgba(25, 29, 38, 0.85); padding: 25px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
-                  <h4 style="color: #4ade80; margin-top: 0;">🟢 Detalhamento de Receitas, Proventos & Vale ({mes_ativo_ext})</h4>
+                  <h4 style="color: #4ade80; margin-top: 0;">🟢 Detalhamento de Proventos ({mes_ativo_ext})</h4>
                   <hr style="border-color: rgba(255,255,255,0.08);">
                   <p><b>Salário Bruto / Base:</b> R$ {bruto_ativo:,.2f}</p>
-                  <p><b>Adiantamento / Vale Quinzenal:</b> R$ {vale_ativo:,.2f}</p>
                   <p><b>Horas Extras / Adicionais:</b> R$ 0,00</p>
                   <p><b>Outros Proventos:</b> R$ 0,00</p>
-                  <h3 style="color: #22c55e; margin-top: 15px; font-size: 20px;">Total Bruto & Vales: R$ {bruto_ativo + vale_ativo:,.2f}</h3>
+                  <h3 style="color: #22c55e; margin-top: 15px; font-size: 20px;">Salário Bruto: R$ {bruto_ativo:,.2f}</h3>
               </div>
               """,
             unsafe_allow_html=True,
@@ -5109,7 +5108,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                   <hr style="border-color: rgba(255,255,255,0.08);">
                   <p><b>• INSS (Previdência Social):</b> R$ {inss_ativo:,.2f}</p>
                   <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:,.2f}</p>
-                  <p><b>• Desconto de Vale (Adiantamento):</b> R$ {vale_ativo:,.2f}</p>
+                  <p><b>• Desconto de Vale / Adiantamento:</b> R$ {vale_ativo:,.2f}</p>
                   <p><b>• Convênio / Farmácia / Outros:</b> R$ {max(0, desc_ativo - inss_ativo - irrf_ativo - vale_ativo):,.2f}</p>
                   <h3 style="color: #ef4444; margin-top: 15px; font-size: 20px;">Total Descontos: R$ {desc_ativo:,.2f}</h3>
               </div>
@@ -5122,7 +5121,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
       st.markdown(
           f"""
           <div style="background: rgba(25, 29, 38, 0.85); padding: 20px; border-radius: 14px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
-              <h4 style="color: #94a3b8; margin: 0; font-size: 13px; font-weight: 600;">💵 RECEITA LÍQUIDA ({mes_ativo_ext})</h4>
+              <h4 style="color: #94a3b8; margin: 0; font-size: 13px; font-weight: 600;">💵 SALÁRIO LÍQUIDO A RECEBER ({mes_ativo_ext})</h4>
               <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {liquido_ativo:,.2f}</h2>
           </div>
           """,
