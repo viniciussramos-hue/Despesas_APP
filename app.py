@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 import difflib
+import json
 import os
 import re
 import sqlite3
@@ -16,7 +17,7 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.5.6"
+VERSAO_SISTEMA = "v2.5.7"
 DATA_ATUALIZACAO = "10/08/2026"
 
 st.markdown(
@@ -33,10 +34,10 @@ st.markdown(
         footer {display: none !important;}
         header {visibility: hidden;}
         
-        /* Esconde elementos flutuantes adicionais da barra inferior */
-        .eczcs4p0 {display: none !important;}
-        .styles_viewerBadge__1yG5_, .viewerBadge_link__1S137, .viewerBadge_text__1JaDK {
-            display: none !important;
+        /* Garante que a barra lateral permaneça acessível e fixa em telas grandes/médias */
+        section[data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
         }
 
         :root {
@@ -501,6 +502,37 @@ with st.sidebar:
     if st.button("🏠 Painel Principal / Início", use_container_width=True):
         mudar_pagina("🏠 Início / Painel")
         st.rerun()
+
+    st.markdown("---")
+    
+    # --- NOVO BLOCO DE BACKUP E RESTAURAÇÃO RÁPIDA NA BARRA LATERAL ---
+    with st.expander("💾 Central de Backup & Segurança", expanded=False):
+        st.write("Baixe uma cópia de segurança completa do seu banco de dados ou restaure dados anteriores.")
+        
+        # Botão de Download Direto
+        with open("gestor_financeiro.db", "rb") as f_bkp:
+            st.download_button(
+                "📥 Baixar Backup (.db)",
+                f_bkp,
+                file_name=f"backup_gestor_{date.today().strftime('%Y%m%d')}.db",
+                mime="application/octet-stream",
+                use_container_width=True,
+            )
+        
+        st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
+        
+        # Upload para Restaurar Backup
+        arquivo_restore = st.file_uploader("Restaurar Banco de Dados (.db)", type=["db"], key="restore_db_sidebar")
+        if arquivo_restore is not None:
+            if st.button("🔄 Confirmar Restauração", use_container_width=True):
+                try:
+                    conn.close() # Fecha a conexão atual antes de substituir
+                    with open("gestor_financeiro.db", "wb") as f_out:
+                        f_out.write(arquivo_restore.getbuffer())
+                    st.success("Backup restaurado com sucesso! Reiniciando o app...")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao restaurar backup: {e}")
 
     st.markdown("---")
     
