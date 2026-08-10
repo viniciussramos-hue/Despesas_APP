@@ -146,49 +146,49 @@ conn = sqlite3.connect("gestor_financeiro.db", check_same_thread=False)
 c = conn.cursor()
 
 c.execute("""CREATE TABLE IF NOT EXISTS transacoes 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, tipo TEXT, descricao TEXT, categoria TEXT, valor REAL, origem TEXT)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, tipo TEXT, descricao TEXT, categoria TEXT, valor REAL, origem TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS contas 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, vencimento TEXT, descricao TEXT, valor REAL, pago INTEGER)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, vencimento TEXT, descricao TEXT, valor REAL, pago INTEGER)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS contas_receber 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, vencimento TEXT, descricao TEXT, valor REAL, recebido INTEGER)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, vencimento TEXT, descricao TEXT, valor REAL, recebido INTEGER)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS categorias 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS metas 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, categoria TEXT, valor_meta REAL)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, categoria TEXT, valor_meta REAL)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS carteira_investimentos 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS tabela_depositos 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, numero_deposito INTEGER, valor REAL, status TEXT)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, numero_deposito INTEGER, valor REAL, status TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS cartao_credito 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, cartao TEXT, descricao TEXT, categoria TEXT, valor REAL, dia_fechamento INTEGER, dia_vencimento INTEGER, mes_fatura TEXT)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, cartao TEXT, descricao TEXT, categoria TEXT, valor REAL, dia_fechamento INTEGER, dia_vencimento INTEGER, mes_fatura TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS holerites 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, mes_ano TEXT, salario_bruto REAL, total_descontos REAL, liquido REAL, inss REAL, irrf REAL, vale REAL)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, mes_ano TEXT, salario_bruto REAL, total_descontos REAL, liquido REAL, inss REAL, irrf REAL, vale REAL)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS veiculos 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, placa TEXT, modelo TEXT, ano TEXT, km_atual REAL)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, placa TEXT, modelo TEXT, ano TEXT, km_atual REAL)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS manutencoes_veiculo 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, veiculo_id INTEGER, tipo_registro TEXT, descricao TEXT, data TEXT, valor REAL, status TEXT)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, veiculo_id INTEGER, tipo_registro TEXT, descricao TEXT, data TEXT, valor REAL, status TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS consumo_combustivel 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, veiculo_id INTEGER, data TEXT, litros REAL, valor_total REAL, km_odometro REAL, consumo_medio REAL)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, veiculo_id INTEGER, data TEXT, litros REAL, valor_total REAL, km_odometro REAL, consumo_medio REAL)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS notas_fiscais 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, estabelecimento TEXT, valor_total REAL, origem_arquivo TEXT)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, estabelecimento TEXT, valor_total REAL, origem_arquivo TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS itens_nota_fiscal 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, nota_id INTEGER, produto TEXT, quantidade REAL, valor_unitario REAL, valor_total REAL, categoria TEXT)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, nota_id INTEGER, produto TEXT, quantidade REAL, valor_unitario REAL, valor_total REAL, categoria TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS saldo_banco_manual 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, banco TEXT, saldo_conta REAL, limite_utilizado REAL, limite_disponivel REAL, limite_total REAL)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, banco TEXT, saldo_conta REAL, limite_utilizado REAL, limite_disponivel REAL, limite_total REAL)""")
 
 try:
   c.execute("ALTER TABLE transacoes ADD COLUMN origem TEXT")
@@ -3369,7 +3369,7 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
   with col_esq:
     st.write("### Tabela Geral do Desafio")
     df_exibicao = pd.DataFrame()
-    df_exibicao["Nº do Depósito"] = df_deps["numero_depósito"]
+    df_exibicao["Nº do Depósito"] = df_deps["numero_deposito"]
     df_exibicao["Valor a Guardar"] = df_deps["valor"].apply(
         lambda x: f"R$ {x:,.2f}"
     )
@@ -3382,7 +3382,7 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
     st.write("### ⚙️ Atualizar Status do Depósito")
     with st.form("form_atualizar_deposito_completo"):
       deps_sel = st.multiselect(
-          "Selecione os Números dos Depósitos:", df_deps["numero_depósito"].tolist()
+          "Selecione os Números dos Depósitos:", df_deps["numero_deposito"].tolist()
       )
       status_novo = st.selectbox(
           "Novo Status:", ["Pendente", "Concluído"], index=1
@@ -5124,180 +5124,63 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                   ),
               )
               conn.commit()
+              importados_automaticos += 1
           except Exception as e:
-            pass
+            st.error(f"Erro ao processar o arquivo {arquivo_pdf.name}: {e}")
+
         st.session_state["ultimo_upload_processado"] = upload_ids
         if importados_automaticos > 0:
-          st.success(
-              f"🚀 {importados_automaticos} novo(s) holerite(s) lido(s) com"
-              " sucesso!"
-          )
-
-    df_holerites = pd.read_sql(
-        "SELECT * FROM holerites ORDER BY mes_ano DESC", conn
-    )
-
-    if not df_holerites.empty:
-      st.markdown("---")
-      st.subheader(
-          "📑 Navegação Analítica por Mês / Contracheque (Salvo no Banco)"
-      )
-
-      if "holerite_selecionado_db_idx" not in st.session_state:
-        st.session_state.holerite_selecionado_db_idx = 0
-
-      if st.session_state.holerite_selecionado_db_idx >= len(df_holerites):
-        st.session_state.holerite_selecionado_db_idx = 0
-
-      lista_meses_db = df_holerites["mes_ano"].tolist()
-      cols_botoes = st.columns(min(len(lista_meses_db), 6))
-
-      for idx, mes_ref in enumerate(lista_meses_db):
-        col_pos = idx % len(cols_botoes)
-        with cols_botoes[col_pos]:
-          tipo_botao = (
-              "primary"
-              if st.session_state.holerite_selecionado_db_idx == idx
-              else "secondary"
-          )
-          if st.button(
-              f"Mês {mes_ref}",
-              key=f"btn_mes_db_{idx}",
-              type=tipo_botao,
-              use_container_width=True,
-          ):
-            st.session_state.holerite_selecionado_db_idx = idx
-            st.rerun()
-
-      row_ativo = df_holerites.iloc[
-          st.session_state.holerite_selecionado_db_idx
-      ]
-      mes_ativo_ext = row_ativo["mes_ano"]
-      bruto_ativo = row_ativo["salario_bruto"]
-      desc_ativo = row_ativo["total_descontos"]
-      liquido_ativo = row_ativo["liquido"]
-      inss_ativo = row_ativo["inss"]
-      irrf_ativo = row_ativo["irrf"]
-      vale_ativo = (
-          row_ativo["vale"] if row_ativo["vale"] is not None else 2220.00
-      )
-
-      st.markdown(
-          f"<p style='text-align: center; color: #AAA; font-size: 14px;"
-          f" margin-top: 15px;'>Referência ativa no painel:"
-          f" <b>{mes_ativo_ext}</b></p>",
-          unsafe_allow_html=True,
-      )
-      st.markdown("<br>", unsafe_allow_html=True)
-
-      col_rec, col_desc = st.columns(2)
-
-      with col_rec:
-        st.markdown(
-            f"""
-              <div style="background: rgba(25, 29, 38, 0.85); padding: 25px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
-                  <h4 style="color: #4ade80; margin-top: 0;">🟢 Detalhamento de Proventos ({mes_ativo_ext})</h4>
-                  <hr style="border-color: rgba(255,255,255,0.08);">
-                  <p><b>Salário Bruto / Base:</b> R$ {bruto_ativo:,.2f}</p>
-                  <p><b>Horas Extras / Adicionais:</b> R$ 0,00</p>
-                  <p><b>Outros Proventos:</b> R$ 0,00</p>
-                  <h3 style="color: #22c55e; margin-top: 15px; font-size: 20px;">Salário Bruto: R$ {bruto_ativo:,.2f}</h3>
-              </div>
-              """,
-            unsafe_allow_html=True,
-        )
-
-      with col_desc:
-        st.markdown(
-            f"""
-              <div style="background: rgba(25, 29, 38, 0.85); padding: 25px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
-                  <h4 style="color: #f87171; margin-top: 0;">🔴 Detalhamento Separado dos Descontos ({mes_ativo_ext})</h4>
-                  <hr style="border-color: rgba(255,255,255,0.08);">
-                  <p><b>• INSS (Previdência Social):</b> R$ {inss_ativo:,.2f}</p>
-                  <p><b>• IRRF (Imposto de Renda Retido):</b> R$ {irrf_ativo:,.2f}</p>
-                  <p><b>• Desconto de Vale / Adiantamento:</b> R$ {vale_ativo:,.2f}</p>
-                  <p><b>• Convênio / Farmácia / Outros:</b> R$ {max(0, desc_ativo - inss_ativo - irrf_ativo - vale_ativo):,.2f}</p>
-                  <h3 style="color: #ef4444; margin-top: 15px; font-size: 20px;">Total Descontos: R$ {desc_ativo:,.2f}</h3>
-              </div>
-              """,
-            unsafe_allow_html=True,
-        )
-
-      st.markdown("<br>", unsafe_allow_html=True)
-
-      st.markdown(
-          f"""
-          <div style="background: rgba(25, 29, 38, 0.85); padding: 20px; border-radius: 14px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);">
-              <h4 style="color: #94a3b8; margin: 0; font-size: 13px; font-weight: 600;">💵 SALÁRIO LÍQUIDO A RECEBER ({mes_ativo_ext})</h4>
-              <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {liquido_ativo:,.2f}</h2>
-          </div>
-          """,
-          unsafe_allow_html=True,
-      )
+          st.success(f"🎉 {importados_automaticos} holerite(s) processado(s) e gravado(s) com sucesso!")
+          st.rerun()
 
     st.markdown("---")
-    st.subheader("📋 Histórico Corporativo de Contracheques Cadastrados")
-
-    if not df_holerites.empty:
-      df_exibicao_hol = df_holerites[[
-          "id",
-          "mes_ano",
-          "salario_bruto",
-          "vale",
-          "liquido",
-          "inss",
-          "irrf",
-      ]].copy()
-
+    st.subheader("📋 Histórico de Holerites Cadastrados")
+    df_hol_all = pd.read_sql("SELECT * FROM holerites ORDER BY id DESC", conn)
+    if not df_hol_all.empty:
       st.dataframe(
-          df_exibicao_hol.style.format({
-              "salario_bruto": "R$ {:,.2f}",
-              "vale": "R$ {:,.2f}",
-              "liquido": "R$ {:,.2f}",
-              "inss": "R$ {:,.2f}",
-              "irrf": "R$ {:,.2f}",
-          }),
+          df_hol_all.rename(
+              columns={
+                  "id": "ID",
+                  "mes_ano": "Mês/Ano",
+                  "salario_bruto": "Salário Bruto (R$)",
+                  "total_descontos": "Total Descontos (R$)",
+                  "liquido": "Líquido (R$)",
+                  "inss": "INSS (R$)",
+                  "irrf": "IRRF (R$)",
+                  "vale": "Vale (R$)",
+              }
+          ),
           use_container_width=True,
+          hide_index=True,
       )
 
-      st.write(
-          "**Gráfico Comparativo de Evolução: Salário Bruto vs Líquido vs"
-          " Descontos**"
+      st.markdown("---")
+      st.subheader("📊 Comparativo Gráfico Mês a Mês (Evolução Salarial & Descontos)")
+      fig_hol = px.bar(
+          df_hol_all,
+          x="mes_ano",
+          y=["salario_bruto", "total_descontos", "liquido"],
+          barmode="group",
+          labels={"value": "Valor (R$)", "mes_ano": "Mês/Ano", "variable": "Indicador"},
+          color_discrete_sequence=["#3b82f6", "#ef4444", "#22c55e"],
       )
-      st.line_chart(
-          df_holerites.set_index("mes_ano")[[
-              "salario_bruto",
-              "liquido",
-              "total_descontos",
-          ]]
+      fig_hol.update_layout(
+          paper_bgcolor="rgba(0,0,0,0)",
+          plot_bgcolor="rgba(0,0,0,0)",
+          font_color="#f8fafc",
       )
+      st.plotly_chart(fig_hol, use_container_width=True)
 
-      st.markdown("### ⚙️ Opções de Gerenciamento do Histórico")
-      col_del1, col_del2 = st.columns(2)
-
-      with col_del1:
-        id_del_hol = st.selectbox(
-            "Selecione o ID exato para remoção:",
-            df_holerites["id"].tolist(),
-            key="del_hol_unique",
-        )
-        if st.button("Excluir Holerite Selecionado", use_container_width=True):
-          c.execute("DELETE FROM holerites WHERE id = ?", (id_del_hol,))
-          conn.commit()
-          st.success("Holerite excluído com sucesso!")
-          st.rerun()
-
-      with col_del2:
-        st.write("")
-        st.write("")
-        if st.button(
-            "🗑️ EXCLUIR TODO HISTÓRICO DE HOLERITES",
-            use_container_width=True,
-            type="primary",
-        ):
-          c.execute("DELETE FROM holerites")
-          conn.commit()
-          st.success("Todo o histórico de holerites foi apagado com sucesso!")
-          st.rerun()
+      st.markdown("---")
+      id_del_hol = st.selectbox(
+          "Selecione o ID do holerite para remoção:",
+          df_hol_all["id"].tolist(),
+          key="del_hol_sel",
+      )
+      if st.button("Remover Holerite Selecionado", use_container_width=True):
+        c.execute("DELETE FROM holerites WHERE id = ?", (id_del_hol,))
+        conn.commit()
+        st.success("Holerite removido com sucesso!")
+        st.rerun()
     else:
-      st.info("Nenhum holerite cadastrado no histórico analítico até o momento.")
+      st.info("Nenhum holerite cadastrado ou importado até o momento.")
