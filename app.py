@@ -15,8 +15,8 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.5.3"
-DATA_ATUALIZACAO = "09/08/2026"
+VERSAO_SISTEMA = "v2.5.4"
+DATA_ATUALIZACAO = "10/08/2026"
 
 st.markdown(
     """
@@ -362,6 +362,7 @@ def categorizar_automaticamente(descricao, tipo):
         or "CORRETORA" in desc_upper
         or "ACOES" in desc_upper
         or "TESOURO" in desc_upper
+        or "CAIXINHA" in desc_upper
     ):
       return "📈 Investimentos / Poupança (20%)"
     return "🛒 Supermercado (Necessidade)"
@@ -477,7 +478,6 @@ with st.sidebar:
 
   st.markdown("---")
   
-  # --- CALCULADORA REGRA 50/30/20 (MINIMIZADA EM EXPANDER COM BOTÃO DE CÁLCULO) ---
   with st.expander("🧮 Calculadora Regra 50/30/20", expanded=False):
     with st.form("form_calc_sidebar"):
       renda_calc_input = st.number_input(
@@ -511,7 +511,6 @@ with st.sidebar:
     st.rerun()
 
   st.markdown("---")
-  # --- BLOCO DE VERSÃO DO SISTEMA NO MENU ---
   st.markdown(
       f"""
       <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 10px; padding: 10px; text-align: center; font-size: 12px;">
@@ -552,7 +551,6 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
       unsafe_allow_html=True,
   )
 
-  # --- ALERTA DE CONTAS PRÓXIMAS AO VENCIMENTO NA PÁGINA INICIAL ---
   try:
     hoje_alerta = date.today()
     daqui_5_dias = hoje_alerta + timedelta(days=5)
@@ -612,7 +610,6 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
   except Exception as e:
     pass
 
-  # Grupo 1: Painel de Gestão Diária
   st.markdown(
       '<div class="group-card"><div class="group-title">Painel de Gestão'
       " Diária</div>",
@@ -641,7 +638,6 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
       st.rerun()
   st.markdown("</div>", unsafe_allow_html=True)
 
-  # Grupo 2: Análise & Planejamento
   st.markdown(
       '<div class="group-card"><div class="group-title">Análise &'
       " Planejamento</div>",
@@ -670,7 +666,6 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
       st.rerun()
   st.markdown("</div>", unsafe_allow_html=True)
 
-  # Grupo 3 & 4: Inovação (Voz, IA, Leitor de Notas) & Configuração
   col_a, col_b = st.columns(2)
   with col_a:
     st.markdown(
@@ -957,7 +952,6 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
       " digitando no chat."
   )
 
-  # --- CAMPO DE AJUDA / EXEMPLOS DE COMANDOS PARA O CHATBOT ---
   with st.expander("💡 Ajuda: O que ou como pedir para o Chatbot IA? (Clique para expandir)", expanded=False):
     st.markdown(
         """
@@ -1233,7 +1227,6 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
           st.error(f"Erro ao processar PDF: {e}")
 
       else:
-        # É uma imagem JPG / JPEG / PNG
         st.image(
             arquivo_nf_midia,
             caption="Imagem do Cupom Fiscal Carregada com Sucesso",
@@ -2035,7 +2028,6 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
   else:
     df = df_all.copy()
 
-  # Saldo real do banco (calculado dos PDFs importados ou cadastrado manualmente)
   saldo_real_banco_pdf = 0.0
   if not df_saldo_banco_manual.empty:
     saldo_real_banco_pdf = float(df_saldo_banco_manual.iloc[0]["saldo_conta"])
@@ -2078,9 +2070,6 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
     patrimonio_liquido_global = patrimonio_investido + max(0, saldo_caixa)
 
     burn_rate_diario = despesas / 30.0
-    saldo_livre_pos_compromissos = (
-        saldo_caixa - total_contas_pendentes - total_faturas_cartao
-    )
 
     st.markdown("### 💼 Visão Geral & Indicadores Manuais")
     b1, b2, b3, b4, b5 = st.columns(5)
@@ -2112,7 +2101,6 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- NOVO QUADRO DE SALDO DO BANCO (CADASTRO/ACOMPANHAMENTO RÁPIDO) ---
     st.markdown("### 🏦 Acompanhamento de Saldo do Banco & Limites (Itaú)")
     with st.form("form_atualizar_saldo_banco_dash"):
       col_sb1, col_sb2, col_sb3, col_sb4 = st.columns(4)
@@ -2142,7 +2130,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
       )
     with p2:
       st.markdown(
-          f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px;"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">📈 TOTAL INVESTIDO</span><h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 18px;">R$ {patrimonio_investido:,.2f}</h3></div>""",
+          f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px;"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">📈 TOTAL INVESTIDO / CAIXINHAS</span><h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 18px;">R$ {patrimonio_investido:,.2f}</h3></div>""",
           unsafe_allow_html=True,
       )
     with p3:
@@ -2311,7 +2299,6 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
         )
         st.dataframe(df_resumo, use_container_width=True)
 
-    # --- GRÁFICO POR DESCRIÇÃO (PET, MERCADO, LAZER, ETC.) ---
     st.markdown("---")
     st.subheader("🏷️ Distribuição de Despesas Manuais por Descrição Específica")
     if not df_desp.empty:
@@ -2525,7 +2512,6 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
         )
         st.dataframe(df_res_b, use_container_width=True)
 
-    # --- GRÁFICO POR DESCRIÇÃO NO DASHBOARD DO BANCO ---
     st.markdown("---")
     st.subheader("🏷️ Distribuição de Gastos do Extrato por Descrição Específica")
     if not df_desp_banco.empty:
@@ -3074,41 +3060,40 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
     st.info("Nenhuma despesa de cartão de crédito registrada no momento.")
 
 # ==========================================
-# --- SEÇÃO 6: INVESTIMENTOS ---
+# --- SEÇÃO 6: INVESTIMENTOS (AJUSTADO PARA CAIXINHAS & RENDA FIXA) ---
 # ==========================================
 elif st.session_state.pagina_atual == "📈 Investimentos":
   botao_voltar()
-  st.subheader("📈 Painel Profissional de Investimentos & Ativos")
+  st.subheader("📈 Painel Profissional de Investimentos, Caixinhas Nubank & Renda Fixa")
   st.write(
-      "Monitore a alocação de patrimônio em Renda Fixa, Ações, Fundo"
-      " Imobiliários e Exterior."
+      "Monitore a alocação de patrimônio em Caixinhas Nubank, CDBs de outros bancos, Tesouro Direto, Ações e FIIs."
   )
 
   with st.form("form_ativo_investimento_completo", clear_on_submit=True):
     col_iv1, col_iv2, col_iv3 = st.columns(3)
     with col_iv1:
-      ativo_nome = st.text_input("Ativo / Ticker (Ex: PETR4, Tesouro Direto)")
+      ativo_nome = st.text_input("Nome da Caixinha ou Ativo (Ex: Caixinha Reserva de Emergência, CDB Itaú 100% CDI, Tesouro Selic)")
       classe_ativo = st.selectbox(
-          "Classe de Ativo",
-          ["Ações BR", "FIIs", "Renda Fixa", "Criptomoedas", "Exterior"],
+          "Classe / Tipo de Aplicação",
+          ["Caixinha Nubank", "CDB / Renda Fixa Outros Bancos", "Tesouro Direto", "Ações BR", "FIIs", "Criptomoedas", "Exterior"],
       )
     with col_iv2:
       qtd_ativo = st.number_input(
-          "Quantidade de Cotas / Unidades",
+          "Quantidade / Unidades (Use 1 se for o montante total)",
           min_value=0.0001,
           value=1.00,
           step=1.0,
       )
       preco_medio = st.number_input(
-          "Preço Médio / Custo Unitário (R$)",
+          "Valor Total Guardado / Preço Unitário (R$)",
           min_value=0.0,
           value=0.00,
-          step=0.10,
+          step=10.0,
           format="%.2f",
       )
     with col_iv3:
       data_aporte = st.date_input(
-          "Data do Aporte Realizado (DD/MM/AAAA)",
+          "Data do Aporte / Aplicação (DD/MM/AAAA)",
           value=date.today(),
           format="DD/MM/YYYY",
       )
@@ -3133,11 +3118,11 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
         )
         conn.commit()
         st.success(
-            f"Ativo {ativo_nome.upper()} cadastrado com sucesso na carteira!"
+            f"Aplicação '{ativo_nome.upper()}' cadastrada com sucesso!"
         )
         st.rerun()
       else:
-        st.error("Informe o nome ou ticker do ativo corretamente.")
+        st.error("Informe o nome da caixinha ou ativo corretamente.")
 
   st.markdown("---")
   df_carteira = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
@@ -3162,7 +3147,7 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
       st.markdown(
           f"""
           <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">📦 TOTAL DE ATIVOS ÚNICOS</span>
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">📦 TOTAL DE CAIXINHAS / ATIVOS</span>
               <h3 style="color: #60a5fa; margin: 8px 0 0 0; font-size: 20px;">{len(df_carteira['ativo'].unique())}</h3>
           </div>
           """,
@@ -3182,7 +3167,7 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
     st.markdown("---")
     col_pos1, col_pos2 = st.columns(2)
     with col_pos1:
-      st.write("### 📊 Alocação Patrimonial por Classe")
+      st.write("### 📊 Alocação por Classe de Renda Fixa / Ativos")
       df_classe = df_carteira.groupby("classe")["Valor Total"].sum()
       st.bar_chart(df_classe)
     with col_pos2:
@@ -3198,10 +3183,10 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
               "Valor Total",
           ]].rename(columns={
               "data": "Data",
-              "ativo": "Ativo",
-              "classe": "Classe",
+              "ativo": "Ativo / Caixinha",
+              "classe": "Tipo",
               "quantidade": "Qtd",
-              "preco_medio": "Preço Médio",
+              "preco_medio": "Valor Unit./Total",
           }),
           use_container_width=True,
           hide_index=True,
@@ -3209,17 +3194,17 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
 
     st.markdown("---")
     id_ativo_del = st.selectbox(
-        "Selecione o ID exato do ativo para remoção:",
+        "Selecione o ID exato da caixinha/ativo para remoção:",
         df_carteira["id"].tolist(),
         key="del_ativo_unique",
     )
-    if st.button("Remover Ativo Selecionado da Carteira", use_container_width=True):
+    if st.button("Remover Ativo / Caixinha Selecionada", use_container_width=True):
       c.execute("DELETE FROM carteira_investimentos WHERE id = ?", (id_ativo_del,))
       conn.commit()
-      st.success("Ativo removido da carteira com sucesso!")
+      st.success("Posição removida com sucesso!")
       st.rerun()
   else:
-    st.info("Nenhum investimento cadastrado na carteira até o momento.")
+    st.info("Nenhuma caixinha ou investimento cadastrado até o momento.")
 
 # ==========================================
 # --- SEÇÃO 7: DESAFIOS ---
@@ -4054,7 +4039,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
           key="busca_contas_input",
       )
     with col_fil_agenda_cp:
-      # Otimização padrão para mostrar apenas o mês vigente por padrão, com checkbox para exibir tudo se desejar
       mostrar_tudo_cp = st.checkbox(
           "Exibir todas as datas (desmarcado mostra apenas o mês vigente)",
           value=False,
@@ -4068,7 +4052,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
           df_contas_all["vencimento"]
       ).dt.date
 
-      # Filtragem por mês vigente por padrão (ano e mês da data selecionada no topo)
       if not mostrar_tudo_cp:
         ano_vig = st.session_state.data_calendario_ref.year
         mes_vig = st.session_state.data_calendario_ref.month
@@ -4924,7 +4907,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
     col_h_b1, col_h_b2 = st.columns(2)
     with col_h_b1:
       if st.button("Desbloquear Holerites", use_container_width=True):
-        if senha_holerite == "1234":  # Senha padrão configurada
+        if senha_holerite == "1234":
           st.session_state.holerites_desbloqueado = True
           st.success("Acesso liberado com sucesso!")
           st.rerun()
