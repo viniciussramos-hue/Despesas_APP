@@ -13,7 +13,7 @@ import streamlit as st
 # --- CONFIGURAÇÃO DA PÁGINA E TEMA ---
 # ==========================================
 st.set_page_config(
-    page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
+    page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="collapsed"
 )
 
 # Versão atual e data da última alteração do sistema
@@ -24,7 +24,7 @@ DATA_ATUALIZACAO = "10/08/2026"
 # --- CONTROLE DE ESTADO DA BARRA LATERAL ---
 # ==========================================
 if "sidebar_state" not in st.session_state:
-    st.session_state.sidebar_state = "expanded"
+    st.session_state.sidebar_state = "collapsed"
 
 st.markdown("""
     <style>
@@ -35,12 +35,13 @@ st.markdown("""
         .stDeployButton {display:none;}
         footer {display: none !important;}
         
-        header {background-color: transparent !important;}
+        header {background-color: transparent !important; z-index: 99999;}
         
-       /* BOTÃO PADRÃO REMOVIDO DA TELA */
+        /* EXIBE O BOTÃO DE CONTROLE DA BARRA LATERAL NO TOPO */
         [data-testid="collapsedControl"] {
-            display: none !important;
-            visibility: hidden !important;
+            display: flex !important;
+            visibility: visible !important;
+            z-index: 999999;
         }
         
         section[data-testid="stSidebar"] {
