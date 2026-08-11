@@ -132,7 +132,8 @@ if "autenticado" not in st.session_state:
 if not st.session_state.autenticado:
     st.title("🔒 Acesso Restrito - Gestor Financeiro Profissional")
     st.markdown(
-        "Por favor, digite a senha de segurança para acessar o seu painel financeiro pessoal."
+        "Por favor, digite a senha de segurança para acessar o seu painel"
+        " financeiro pessoal."
     )
 
     senha_digitada = st.text_input("Senha de Acesso:", type="password")
@@ -499,10 +500,11 @@ col_tit, col_btn_sb = st.columns([5, 1])
 with col_tit:
     st.title("💸 Gestor Financeiro Profissional")
     st.markdown(
-        "Sistema avançado de controle orçamentário, investimentos, projeções e auditoria de holerites."
+        "Sistema avançado de controle orçamentário, investimentos, projeções e"
+        " auditoria de holerites."
     )
 with col_btn_sb:
-    st.write("") 
+    st.write("") # Espaçamento
     if st.button("📂 Menu Lateral", use_container_width=True, help="Clique para alternar a exibição da barra lateral"):
         if st.session_state.sidebar_state == "expanded":
             st.session_state.sidebar_state = "collapsed"
@@ -510,6 +512,7 @@ with col_btn_sb:
             st.session_state.sidebar_state = "expanded"
         st.rerun()
 
+# Força o estado da sidebar no Streamlit moderno
 if hasattr(st, "set_sidebar_state"):
     st.set_sidebar_state(st.session_state.sidebar_state)
 
@@ -523,9 +526,11 @@ with st.sidebar:
 
     st.markdown("---")
     
+    # --- BLOCO DE BACKUP E RESTAURAÇÃO RÁPIDA NA BARRA LATERAL ---
     with st.expander("💾 Central de Backup & Segurança", expanded=False):
         st.write("Baixe uma cópia de segurança completa do seu banco de dados ou restaure dados anteriores.")
         
+        # Botão de Download Direto
         with open("gestor_financeiro.db", "rb") as f_bkp:
             st.download_button(
                 "📥 Baixar Backup (.db)",
@@ -537,11 +542,12 @@ with st.sidebar:
         
         st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
         
+        # Upload para Restaurar Backup
         arquivo_restore = st.file_uploader("Restaurar Banco de Dados (.db)", type=["db"], key="restore_db_sidebar")
         if arquivo_restore is not None:
             if st.button("🔄 Confirmar Restauração", use_container_width=True):
                 try:
-                    conn.close() 
+                    conn.close() # Fecha a conexão atual antes de substituir
                     with open("gestor_financeiro.db", "wb") as f_out:
                         f_out.write(arquivo_restore.getbuffer())
                     st.success("Backup restaurado com sucesso! Reiniciando o app...")
@@ -596,7 +602,8 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown(
-        "<p style='text-align: center; color: #888; font-size: 11px;'>Desenvolvido sob medida para Vinicius Ramos<br>© 2026</p>",
+        "<p style='text-align: center; color: #888; font-size: 11px;'>Desenvolvido"
+        " sob medida para Vinicius Ramos<br>© 2026</p>",
         unsafe_allow_html=True,
     )
 
@@ -683,7 +690,8 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
         pass
 
     st.markdown(
-        '<div class="group-card"><div class="group-title">Painel de Gestão Diária</div>',
+        '<div class="group-card"><div class="group-title">Painel de Gestão'
+        " Diária</div>",
         unsafe_allow_html=True,
     )
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -710,7 +718,8 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown(
-        '<div class="group-card"><div class="group-title">Análise & Planejamento</div>',
+        '<div class="group-card"><div class="group-title">Análise &'
+        " Planejamento</div>",
         unsafe_allow_html=True,
     )
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -788,7 +797,8 @@ elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
     botao_voltar()
     st.subheader("Registrar Saída / Despesa Operacional")
     st.write(
-        "Utilize o formulário abaixo para registrar despesas avulsas categorizadas de forma inteligente."
+        "Utilize o formulário abaixo para registrar despesas avulsas categorizadas"
+        " de forma inteligente."
     )
 
     cats_padrao = [
@@ -832,7 +842,8 @@ elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
         if btn_salvar_desp:
             if desc.strip() and valor > 0:
                 c.execute(
-                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor,"
+                    " origem) VALUES (?,?,?,?,?,?)",
                     (
                         data_desp.strftime("%Y-%m-%d"),
                         "Despesa",
@@ -858,7 +869,8 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
     botao_voltar()
     st.subheader("Registrar Entrada / Receita Financeira")
     st.write(
-        "Insira salários, adiantamentos, vales, 13º, férias ou rendimentos extras."
+        "Insira salários, adiantamentos, vales, 13º, férias ou rendimentos"
+        " extras."
     )
 
     with st.form("form_lancar_entrada_completo", clear_on_submit=True):
@@ -894,7 +906,8 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
         if btn_salvar_rec:
             if desc_rec.strip() and valor_rec > 0:
                 c.execute(
-                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor,"
+                    " origem) VALUES (?,?,?,?,?,?)",
                     (
                         data_rec.strftime("%Y-%m-%d"),
                         "Receita",
@@ -920,7 +933,9 @@ elif st.session_state.pagina_atual == "🎙️ Lançar por Voz":
         "🎙️ Lançamento Inteligente de Despesas por Comando de Voz / Texto Falado"
     )
     st.write(
-        "Simule ou grave seu comando de voz. Digite ou dite no formato natural, por exemplo: <i>'Gastei 45 reais na farmácia hoje'</i> ou <i>'Paguei 120 de luz ontem'</i>."
+        "Simule ou grave seu comando de voz. Digite ou dite no formato natural,"
+        " por exemplo: <i>'Gastei 45 reais na farmácia hoje'</i> ou <i>'Paguei 120"
+        " de luz ontem'</i>."
     )
 
     comando_voz_input = st.text_area(
@@ -956,7 +971,8 @@ elif st.session_state.pagina_atual == "🎙️ Lançar por Voz":
                 data_hoje_str = date.today().strftime("%Y-%m-%d")
 
                 c.execute(
-                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor,"
+                    " origem) VALUES (?,?,?,?,?,?)",
                     (
                         data_hoje_str,
                         tipo_trans,
@@ -982,7 +998,8 @@ elif st.session_state.pagina_atual == "🎙️ Lançar por Voz":
                 )
             else:
                 st.error(
-                    "Não foi possível identificar um valor numérico válido no comando falado/digitado. Tente incluir o valor (ex: '45 reais')."
+                    "Não foi possível identificar um valor numérico válido no comando"
+                    " falado/digitado. Tente incluir o valor (ex: '45 reais')."
                 )
         else:
             st.warning("Insira um comando de voz ou frase para processar.")
@@ -1009,7 +1026,9 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
     botao_voltar()
     st.subheader("🤖 Assistente Financeiro Inteligente (Chatbot IA)")
     st.write(
-        "Converse com a Inteligência Artificial do seu gestor. Tire dúvidas sobre seus gastos, peça insights gerenciais ou faça lançamentos automáticos digitando no chat."
+        "Converse com a Inteligência Artificial do seu gestor. Tire dúvidas sobre"
+        " seus gastos, peça insights gerenciais ou faça lançamentos automáticos"
+        " digitando no chat."
     )
 
     with st.expander("💡 Ajuda: O que ou como pedir para o Chatbot IA? (Clique para expandir)", expanded=False):
@@ -1034,7 +1053,9 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
         st.session_state.historico_chat = [{
             "role": "assistant",
             "content": (
-                "Olá Vinicius! Sou seu assistente financeiro IA. Como posso ajudar nas suas finanças hoje? Você pode me pedir análises, maiores gastos ou lançar despesas conversando comigo!"
+                "Olá Vinicius! Sou seu assistente financeiro IA. Como posso ajudar"
+                " nas suas finanças hoje? Você pode me pedir análises, maiores"
+                " gastos ou lançar despesas conversando comigo!"
             ),
         }]
 
@@ -1075,7 +1096,10 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
                 if not df_d_ia.empty:
                     maior_gasto = df_d_ia.sort_values(by="valor", ascending=False).iloc[0]
                     resposta_ia = (
-                        f"📊 O seu maior gasto registrado é **{maior_gasto['descricao']}** na categoria *{maior_gasto['categoria']}* no valor de **R$ {maior_gasto['valor']:,.2f}**."
+                        f"📊 O seu maior gasto registrado é"
+                        f" **{maior_gasto['descricao']}** na categoria"
+                        f" *{maior_gasto['categoria']}* no valor de **R$"
+                        f" {maior_gasto['valor']:,.2f}**."
                     )
                 else:
                     resposta_ia = "Você ainda não possui despesas cadastradas no sistema."
@@ -1084,7 +1108,9 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
 
         elif any(k in query_up for k in ["SALDO", "RESUMO", "COMO ESTOU"]):
             resposta_ia = (
-                f"💰 **Resumo Financeiro Atual:**\n- Entradas Totais: R$ {total_rec_ia:,.2f}\n- Saídas Totais: R$ {total_desp_ia:,.2f}\n- Saldo em Caixa: R$ {saldo_caixa_ia:,.2f}"
+                f"💰 **Resumo Financeiro Atual:**\n- Entradas Totais: R$"
+                f" {total_rec_ia:,.2f}\n- Saídas Totais: R$"
+                f" {total_desp_ia:,.2f}\n- Saldo em Caixa: R$ {saldo_caixa_ia:,.2f}"
             )
 
         elif any(k in query_up for k in ["PAGUEI", "GASTEI", "COMPREI", "LANCEI"]):
@@ -1093,7 +1119,8 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
                 val_chat = float(nums_chat[0])
                 cat_c = categorizar_automaticamente(user_query, "Despesa")
                 c.execute(
-                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor,"
+                    " origem) VALUES (?,?,?,?,?,?)",
                     (
                         date.today().strftime("%Y-%m-%d"),
                         "Despesa",
@@ -1105,16 +1132,22 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
                 )
                 conn.commit()
                 resposta_ia = (
-                    f"✅ Lançado com sucesso pelo chat!\n- Descrição: {user_query}\n- Valor: R$ {val_chat:,.2f}\n- Categoria: {cat_c}"
+                    f"✅ Lançado com sucesso pelo chat!\n- Descrição:"
+                    f" {user_query}\n- Valor: R$ {val_chat:,.2f}\n- Categoria: {cat_c}"
                 )
             else:
                 resposta_ia = (
-                    "Não consegui identificar o valor numérico na sua frase de lançamento. Tente incluir o valor (ex: 'Gastei 150 no mercado')."
+                    "Não consegui identificar o valor numérico na sua frase de"
+                    " lançamento. Tente incluir o valor (ex: 'Gastei 150 no mercado')."
                 )
 
         else:
             resposta_ia = (
-                f"🤖 Compreendi sua pergunta. Analisei seus dados atuais: Saldo líquido projetado em R$ {saldo_caixa_ia:,.2f}. Você pode me pedir para:\n1. Mostrar seu maior gasto\n2. Ver o resumo de saldo e receitas\n3. Lançar despesas ou contas conversando diretamente comigo!"
+                f"🤖 Compreendi sua pergunta. Analisei seus dados atuais: Saldo"
+                f" líquido projetado em R$ {saldo_caixa_ia:,.2f}. Você pode me pedir"
+                " para:\n1. Mostrar seu maior gasto\n2. Ver o resumo de saldo e"
+                " receitas\n3. Lançar despesas ou contas conversando diretamente"
+                " comigo!"
             )
 
         st.session_state.historico_chat.append(
@@ -1129,10 +1162,13 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
 elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
     botao_voltar()
     st.subheader(
-        "🧾 Leitor Automático de Cupons Fiscais & Notas (PDF, Upload JPG/PNG, Câmera ou Texto)"
+        "🧾 Leitor Automático de Cupons Fiscais & Notas (PDF, Upload JPG/PNG,"
+        " Câmera ou Texto)"
     )
     st.write(
-        "Faça o upload do PDF ou de uma **foto/imagem (JPG, JPEG, PNG)** do seu cupom fiscal, tire uma foto instantânea com a câmera ou cole o texto. O sistema calibrará e extrairá os dados automaticamente!"
+        "Faça o upload do PDF ou de uma **foto/imagem (JPG, JPEG, PNG)** do seu"
+        " cupom fiscal, tire uma foto instantânea com a câmera ou cole o texto. O"
+        " sistema calibrará e extrairá os dados automaticamente!"
     )
 
     tab_nf1, tab_nf2, tab_nf3 = st.tabs([
@@ -1161,7 +1197,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                                 texto_nf_pdf += ext + "\n"
 
                     st.success("PDF lido com sucesso!")
-                    establec = "Estabelecimento Comercial (PDF)"
+                    estabelec = "Estabelecimento Comercial (PDF)"
                     total_calculado = 45.90
                     linhas_nf = texto_nf_pdf.split("\n")
                     itens_extraidos = []
@@ -1221,7 +1257,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                         "Salvar Nota Fiscal em PDF no Sistema", use_container_width=True
                     ):
                         c.execute(
-                            "INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                            "INSERT INTO notas_fiscais (data, estabelecimento,"
+                            " valor_total, origem_arquivo) VALUES (?,?,?,?)",
                             (
                                 date.today().strftime("%Y-%m-%d"),
                                 estab_input_pdf,
@@ -1233,7 +1270,9 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                         for it in itens_extraidos:
                             c.execute(
-                                "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
+                                "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade,"
+                                " valor_unitario, valor_total, categoria) VALUES"
+                                " (?,?,?,?,?,?)",
                                 (
                                     nota_id_criada,
                                     it["produto"],
@@ -1245,7 +1284,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                             )
 
                         c.execute(
-                            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                            "INSERT INTO transacoes (data, tipo, descricao, categoria,"
+                            " valor, origem) VALUES (?,?,?,?,?,?)",
                             (
                                 date.today().strftime("%Y-%m-%d"),
                                 "Despesa",
@@ -1258,7 +1298,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                         conn.commit()
                         st.success(
-                            f"🎉 Nota fiscal em PDF processada e salva com sucesso! Total: R$ {val_input_pdf:,.2f}"
+                            f"🎉 Nota fiscal em PDF processada e salva com sucesso! Total: R$"
+                            f" {val_input_pdf:,.2f}"
                         )
                         st.rerun()
                 except Exception as e:
@@ -1295,7 +1336,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                     cat_img = categorizar_automaticamente(estab_img, "Despesa")
 
                     c.execute(
-                        "INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                        "INSERT INTO notas_fiscais (data, estabelecimento, valor_total,"
+                        " origem_arquivo) VALUES (?,?,?,?)",
                         (
                             date.today().strftime("%Y-%m-%d"),
                             estab_img,
@@ -1306,7 +1348,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                     n_id_img = c.lastrowid
 
                     c.execute(
-                        "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
+                        "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade,"
+                        " valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
                         (
                             n_id_img,
                             f"Cerveja Budweiser e Itens em {estab_img}",
@@ -1318,7 +1361,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                     )
 
                     c.execute(
-                        "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                        "INSERT INTO transacoes (data, tipo, descricao, categoria,"
+                        " valor, origem) VALUES (?,?,?,?,?,?)",
                         (
                             date.today().strftime("%Y-%m-%d"),
                             "Despesa",
@@ -1331,7 +1375,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                     conn.commit()
                     st.success(
-                        f"🎉 Cupom Fiscal em imagem processado e salvo com sucesso! Total: R$ {val_img_total:,.2f}"
+                        f"🎉 Cupom Fiscal em imagem processado e salvo com sucesso!"
+                        f" Total: R$ {val_img_total:,.2f}"
                     )
                     st.rerun()
 
@@ -1368,7 +1413,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                 cat_foto = categorizar_automaticamente(estab_foto, "Despesa")
 
                 c.execute(
-                    "INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                    "INSERT INTO notas_fiscais (data, estabelecimento, valor_total,"
+                    " origem_arquivo) VALUES (?,?,?,?)",
                     (
                         date.today().strftime("%Y-%m-%d"),
                         estab_foto,
@@ -1379,7 +1425,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                 n_id_cam = c.lastrowid
 
                 c.execute(
-                    "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade,"
+                    " valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
                     (
                         n_id_cam,
                         f"Compra em {estab_foto} (Foto Câmera)",
@@ -1391,7 +1438,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                 )
 
                 c.execute(
-                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO transacoes (data, tipo, descricao, categoria,"
+                    " valor, origem) VALUES (?,?,?,?,?,?)",
                     (
                         date.today().strftime("%Y-%m-%d"),
                         "Despesa",
@@ -1404,14 +1452,18 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                 conn.commit()
                 st.success(
-                    f"🎉 Cupom escaneado via câmera salvo com sucesso! Total: R$ {val_foto_total:,.2f}"
+                    f"🎉 Cupom escaneado via câmera salvo com sucesso! Total: R$"
+                    f" {val_foto_total:,.2f}"
                 )
                 st.rerun()
 
     with tab_nf3:
         with st.form("form_texto_cupom_fiscal"):
             estab_txt = st.text_input(
-                "Nome do Estabelecimento (Ex: Supermercado Shibata, Drogaria Pacheco):",
+                (
+                    "Nome do Estabelecimento (Ex: Supermercado Shibata, Drogaria"
+                    " Pacheco):"
+                ),
                 value="Supermercado Shibata",
             )
             data_nf_txt = st.date_input(
@@ -1422,7 +1474,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
             texto_copiado_nf = st.text_area(
                 "Cole aqui o texto copiado do cupom fiscal ou extrato do QR Code:",
                 placeholder=(
-                    "Ex:\n991012096 CERV. BUDWEISER LT.26 27,92\nTotal da Compra: 71,27"
+                    "Ex:\n991012096 CERV. BUDWEISER LT.26 27,92\nTotal da Compra:"
+                    " 71,27"
                 ),
                 height=150,
             )
@@ -1476,7 +1529,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                         })
 
                     c.execute(
-                        "INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                        "INSERT INTO notas_fiscais (data, estabelecimento, valor_total,"
+                        " origem_arquivo) VALUES (?,?,?,?)",
                         (
                             data_nf_txt.strftime("%Y-%m-%d"),
                             estab_txt,
@@ -1488,7 +1542,9 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                     for it_t in itens_txt_list:
                         c.execute(
-                            "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
+                            "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade,"
+                            " valor_unitario, valor_total, categoria) VALUES"
+                            " (?,?,?,?,?,?)",
                             (
                                 n_id,
                                 it_t["produto"],
@@ -1499,7 +1555,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                             ),
                         )
                         c.execute(
-                            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                            "INSERT INTO transacoes (data, tipo, descricao, categoria,"
+                            " valor, origem) VALUES (?,?,?,?,?,?)",
                             (
                                 data_nf_txt.strftime("%Y-%m-%d"),
                                 "Despesa",
@@ -1512,7 +1569,8 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                     conn.commit()
                     st.success(
-                        f"🎉 Cupom fiscal processado com sucesso! Total: R$ {tot_geral_txt:,.2f}"
+                        f"🎉 Cupom fiscal processado com sucesso! Total: R$"
+                        f" {tot_geral_txt:,.2f}"
                     )
                     st.rerun()
                 else:
@@ -1542,7 +1600,10 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
         )
         if sel_nf_detalhe:
             df_itens_detalhe = pd.read_sql(
-                "SELECT produto, quantidade, valor_unitario, valor_total, categoria FROM itens_nota_fiscal WHERE nota_id = ?",
+                (
+                    "SELECT produto, quantidade, valor_unitario, valor_total,"
+                    " categoria FROM itens_nota_fiscal WHERE nota_id = ?"
+                ),
                 conn,
                 params=(sel_nf_detalhe,),
             )
@@ -1581,7 +1642,8 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
         "🚗 Central de Veículos, Manutenções & Consumo de Combustível"
     )
     st.write(
-        "Gerencie sua frota, registre quilometragem, agende manutenções e monitore o consumo médio de combustível."
+        "Gerencie sua frota, registre quilometragem, agende manutenções e"
+        " monitore o consumo médio de combustível."
     )
 
     if "aba_veiculos_ativa" not in st.session_state:
@@ -1643,7 +1705,8 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
             if st.form_submit_button("Salvar Novo Veículo", use_container_width=True):
                 if placa_v.strip() and modelo_v.strip():
                     c.execute(
-                        "INSERT INTO veiculos (placa, modelo, ano, km_atual) VALUES (?,?,?,?)",
+                        "INSERT INTO veiculos (placa, modelo, ano, km_atual)"
+                        " VALUES (?,?,?,?)",
                         (
                             placa_v.upper().strip(),
                             modelo_v.strip(),
@@ -1653,7 +1716,8 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                     )
                     conn.commit()
                     st.success(
-                        f"Veículo {modelo_v.upper()} ({placa_v.upper()}) cadastrado com sucesso!"
+                        f"Veículo {modelo_v.upper()} ({placa_v.upper()}) cadastrado com"
+                        " sucesso!"
                     )
                     st.rerun()
                 else:
@@ -1711,7 +1775,8 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                         "Salvar Alterações do Veículo", use_container_width=True
                     ):
                         c.execute(
-                            "UPDATE veiculos SET placa = ?, modelo = ?, ano = ?, km_atual = ? WHERE id = ?",
+                            "UPDATE veiculos SET placa = ?, modelo = ?, ano = ?, km_atual ="
+                            " ? WHERE id = ?",
                             (
                                 nv_placa.upper().strip(),
                                 nv_modelo.strip(),
@@ -1776,7 +1841,8 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                     if desc_manut.strip():
                         v_id = veiculos_map[veic_escolhido]
                         c.execute(
-                            "INSERT INTO manutencoes_veiculo (veiculo_id, tipo_registro, descricao, data, valor, status) VALUES (?,?,?,?,?,?)",
+                            "INSERT INTO manutencoes_veiculo (veiculo_id, tipo_registro,"
+                            " descricao, data, valor, status) VALUES (?,?,?,?,?,?)",
                             (
                                 v_id,
                                 tipo_manut,
@@ -1794,7 +1860,9 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
 
             st.markdown("---")
             df_manut_all = pd.read_sql(
-                "SELECT m.id, v.modelo, v.placa, m.tipo_registro, m.descricao, m.data, m.valor, m.status FROM manutencoes_veiculo m JOIN veiculos v ON m.veiculo_id = v.id",
+                "SELECT m.id, v.modelo, v.placa, m.tipo_registro, m.descricao,"
+                " m.data, m.valor, m.status FROM manutencoes_veiculo m JOIN veiculos"
+                " v ON m.veiculo_id = v.id",
                 conn,
             )
             if not df_manut_all.empty:
@@ -1830,7 +1898,8 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                 st.info("Nenhuma manutenção registrada.")
         else:
             st.warning(
-                "Cadastre ao menos um veículo na aba 'Veículos' para gerenciar manutenções."
+                "Cadastre ao menos um veículo na aba 'Veículos' para gerenciar"
+                " manutenções."
             )
 
     else:
@@ -1883,7 +1952,10 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                 ):
                     v_id_c = veiculos_map[veic_comb]
                     df_ant = pd.read_sql(
-                        "SELECT km_odometro FROM consumo_combustivel WHERE veiculo_id = ? ORDER BY id DESC LIMIT 1",
+                        (
+                            "SELECT km_odometro FROM consumo_combustivel WHERE"
+                            " veiculo_id = ? ORDER BY id DESC LIMIT 1"
+                        ),
                         conn,
                         params=(v_id_c,),
                     )
@@ -1895,7 +1967,9 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                             consumo_medio = km_rodados / litros_comb
 
                     c.execute(
-                        "INSERT INTO consumo_combustivel (veiculo_id, data, litros, valor_total, km_odometro, consumo_medio) VALUES (?,?,?,?,?,?)",
+                        "INSERT INTO consumo_combustivel (veiculo_id, data, litros,"
+                        " valor_total, km_odometro, consumo_medio) VALUES"
+                        " (?,?,?,?,?,?)",
                         (
                             v_id_c,
                             data_comb.strftime("%Y-%m-%d"),
@@ -1907,13 +1981,16 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                     )
                     conn.commit()
                     st.success(
-                        f"Abastecimento registrado com sucesso! Consumo médio estimado: {consumo_medio:.2f} Km/L"
+                        f"Abastecimento registrado com sucesso! Consumo médio estimado:"
+                        f" {consumo_medio:.2f} Km/L"
                     )
                     st.rerun()
 
             st.markdown("---")
             df_comb_all = pd.read_sql(
-                "SELECT c.id, v.modelo, v.placa, c.data, c.litros, c.valor_total, c.km_odometro, c.consumo_medio FROM consumo_combustivel c JOIN veiculos v ON c.veiculo_id = v.id",
+                "SELECT c.id, v.modelo, v.placa, c.data, c.litros, c.valor_total,"
+                " c.km_odometro, c.consumo_medio FROM consumo_combustivel c JOIN"
+                " veiculos v ON c.veiculo_id = v.id",
                 conn,
             )
             if not df_comb_all.empty:
@@ -1953,7 +2030,8 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                 st.info("Nenhum abastecimento registrado.")
         else:
             st.warning(
-                "Cadastre ao menos um veículo na aba 'Veículos' para registrar o consumo."
+                "Cadastre ao menos um veículo na aba 'Veículos' para registrar o"
+                " consumo."
             )
 
 # ==========================================
@@ -1963,11 +2041,15 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
     botao_voltar()
     st.subheader("📊 Executive Dashboard — Lançamentos Reais Manuais")
     st.write(
-        "Painel gerencial focado exclusivamente nos registros feitos de forma manual no sistema."
+        "Painel gerencial focado exclusivamente nos registros feitos de forma"
+        " manual no sistema."
     )
 
     df_all = pd.read_sql(
-        "SELECT * FROM transacoes WHERE origem = 'Manual' OR origem = 'Nota_Fiscal' OR origem = 'Voz_IA' OR origem = 'Chat_IA'",
+        (
+            "SELECT * FROM transacoes WHERE origem = 'Manual' OR origem ="
+            " 'Nota_Fiscal' OR origem = 'Voz_IA' OR origem = 'Chat_IA'"
+        ),
         conn,
     )
     df_banco_dash = pd.read_sql(
@@ -2360,7 +2442,8 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
             st.area_chart(df_area_pivot)
     else:
         st.info(
-            "Nenhum lançamento manual registrado para exibir no dashboard. Utilize as abas de lançamento para adicionar dados."
+            "Nenhum lançamento manual registrado para exibir no dashboard. Utilize"
+            " as abas de lançamento para adicionar dados."
         )
 
 # ==========================================
@@ -2372,7 +2455,8 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
         "📥 Dashboard de Auditoria & Extratos Importados do Banco"
     )
     st.write(
-        "Painel exclusivo para analisar transações geradas automaticamente por upload de extratos bancários em PDF."
+        "Painel exclusivo para analisar transações geradas automaticamente por"
+        " upload de extratos bancários em PDF."
     )
 
     df_banco_all = pd.read_sql(
@@ -2576,7 +2660,8 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
             )
     else:
         st.info(
-            "Nenhum extrato bancário em PDF foi importado e processado até o momento. Faça o upload na aba 'Extrato & Backup'."
+            "Nenhum extrato bancário em PDF foi importado e processado até o"
+            " momento. Faça o upload na aba 'Extrato & Backup'."
         )
 
 # ==========================================
@@ -2586,7 +2671,9 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     botao_voltar()
     st.subheader("📅 Previsão Financeira & Simulador de Imprevistos")
     st.write(
-        "Visualize suas finanças detalhadamente por mês ou acumulado anual, separando lançamentos manuais e extratos do banco, incluindo entradas previstas, contas a pagar, contas a receber e simulações."
+        "Visualize suas finanças detalhadamente por mês ou acumulado anual,"
+        " separando lançamentos manuais e extratos do banco, incluindo entradas"
+        " previstas, contas a pagar, contas a receber e simulações."
     )
 
     if "prev_data_atual" not in st.session_state or not isinstance(
@@ -2598,7 +2685,8 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
     with col_cfg1:
         st.markdown(
-            "<span style='font-size:12px; color:#94a3b8; font-weight:600;'>PERÍODO DA VISÃO</span>",
+            "<span style='font-size:12px; color:#94a3b8;"
+            " font-weight:600;'>PERÍODO DA VISÃO</span>",
             unsafe_allow_html=True,
         )
         if "tipo_visao" not in st.session_state:
@@ -2626,7 +2714,8 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
     with col_cfg2:
         st.markdown(
-            "<span style='font-size:12px; color:#94a3b8; font-weight:600;'>FORMATO DE EXIBIÇÃO</span>",
+            "<span style='font-size:12px; color:#94a3b8;"
+            " font-weight:600;'>FORMATO DE EXIBIÇÃO</span>",
             unsafe_allow_html=True,
         )
         if "formato_exibicao" not in st.session_state:
@@ -2666,7 +2755,9 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     st.markdown("---")
 
     st.markdown(
-        "<span style='font-size:12px; color:#94a3b8; font-weight:600; text-transform:uppercase;'>Selecionar Mês de Referência (Navegação Rápida)</span>",
+        "<span style='font-size:12px; color:#94a3b8; font-weight:600;"
+        " text-transform:uppercase;'>Selecionar Mês de Referência (Navegação"
+        " Rápida)</span>",
         unsafe_allow_html=True,
     )
 
@@ -2719,12 +2810,14 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
     if tipo_visao == "Mensal":
         st.markdown(
-            f"<h3 style='text-align: center; color: #f8fafc; margin: 15px 0;'>Referência: {nome_mes_exib} de {ano_ativo}</h3>",
+            f"<h3 style='text-align: center; color: #f8fafc; margin: 15px"
+            f" 0;'>Referência: {nome_mes_exib} de {ano_ativo}</h3>",
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            f"<h3 style='text-align: center; color: #f8fafc; margin: 15px 0;'>Referência Acumulada: Ano de {ano_ativo}</h3>",
+            f"<h3 style='text-align: center; color: #f8fafc; margin: 15px"
+            f" 0;'>Referência Acumulada: Ano de {ano_ativo}</h3>",
             unsafe_allow_html=True,
         )
 
@@ -2861,12 +2954,16 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
         if tipo_imprevisto == "Gastos / Despesa Extra":
             saldo_com_simulacao = saldo_projetado - valor_simulado_imprevisto
             st.warning(
-                f"⚠️ **Simulação Ativa (Despesa Extra):** O saldo projetado cairia de **R$ {saldo_projetado:,.2f}** para **R$ {saldo_com_simulacao:,.2f}**."
+                f"⚠️ **Simulação Ativa (Despesa Extra):** O saldo projetado cairia de"
+                f" **R$ {saldo_projetado:,.2f}** para **R$"
+                f" {saldo_com_simulacao:,.2f}**."
             )
         else:
             saldo_com_simulacao = saldo_projetado + valor_simulado_imprevisto
             st.success(
-                f"🟢 **Simulação Ativa (Receita Extra):** O saldo projetado subiria de **R$ {saldo_projetado:,.2f}** para **R$ {saldo_com_simulacao:,.2f}**."
+                f"🟢 **Simulação Ativa (Receita Extra):** O saldo projetado subiria"
+                f" de **R$ {saldo_projetado:,.2f}** para **R$"
+                f" {saldo_com_simulacao:,.2f}**."
             )
 
     st.markdown("---")
@@ -2925,7 +3022,8 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
     st.markdown("---")
     st.subheader(
-        f"📋 Tabela Detalhada dos Movimentos Previstos ({nome_mes_exib} de {ano_ativo})"
+        f"📋 Tabela Detalhada dos Movimentos Previstos ({nome_mes_exib} de"
+        f" {ano_ativo})"
     )
 
     lista_gastos_previstos_detalhe = []
@@ -2990,7 +3088,8 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
     botao_voltar()
     st.subheader("💳 Gestão Avançada de Faturas de Cartão de Crédito (Fechamento & Vencimento)")
     st.write(
-        "Acompanhe gastos detalhados por bandeira e controle o impacto das compras alocadas na fatura correta conforme o dia de fechamento."
+        "Acompanhe gastos detalhados por bandeira e controle o impacto das"
+        " compras alocadas na fatura correta conforme o dia de fechamento."
     )
 
     with st.form("form_cartao_credito_completo", clear_on_submit=True):
@@ -3046,7 +3145,8 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
             if desc_cc.strip() and val_cc > 0:
                 mes_fatura_calc = calcular_mes_fatura(data_cc, dia_fechamento_cc)
                 c.execute(
-                    "INSERT INTO cartao_credito (data, cartao, descricao, categoria, valor, dia_fechamento, dia_vencimento, mes_fatura) VALUES (?,?,?,?,?,?,?,?)",
+                    "INSERT INTO cartao_credito (data, cartao, descricao, categoria,"
+                    " valor, dia_fechamento, dia_vencimento, mes_fatura) VALUES (?,?,?,?,?,?,?,?)",
                     (
                         data_cc.strftime("%Y-%m-%d"),
                         nome_cartao,
@@ -3167,7 +3267,8 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
         if btn_add_ativo:
             if ativo_nome.strip():
                 c.execute(
-                    "INSERT INTO carteira_investimentos (data, ativo, classe, quantidade, preco_medio) VALUES (?,?,?,?,?)",
+                    "INSERT INTO carteira_investimentos (data, ativo, classe,"
+                    " quantidade, preco_medio) VALUES (?,?,?,?,?)",
                     (
                         data_aporte.strftime("%Y-%m-%d"),
                         ativo_nome.upper().strip(),
@@ -3288,7 +3389,8 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
         "🎯 Desafio de Poupança Progressiva (R$ 20.100,00 em 200 Depósitos)"
     )
     st.write(
-        "Acompanhe o preenchimento sistemático do seu desafio de disciplina financeira."
+        "Acompanhe o preenchimento sistemático do seu desafio de disciplina"
+        " financeira."
     )
 
     df_deps = pd.read_sql("SELECT * FROM tabela_depositos", conn)
@@ -3342,12 +3444,14 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
                 if deps_sel:
                     for d_num in deps_sel:
                         c.execute(
-                            "UPDATE tabela_depositos SET status = ? WHERE numero_deposito = ?",
+                            "UPDATE tabela_depositos SET status = ? WHERE numero_deposito"
+                            " = ?",
                             (status_novo, d_num),
                         )
                     conn.commit()
                     st.success(
-                        f"Depósito(s) {', '.join(map(str, deps_sel))} atualizado(s) para '{status_novo}' com sucesso!"
+                        f"Depósito(s) {', '.join(map(str, deps_sel))} atualizado(s) para"
+                        f" '{status_novo}' com sucesso!"
                     )
                     st.rerun()
                 else:
@@ -3366,7 +3470,8 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
     botao_voltar()
     st.subheader("🎯 Definir Teto de Meta Mensal por Categoria")
     st.write(
-        "Estabeleça limites orçamentários para manter o controle rigoroso dos seus gastos mensais."
+        "Estabeleça limites orçamentários para manter o controle rigoroso dos seus"
+        " gastos mensais."
     )
 
     cats_padrao_meta = [
@@ -3407,7 +3512,11 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
     st.subheader("📋 Acompanhamento Visual das Metas de Gastos")
     df_metas = pd.read_sql("SELECT * FROM metas", conn)
     df_trans_meta = pd.read_sql(
-        "SELECT * FROM transacoes WHERE tipo = 'Despesa' AND (origem = 'Manual' OR origem = 'Nota_Fiscal' OR origem = 'Voz_IA' OR origem = 'Chat_IA')",
+        (
+            "SELECT * FROM transacoes WHERE tipo = 'Despesa' AND (origem ="
+            " 'Manual' OR origem = 'Nota_Fiscal' OR origem = 'Voz_IA' OR origem ="
+            " 'Chat_IA')"
+        ),
         conn,
     )
 
@@ -3434,7 +3543,8 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
                 st.progress(min(gasto_atual_meta / v_meta, 1.0))
                 if gasto_atual_meta > v_meta:
                     st.error(
-                        f"⚠️ Atenção! Você estourou a meta da categoria {cat_nome} em R$ {(gasto_atual_meta - v_meta):,.2f}!"
+                        f"⚠️ Atenção! Você estourou a meta da categoria {cat_nome} em R$"
+                        f" {(gasto_atual_meta - v_meta):,.2f}!"
                     )
             else:
                 st.progress(0.0)
@@ -3698,7 +3808,8 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
                     )
                     conn.commit()
                     st.success(
-                        f"Categoria '{cat_selecionada_para_gerenciar}' excluída com sucesso!"
+                        f"Categoria '{cat_selecionada_para_gerenciar}' excluída com"
+                        " sucesso!"
                     )
                     st.rerun()
         else:
@@ -3719,11 +3830,15 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
     botao_voltar()
     st.subheader("❤️ Score de Saúde Financeira & Auditoria de Perfil")
     st.write(
-        "Pontuação calculada de 0 a 1000 com base en endividamento, taxa de poupança, disciplina e cumprimento de tetos."
+        "Pontuação calculada de 0 a 1000 com base en endividamento, taxa de"
+        " poupança, disciplina e cumprimento de tetos."
     )
 
     df_saude = pd.read_sql(
-        "SELECT * FROM transacoes WHERE origem = 'Manual' OR origem = 'Nota_Fiscal' OR origem = 'Voz_IA' OR origem = 'Chat_IA'",
+        (
+            "SELECT * FROM transacoes WHERE origem = 'Manual' OR origem ="
+            " 'Nota_Fiscal' OR origem = 'Voz_IA' OR origem = 'Chat_IA'"
+        ),
         conn,
     )
     receitas_s = (
@@ -3795,7 +3910,8 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
     st.markdown("---")
     st.subheader("Detalhamento por Fator de Avaliação")
     st.write(
-        "Diagnóstico analítico dos pilares que compõem sua nota de saúde financeira:"
+        "Diagnóstico analítico dos pilares que compõem sua nota de saúde"
+        " financeira:"
     )
 
     st.markdown(
@@ -3856,7 +3972,8 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
     st.subheader("📅 Contas a Pagar & Receber / Gestão de Pagamentos")
     st.write(
-        "Organize boletos, contas a pagar, contas a receber e compromissos com vencimento programado."
+        "Organize boletos, contas a pagar, contas a receber e compromissos com"
+        " vencimento programado."
     )
 
     if "aba_contas_ativa" not in st.session_state:
@@ -3925,7 +4042,9 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         if not df_cp_dia.empty:
             for _, row_cp_d in df_cp_dia.iterrows():
                 st.markdown(
-                    f"• ID {row_cp_d['id']} | **{row_cp_d['descricao']}** — R$ {row_cp_d['valor']:,.2f} ({'Pago ✅' if row_cp_d['pago'] == 1 else 'Pendente ⏳'})"
+                    f"• ID {row_cp_d['id']} | **{row_cp_d['descricao']}** — R$"
+                    f" {row_cp_d['valor']:,.2f}"
+                    f" ({'Pago ✅' if row_cp_d['pago'] == 1 else 'Pendente ⏳'})"
                 )
         else:
             st.info("Nenhuma conta a pagar para esta data.")
@@ -3935,7 +4054,9 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
         if not df_cr_dia.empty:
             for _, row_cr_d in df_cr_dia.iterrows():
                 st.markdown(
-                    f"• ID {row_cr_d['id']} | **{row_cr_d['descricao']}** — R$ {row_cr_d['valor']:,.2f} ({'Recebido ✅' if row_cr_d['recebido'] == 1 else 'Pendente ⏳'})"
+                    f"• ID {row_cr_d['id']} | **{row_cr_d['descricao']}** — R$"
+                    f" {row_cr_d['valor']:,.2f}"
+                    f" ({'Recebido ✅' if row_cr_d['recebido'] == 1 else 'Pendente ⏳'})"
                 )
         else:
             st.info("Nenhuma conta a receber para esta data.")
@@ -3944,7 +4065,8 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
     if st.session_state.aba_contas_ativa == "pagar":
         st.subheader(
-            "➕ Nova Conta a Pagar (com Opção de Recorrência Mensal, Semanal ou Replicar datas)"
+            "➕ Nova Conta a Pagar (com Opção de Recorrência Mensal, Semanal ou"
+            " Replicar datas)"
         )
 
         if "venc_cp_state" not in st.session_state:
@@ -4034,7 +4156,8 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
                     for d_ins in datas_para_inserir:
                         c.execute(
-                            "INSERT INTO contas (vencimento, descricao, valor, pago) VALUES (?,?,?,?)",
+                            "INSERT INTO contas (vencimento, descricao, valor, pago)"
+                            " VALUES (?,?,?,?)",
                             (
                                 d_ins.strftime("%Y-%m-%d"),
                                 str(nome_conta).strip(),
@@ -4044,7 +4167,8 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                         )
                     conn.commit()
                     st.success(
-                        f"{len(datas_para_inserir)} conta(s) a pagar cadastrada(s) com sucesso!"
+                        f"{len(datas_para_inserir)} conta(s) a pagar cadastrada(s) com"
+                        " sucesso!"
                     )
                     st.rerun()
                 else:
@@ -4066,12 +4190,16 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                 if not vencidas.empty:
                     for _, r_venc in vencidas.iterrows():
                         st.error(
-                            f"⚠️ **Conta Vencida:** '{r_venc['descricao']}' vencia em **{formatar_data_ptbr(r_venc['vencimento'])}** no valor de **R$ {r_venc['valor']:,.2f}**!"
+                            f"⚠️ **Conta Vencida:** '{r_venc['descricao']}' vencia em"
+                            f" **{formatar_data_ptbr(r_venc['vencimento'])}** no valor de"
+                            f" **R$ {r_venc['valor']:,.2f}**!"
                         )
                 if not vencem_hoje.empty:
                     for _, r_hoje in vencem_hoje.iterrows():
                         st.warning(
-                            f"🔔 **Vence Hoje:** '{r_hoje['descricao']}' vence **hoje** ({hoje_atual.strftime('%d/%m/%Y')}) no valor de **R$ {r_hoje['valor']:,.2f}**!"
+                            f"🔔 **Vence Hoje:** '{r_hoje['descricao']}' vence **hoje**"
+                            f" ({hoje_atual.strftime('%d/%m/%Y')}) no valor de **R$"
+                            f" {r_hoje['valor']:,.2f}**!"
                         )
                 st.markdown("---")
 
@@ -4143,7 +4271,8 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                     st.write(f"📅 {c_venc} | **{c_desc}**")
                 with col_row3:
                     st.write(
-                        f"R$ {c_val:,.2f} ({'Pago ✅' if c_pago == 1 else 'Pendente ⏳'})"
+                        f"R$ {c_val:,.2f}"
+                        f" ({'Pago ✅' if c_pago == 1 else 'Pendente ⏳'})"
                     )
                 with col_row4:
                     if c_pago == 0:
@@ -4152,7 +4281,8 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                         ):
                             c.execute("UPDATE contas SET pago = 1 WHERE id = ?", (c_id,))
                             c.execute(
-                                "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                                "INSERT INTO transacoes (data, tipo, descricao, categoria,"
+                                " valor, origem) VALUES (?,?,?,?,?,?)",
                                 (
                                     hoje_atual.strftime("%Y-%m-%d"),
                                     "Despesa",
@@ -4163,89 +4293,289 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                                 ),
                             )
                             conn.commit()
-                            st.success(f"Conta '{c_desc}' paga e registrada com sucesso!")
+                            st.success(f"Conta '{c_desc}' paga com sucesso!")
                             st.rerun()
-                with col_row5:
-                    if c_pago == 1:
+                    else:
                         if st.button(
-                            "Estornar", key=f"btn_estornar_{c_id}", use_container_width=True
+                            "Estornar 🔄",
+                            key=f"btn_estornar_{c_id}",
+                            use_container_width=True,
                         ):
                             c.execute("UPDATE contas SET pago = 0 WHERE id = ?", (c_id,))
                             conn.commit()
-                            st.success("Status revertido para Pendente.")
+                            st.success(f"Conta '{c_desc}' marcada como pendente!")
                             st.rerun()
+                with col_row5:
+                    if st.button(
+                        "✏️ Editar", key=f"btn_edit_cp_{c_id}", use_container_width=True
+                    ):
+                        st.session_state[f"editando_cp_{c_id}"] = not st.session_state.get(
+                            f"editando_cp_{c_id}", False
+                        )
+                        st.rerun()
                 with col_row6:
                     if st.button(
-                        "Excluir", key=f"btn_del_cp_{c_id}", use_container_width=True
+                        "Excluir 🗑️", key=f"btn_del_cp_{c_id}", use_container_width=True
                     ):
                         c.execute("DELETE FROM contas WHERE id = ?", (c_id,))
                         conn.commit()
-                        st.success("Conta removida!")
+                        st.success(f"Conta ID {c_id} excluída com sucesso!")
                         st.rerun()
+
+                if st.session_state.get(f"editando_cp_{c_id}", False):
+                    with st.form(f"form_editar_cp_{c_id}"):
+                        st.write(
+                            f"**Editando Conta ID {c_id}** (Ajuste de variação de valor ou"
+                            " data)"
+                        )
+                        novo_venc_cp = st.date_input(
+                            "Nova Data de Vencimento (DD/MM/AAAA)",
+                            value=datetime.strptime(
+                                row_cp["vencimento"], "%Y-%m-%d"
+                            ).date(),
+                            key=f"nv_v_{c_id}",
+                            format="DD/MM/YYYY",
+                        )
+                        nova_desc_cp = st.text_input(
+                            "Nova Descrição", value=c_desc, key=f"nv_d_{c_id}"
+                        )
+                        novo_val_cp = st.number_input(
+                            "Novo Valor (R$)",
+                            min_value=0.0,
+                            value=float(c_val),
+                            step=1.0,
+                            format="%.2f",
+                            key=f"nv_val_{c_id}",
+                        )
+
+                        if st.form_submit_button("Salvar Alterações", use_container_width=True):
+                            c.execute(
+                                "UPDATE contas SET vencimento = ?, descricao = ?, valor = ?"
+                                " WHERE id = ?",
+                                (
+                                    novo_venc_cp.strftime("%Y-%m-%d"),
+                                    nova_desc_cp.strip(),
+                                    novo_val_cp,
+                                    c_id,
+                                ),
+                            )
+                            conn.commit()
+                            st.session_state[f"editando_cp_{c_id}"] = False
+                            st.success("Conta atualizada com sucesso!")
+                            st.rerun()
+
+            st.markdown("---")
+            id_del_cp = st.selectbox(
+                "Selecione o ID da conta a pagar para exclusão geral:",
+                contas_filtradas["id"].tolist(),
+                key="del_cp_sel",
+            )
+            if st.button("Excluir Conta a Pagar Selecionada", use_container_width=True):
+                c.execute("DELETE FROM contas WHERE id = ?", (id_del_cp,))
+                conn.commit()
+                st.success("Conta a pagar removida com sucesso!")
+                st.rerun()
         else:
-            st.info("Nenhuma conta a pagar encontrada com os filtros aplicados.")
+            st.info("Nenhuma conta a pagar encontrada para o mês vigente.")
 
     else:
-        st.subheader("➕ Nova Conta a Receber / Recebível Futuro")
+        st.subheader(
+            "➕ Nova Conta a Receber (com Opção de Recorrência Mensal, Semanal ou"
+            " Replicar datas)"
+        )
         with st.form("form_conta_receber_completo", clear_on_submit=True):
-            col_rc1, col_rc2 = st.columns(2)
-            with col_rc1:
-                venc_rc = st.date_input(
-                    "Data Prevista de Recebimento (DD/MM/AAAA)",
+            col_cr1, col_cr2 = st.columns(2)
+            with col_cr1:
+                venc_r = st.date_input(
+                    "Data de Vencimento / Recebimento Inicial (DD/MM/AAAA)",
                     value=hoje_atual,
+                    key="venc_cr",
                     format="DD/MM/YYYY",
                 )
-                desc_rc = st.text_input("Descrição do Recebível (Ex: Freelance, Venda)")
-            with col_rc2:
-                val_rc = st.number_input(
-                    "Valor a Receber (R$)", min_value=0.0, format="%.2f"
+                tipo_recorrencia_r = st.selectbox(
+                    "Tipo de Recorrência / Lançamento:",
+                    [
+                        "Apenas esta data (Sem recorrência)",
+                        "Recorrência Semanal",
+                        "Recorrência Mensal",
+                        "Replicar datas específicas customizadas",
+                    ],
+                    key="recorrencia_cr",
                 )
 
-            if st.form_submit_button("Adicionar Conta a Receber", use_container_width=True):
-                if desc_rc.strip() and val_rc > 0:
-                    c.execute(
-                        "INSERT INTO contas_receber (vencimento, descricao, valor, recebido) VALUES (?,?,?,?)",
-                        (
-                            venc_rc.strftime("%Y-%m-%d"),
-                            desc_rc.strip(),
-                            val_rc,
-                            0,
-                        ),
+                quantidade_periodos_r = 1
+                if tipo_recorrencia_r in ["Recorrência Semanal", "Recorrência Mensal"]:
+                    quantidade_periodos_r = st.number_input(
+                        "Quantidade de Períodos (Repetições):",
+                        min_value=1,
+                        max_value=60,
+                        value=12,
+                        step=1,
+                        key="qtd_periodos_cr",
                     )
+
+                replicar_datas_cr = []
+                if tipo_recorrencia_r == "Replicar datas específicas customizadas":
+                    replicar_datas_cr = st.multiselect(
+                        "Selecione as datas adicionais de vencimento:",
+                        options=[hoje_atual + timedelta(days=d) for d in range(1, 365)],
+                        format_func=lambda x: x.strftime("%d/%m/%Y"),
+                        key="rep_datas_cr",
+                    )
+
+            with col_cr2:
+                val_conta_r = st.number_input(
+                    "Valor a Receber (R$)", min_value=0.0, format="%.2f", key="val_cr"
+                )
+                nome_conta_r = st.text_input(
+                    (
+                        "Nome / Descrição da Receita (Ex: Aluguel a Receber, Prestação"
+                        " de Serviço)"
+                    )
+                )
+
+            if st.form_submit_button(
+                "Adicionar Conta(s) a Receber", use_container_width=True
+            ):
+                if nome_conta_r.strip() and val_conta_r > 0:
+                    datas_para_inserir_r = [venc_r]
+
+                    if tipo_recorrencia_r == "Recorrência Semanal":
+                        for i in range(1, quantidade_periodos_r):
+                            datas_para_inserir_r.append(venc_r + timedelta(weeks=i))
+                    elif tipo_recorrencia_r == "Recorrência Mensal":
+                        dia_original_r = venc_r.day
+                        for i in range(1, quantidade_periodos_r):
+                            novo_mes_r = venc_r.month + i
+                            novo_ano_r = venc_r.year + (novo_mes_r - 1) // 12
+                            novo_mes_r = (novo_mes_r - 1) % 12 + 1
+
+                            if novo_mes_r in [4, 6, 9, 11] and dia_original_r > 30:
+                                dia_ajustado_r = 30
+                            elif novo_mes_r == 2:
+                                bissexto_r = (
+                                    novo_ano_r % 4 == 0 and novo_ano_r % 100 != 0
+                                ) or (novo_ano_r % 400 == 0)
+                                max_fevereiro_r = 29 if bissexto_r else 28
+                                dia_ajustado_r = min(dia_original_r, max_fevereiro_r)
+                            else:
+                                dia_ajustado_r = min(dia_original_r, 31)
+
+                            datas_para_inserir_r.append(
+                                date(novo_ano_r, novo_mes_r, dia_ajustado_r)
+                            )
+
+                    elif tipo_recorrencia_r == "Replicar datas específicas customizadas":
+                        for d_rep_r in replicar_datas_cr:
+                            if d_rep_r not in datas_para_inserir_r:
+                                datas_para_inserir_r.append(d_rep_r)
+
+                    for d_ins_r in datas_para_inserir_r:
+                        c.execute(
+                            "INSERT INTO contas_receber (vencimento, descricao, valor,"
+                            " recebido) VALUES (?,?,?,?)",
+                            (
+                                d_ins_r.strftime("%Y-%m-%d"),
+                                str(nome_conta_r).strip(),
+                                val_conta_r,
+                                0,
+                            ),
+                        )
                     conn.commit()
-                    st.success("Conta a receber adicionada com sucesso!")
+                    st.success(
+                        f"{len(datas_para_inserir_r)} conta(s) a receber cadastrada(s)"
+                        " com sucesso!"
+                    )
                     st.rerun()
                 else:
-                    st.error("Informe a descrição e o valor a receber.")
+                    st.error("Informe a descrição e o valor da conta a receber.")
 
         st.markdown("---")
-        df_cr_all = pd.read_sql("SELECT * FROM contas_receber", conn)
-        if not df_cr_all.empty:
-            st.write("### 📋 Lista de Contas a Receber")
-            for _, row_cr in df_cr_all.iterrows():
+        st.subheader("🔍 Pesquisa Aprimorada & Relação de Contas a Receber")
+
+        col_pesq_cr, col_fil_agenda_cr = st.columns([3, 2])
+        with col_pesq_cr:
+            termo_busca_receber = st.text_input(
+                "Pesquisar por nome, parte da descrição ou similaridade:",
+                "",
+                key="busca_receber_input",
+            )
+        with col_fil_agenda_cr:
+            mostrar_tudo_cr = st.checkbox(
+                "Exibir todas as datas (desmarcado mostra apenas o mês vigente)",
+                value=False,
+                key="chk_mostrar_tudo_cr",
+            )
+
+        df_receber_all = pd.read_sql("SELECT * FROM contas_receber", conn)
+
+        if not df_receber_all.empty:
+            df_receber_all["venc_dt_cmp"] = pd.to_datetime(
+                df_receber_all["vencimento"]
+            ).dt.date
+
+            if not mostrar_tudo_cr:
+                ano_vig_r = st.session_state.data_calendario_ref.year
+                mes_vig_r = st.session_state.data_calendario_ref.month
+                df_receber_all = df_receber_all[
+                    (pd.to_datetime(df_receber_all["vencimento"]).dt.year == ano_vig_r)
+                    & (pd.to_datetime(df_receber_all["vencimento"]).dt.month == mes_vig_r)
+                ]
+
+            if termo_busca_receber.strip():
+                termo_limpo_r = termo_busca_receber.strip().lower()
+                desc_r = df_receber_all["descricao"].tolist()
+                sim_r = difflib.get_close_matches(
+                    termo_limpo_r, [d.lower() for d in desc_r], n=15, cutoff=0.25
+                )
+
+                mask_r = (
+                    df_receber_all["descricao"]
+                    .str.lower()
+                    .str.contains(termo_limpo_r, na=False)
+                    | df_receber_all["descricao"].str.lower().isin(sim_r)
+                )
+                receber_filtradas = df_receber_all[mask_r]
+            else:
+                receber_filtradas = df_receber_all
+        else:
+            receber_filtradas = df_receber_all
+
+        if not receber_filtradas.empty:
+            st.write("### 📋 Lista de Contas a Receber (Mês Vigente)")
+            for _, row_cr in receber_filtradas.iterrows():
                 cr_id = row_cr["id"]
                 cr_venc = formatar_data_ptbr(row_cr["vencimento"])
                 cr_desc = row_cr["descricao"]
                 cr_val = row_cr["valor"]
-                cr_rec = row_cr["recebido"]
+                cr_recebido = row_cr["recebido"]
 
-                col_rr1, col_rr2, col_rr3, col_rr4, col_rr5 = st.columns([1, 2, 2, 1, 1])
-                with col_rr1:
+                col_r1, col_r2, col_r3, col_r4, col_r5, col_r6 = st.columns(
+                    [1, 2, 2, 1, 1, 1]
+                )
+                with col_r1:
                     st.write(f"**ID:** {cr_id}")
-                with col_rr2:
+                with col_r2:
                     st.write(f"📅 {cr_venc} | **{cr_desc}**")
-                with col_rr3:
+                with col_r3:
                     st.write(
-                        f"R$ {cr_val:,.2f} ({'Recebido ✅' if cr_rec == 1 else 'Pendente ⏳'})"
+                        f"R$ {cr_val:,.2f}"
+                        f" ({'Recebido ✅' if cr_recebido == 1 else 'Pendente ⏳'})"
                     )
-                with col_rr4:
-                    if cr_rec == 0:
+                with col_r4:
+                    if cr_recebido == 0:
                         if st.button(
-                            "Receber 💰", key=f"btn_receber_{cr_id}", use_container_width=True
+                            "Receber 💰",
+                            key=f"btn_receber_{cr_id}",
+                            use_container_width=True,
                         ):
-                            c.execute("UPDATE contas_receber SET recebido = 1 WHERE id = ?", (cr_id,))
                             c.execute(
-                                "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
+                                "UPDATE contas_receber SET recebido = 1 WHERE id = ?",
+                                (cr_id,),
+                            )
+                            c.execute(
+                                "INSERT INTO transacoes (data, tipo, descricao, categoria,"
+                                " valor, origem) VALUES (?,?,?,?,?,?)",
                                 (
                                     hoje_atual.strftime("%Y-%m-%d"),
                                     "Receita",
@@ -4256,226 +4586,651 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                                 ),
                             )
                             conn.commit()
-                            st.success(f"Recebível '{cr_desc}' baixado como recebido!")
+                            st.success(f"Recebimento '{cr_desc}' confirmado com sucesso!")
                             st.rerun()
-                with col_rr5:
+                    else:
+                        if st.button(
+                            "Estornar 🔄",
+                            key=f"btn_estornar_cr_{cr_id}",
+                            use_container_width=True,
+                        ):
+                            c.execute(
+                                "UPDATE contas_receber SET recebido = 0 WHERE id = ?",
+                                (cr_id,),
+                            )
+                            conn.commit()
+                            st.success(f"Recebimento '{cr_desc}' marcado como pendente!")
+                            st.rerun()
+                with col_r5:
                     if st.button(
-                        "Excluir", key=f"btn_del_cr_{cr_id}", use_container_width=True
+                        "✏️ Editar", key=f"btn_edit_cr_{cr_id}", use_container_width=True
+                    ):
+                        st.session_state[f"editando_cr_{cr_id}"] = not st.session_state.get(
+                            f"editando_cr_{cr_id}", False
+                        )
+                        st.rerun()
+                with col_r6:
+                    if st.button(
+                        "Excluir 🗑️", key=f"btn_del_cr_{cr_id}", use_container_width=True
                     ):
                         c.execute("DELETE FROM contas_receber WHERE id = ?", (cr_id,))
                         conn.commit()
-                        st.success("Registro removido!")
+                        st.success(f"Conta a receber ID {cr_id} excluída com sucesso!")
                         st.rerun()
+
+                if st.session_state.get(f"editando_cr_{cr_id}", False):
+                    with st.form(f"form_editar_cr_{cr_id}"):
+                        st.write(
+                            f"**Editando Conta a Receber ID {cr_id}** (Ajuste de variação)"
+                        )
+                        novo_venc_cr = st.date_input(
+                            "Nova Data de Vencimento (DD/MM/AAAA)",
+                            value=datetime.strptime(
+                                row_cr["vencimento"], "%Y-%m-%d"
+                            ).date(),
+                            key=f"nv_vr_{cr_id}",
+                            format="DD/MM/YYYY",
+                        )
+                        nova_desc_cr = st.text_input(
+                            "Nova Descrição", value=cr_desc, key=f"nv_dr_{cr_id}"
+                        )
+                        novo_val_cr = st.number_input(
+                            "Novo Valor (R$)",
+                            min_value=0.0,
+                            value=float(cr_val),
+                            step=1.0,
+                            format="%.2f",
+                            key=f"nv_valr_{cr_id}",
+                        )
+
+                        if st.form_submit_button("Salvar Alterações", use_container_width=True):
+                            c.execute(
+                                "UPDATE contas_receber SET vencimento = ?, descricao = ?,"
+                                " valor = ? WHERE id = ?",
+                                (
+                                    novo_venc_cr.strftime("%Y-%m-%d"),
+                                    nova_desc_cr.strip(),
+                                    novo_val_cr,
+                                    cr_id,
+                                ),
+                            )
+                            conn.commit()
+                            st.session_state[f"editando_cr_{cr_id}"] = False
+                            st.success("Conta a receber atualizada com sucesso!")
+                            st.rerun()
+
+            st.markdown("---")
+            id_del_cr = st.selectbox(
+                "Selecione o ID da conta a receber para exclusão geral:",
+                receber_filtradas["id"].tolist(),
+                key="del_cr_sel",
+            )
+            if st.button(
+                "Excluir Conta a Receber Selecionada", use_container_width=True
+            ):
+                c.execute("DELETE FROM contas_receber WHERE id = ?", (id_del_cr,))
+                conn.commit()
+                st.success("Conta a receber removida com sucesso!")
+                st.rerun()
         else:
-            st.info("Nenhuma conta a receber cadastrada.")
+            st.info("Nenhuma conta a receber encontrada para o mês vigente.")
 
 # ==========================================
 # --- SEÇÃO 11: EXTRATO & BACKUP ---
 # ==========================================
 elif st.session_state.pagina_atual == "📋 Extrato & Backup":
     botao_voltar()
-    st.subheader("📋 Auditoria de Extratos Bancários (PDF) & Backup de Dados")
+    st.subheader(
+        "📋 Extrato Consolidado, Importação Inteligente de Extratos PDF/CSV &"
+        " Backup"
+    )
     st.write(
-        "Importe extratos bancários em PDF para conciliação automática, visualize transações ou faça backup completo."
+        "Faça download do banco de dados ou exporte planilhas utilizando os"
+        " botões abaixo."
     )
 
-    tab_ext1, tab_ext2 = st.tabs([
-        "📥 Importar Extrato Bancário (PDF)",
-        "📋 Histórico & Gerenciamento de Transações",
-    ])
+    col_exp1, col_exp2 = st.columns(2)
+    with col_exp1:
+        with open("gestor_financeiro.db", "rb") as f_db:
+            st.download_button(
+                "💾 Baixar Banco de Dados (.db)",
+                f_db,
+                file_name="gestor_financeiro.db",
+                mime="application/octet-stream",
+                use_container_width=True,
+            )
 
-    with tab_ext1:
-        arquivo_extrato_pdf = st.file_uploader(
-            "Selecione o Extrato Bancário em PDF", type=["pdf"], key="upload_extrato_pdf"
+    with col_exp2:
+        df_extrato_full = pd.read_sql("SELECT * FROM transacoes", conn)
+        if not df_extrato_full.empty:
+            df_extrato_full["data"] = df_extrato_full["data"].apply(
+                formatar_data_ptbr
+            )
+            csv_texto = df_extrato_full.to_csv(index=False)
+            st.download_button(
+                "📥 Baixar Planilha Extrato (CSV)",
+                csv_texto.encode("utf-8"),
+                file_name="extrato_financeiro.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+        else:
+            st.button(
+                "📥 Baixar Planilha Extrato (CSV)",
+                disabled=True,
+                use_container_width=True,
+            )
+
+    st.markdown("---")
+    st.markdown("### ⚠️ Zona de Perigo — Exclusão Geral de Dados")
+    st.write(
+        "Insira a senha de segurança abaixo para apagar permanentemente todos"
+        " os registros, transações, faturas, veículos e investimentos do"
+        " sistema."
+    )
+
+    with st.form("form_exclusao_geral_segura"):
+        senha_exclusao_geral = st.text_input("Senha de Confirmação:", type="password")
+        btn_executar_limpeza = st.form_submit_button(
+            "🗑️ APAGAR TODOS OS DADOS DO SISTEMA", use_container_width=True
         )
-        if arquivo_extrato_pdf is not None:
-            try:
-                texto_ext_pdf = ""
-                with pdfplumber.open(arquivo_extrato_pdf) as pdf:
-                    for pagina in pdf.pages:
-                        ext = pagina.extract_text()
-                        if ext:
-                            texto_ext_pdf += ext + "\n"
 
-                st.success("Extrato PDF lido com sucesso!")
-                linhas_ext = texto_ext_pdf.split("\n")
-                transacoes_extraidas_ext = []
+        if btn_executar_limpeza:
+            if senha_exclusao_geral == "1234":
+                c.execute("DELETE FROM transacoes")
+                c.execute("DELETE FROM contas")
+                c.execute("DELETE FROM contas_receber")
+                c.execute("DELETE FROM cartao_credito")
+                c.execute("DELETE FROM carteira_investimentos")
+                c.execute("DELETE FROM veiculos")
+                c.execute("DELETE FROM manutencoes_veiculo")
+                c.execute("DELETE FROM consumo_combustivel")
+                c.execute("DELETE FROM holerites")
+                c.execute("DELETE FROM notas_fiscais")
+                c.execute("DELETE FROM itens_nota_fiscal")
+                c.execute("DELETE FROM metas")
+                c.execute("DELETE FROM saldo_banco_manual")
+                conn.commit()
+                st.success("Todos os dados do sistema foram apagados com sucesso!")
+                st.rerun()
+            else:
+                st.error("Senha incorreta! A exclusão geral foi cancelada.")
 
-                for l_ext in linhas_ext:
-                    l_up = l_ext.upper()
-                    nums_ext = re.findall(r"(\d{1,3}(?:\.\d{3})*,\d{2})", l_ext)
-                    if nums_ext and not any(
-                        p in l_up for p in ["SALDO", "LIMITE", "TOTAL", "EXTRATO"]
-                    ):
-                        val_ext = float(
-                            nums_ext[-1].replace(".", "").replace(",", ".")
-                        )
-                        desc_ext = l_ext.replace(nums_ext[-1], "").strip()
-                        if len(desc_ext) > 3:
-                            tipo_t = (
-                                "Receita"
-                                if any(
-                                    w in l_up
-                                    for w in ["DEPOSITO", "TED", "PIX RECEBIDO", "SALARIO"]
-                                )
-                                else "Despesa"
+    st.markdown("---")
+    st.write(
+        "### 📥 Importação Automática de Extrato Bancário em PDF (Ex: Itaú)"
+    )
+    arquivo_importado = st.file_uploader(
+        "Selecione o arquivo extrato em PDF ou CSV",
+        type=["csv", "pdf"],
+        key="upload_extrato_banco",
+    )
+
+    if arquivo_importado is not None and arquivo_importado.name.endswith(".pdf"):
+        try:
+            texto_pdf_extrato = ""
+            with pdfplumber.open(arquivo_importado) as pdf:
+                for pagina in pdf.pages:
+                    ext = pagina.extract_text()
+                    if ext:
+                        texto_pdf_extrato += ext + "\n"
+
+            if st.button(
+                "Processar e Importar Extrato do PDF com Categorização Inteligente",
+                use_container_width=True,
+            ):
+                importados_pdf_count = 0
+                for linha in texto_pdf_extrato.split("\n"):
+                    if "SALDO" in linha.upper():
+                        continue
+                    partes = linha.split()
+                    if len(partes) >= 3 and "/" in partes[0] and len(partes[0]) == 10:
+                        try:
+                            d = partes[0].split("/")
+                            data_str = f"{d[2]}-{d[1]}-{d[0]}"
+                            val_float = float(
+                                linha.replace("R$", "")
+                                .replace(".", "")
+                                .replace(",", ".")
+                                .split()[-1]
                             )
-                            cat_t = categorizar_automaticamente(desc_ext, tipo_t)
-                            transacoes_extraidas_ext.append({
-                                "data": date.today().strftime("%Y-%m-%d"),
-                                "tipo": tipo_t,
-                                "descricao": desc_ext,
-                                "categoria": cat_t,
-                                "valor": val_ext,
-                            })
+                            tipo_trans = "Receita" if val_float > 0 else "Despesa"
+                            desc_str = " ".join(partes[1:-1])
+                            cat_inteligente = categorizar_automaticamente(
+                                desc_str, tipo_trans
+                            )
+                            c.execute(
+                                "INSERT INTO transacoes (data, tipo, descricao, categoria,"
+                                " valor, origem) VALUES (?,?,?,?,?,?)",
+                                (
+                                    data_str,
+                                    tipo_trans,
+                                    desc_str,
+                                    cat_inteligente,
+                                    abs(val_float),
+                                    "Banco_PDF",
+                                ),
+                            )
+                            importados_pdf_count += 1
+                        except:
+                            continue
+                conn.commit()
+                st.success(
+                    f"{importados_pdf_count} lançamentos do extrato importados e"
+                    " categorizados com sucesso como origem 'Banco_PDF'!"
+                )
+                st.rerun()
+        except Exception as e:
+            st.error(f"Erro ao processar extrato bancário em PDF: {e}")
 
-                if st.button(
-                    "Processar Extrato & Consolidar no Banco de Dados",
-                    use_container_width=True,
-                ):
-                    for te in transacoes_extraidas_ext:
-                        c.execute(
-                            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
-                            (
-                                te["data"],
-                                te["tipo"],
-                                te["descricao"],
-                                te["categoria"],
-                                te["valor"],
-                                "Banco_PDF",
-                            ),
-                        )
-                    conn.commit()
-                    st.success(
-                        f"🎉 {len(transacoes_extraidas_ext)} transações importadas e salvas com sucesso!"
+    st.markdown("---")
+    st.subheader("📑 Módulo de Reconciliação Bancária Automatizada")
+    st.write(
+        "Verifique divergências entre os lançamentos manuais do sistema e o"
+        " extrato importado mais recentemente."
+    )
+
+    if arquivo_importado is not None and arquivo_importado.name.endswith(".pdf"):
+        transacoes_pdf_temp = []
+        for linha in texto_pdf_extrato.split("\n"):
+            if "SALDO" in linha.upper():
+                continue
+            partes = linha.split()
+            if len(partes) >= 3 and "/" in partes[0] and len(partes[0]) == 10:
+                try:
+                    d = partes[0].split("/")
+                    data_str = f"{d[2]}-{d[1]}-{d[0]}"
+                    val_float = float(
+                        linha.replace("R$", "")
+                        .replace(".", "")
+                        .replace(",", ".")
+                        .split()[-1]
                     )
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao processar extrato PDF: {e}")
+                    desc_str = " ".join(partes[1:-1])
+                    transacoes_pdf_temp.append({
+                        "data": data_str,
+                        "descricao": desc_str,
+                        "valor": abs(val_float),
+                        "tipo": "Receita" if val_float > 0 else "Despesa",
+                    })
+                except:
+                    continue
 
-    with tab_ext2:
-        st.write("### 📋 Histórico Geral de Transações")
-        df_trans_geral = pd.read_sql("SELECT * FROM transacoes ORDER BY id DESC", conn)
-        if not df_trans_geral.empty:
-            df_trans_geral["data"] = df_trans_geral["data"].apply(formatar_data_ptbr)
+        if transacoes_pdf_temp:
+            df_pdf_temp = pd.DataFrame(transacoes_pdf_temp)
+            df_banco_atual = pd.read_sql(
+                (
+                    "SELECT data, descricao, valor, tipo FROM transacoes WHERE origem"
+                    " = 'Manual'"
+                ),
+                conn,
+            )
+
+            if not df_banco_atual.empty:
+                merged_rec = pd.merge(
+                    df_pdf_temp,
+                    df_banco_atual,
+                    on=["data", "valor", tipo_trans := "tipo"],
+                    how="left",
+                    indicator=True,
+                )
+                divergentes = merged_rec[merged_rec["_merge"] == "left_only"]
+
+                if not divergentes.empty:
+                    divergentes["data"] = divergentes["data"].apply(formatar_data_ptbr)
+                    st.warning(
+                        f"⚠️ Atenção: Encontramos **{len(divergentes)}** transação(ões) no"
+                        " PDF do extrato que constam como divergentes ou ausentes nos"
+                        " lançamentos manuais do sistema:"
+                    )
+                    st.dataframe(
+                        divergentes[["data", "descricao_x", "valor", "tipo"]].rename(
+                            columns={"descricao_x": "Descrição no Extrato PDF"}
+                        ),
+                        use_container_width=True,
+                    )
+                else:
+                    st.success(
+                        "✅ **Reconciliação Perfeita:** Todos os lançamentos do extrato"
+                        " PDF conferem com os registros manuais salvos no sistema!"
+                    )
+            else:
+                st.info(
+                    "Cadastre transações manuais no sistema para ativar o cruzamento"
+                    " da reconciliação com o PDF."
+                )
+        else:
+            st.info("Nenhuma transação válida lida no PDF atual para reconciliação.")
+    else:
+        st.info(
+            "Faça o upload de um extrato bancário em PDF acima para habilitar o"
+            " painel de Reconciliação Automatizada."
+        )
+
+    st.markdown("---")
+    st.subheader("🔍 Pesquisa Avançada & Filtros Inteligentes no Extrato")
+
+    col_s1, col_s2, col_s3 = st.columns([2, 1, 1])
+    with col_s1:
+        termo_busca_extrato = st.text_input(
+            "Filtrar por texto/similaridade (Descrição ou Categoria):",
+            "",
+            key="fil_extrato_similaridade",
+        )
+    with col_s2:
+        filtro_tipo = st.selectbox(
+            "Filtrar por Tipo:", ["Todos", "Receita", "Despesa"]
+        )
+    with col_s3:
+        ordenacao_val = st.selectbox(
+            "Ordenar por Valor:",
+            ["Padrão (ID)", "Maior para Menor", "Menor para Maior"],
+        )
+
+    df_trans_all = pd.read_sql("SELECT * FROM transacoes", conn)
+
+    if not df_trans_all.empty:
+        df_extrato_filtrado = df_trans_all.copy()
+
+        if termo_busca_extrato.strip():
+            termo_limpo = termo_busca_extrato.strip().lower()
+            descricoes_t = df_extrato_filtrado["descricao"].tolist()
+            categorias_t = df_extrato_filtrado["categoria"].tolist()
+
+            similares_desc = difflib.get_close_matches(
+                termo_limpo, [d.lower() for d in descricoes_t], n=20, cutoff=0.25
+            )
+            similares_cat = difflib.get_close_matches(
+                termo_limpo, [cat.lower() for cat in categorias_t], n=20, cutoff=0.25
+            )
+
+            mask = (
+                df_extrato_filtrado["descricao"]
+                .str.lower()
+                .str.contains(termo_limpo, na=False)
+                | df_extrato_filtrado["categoria"]
+                .str.lower()
+                .str.contains(termo_limpo, na=False)
+                | df_extrato_filtrado["descricao"].str.lower().isin(similares_desc)
+                | df_extrato_filtrado["descricao"].str.lower().isin(similares_cat)
+            )
+            df_extrato_filtrado = df_extrato_filtrado[mask]
+
+        if filtro_tipo != "Todos":
+            df_extrato_filtrado = df_extrato_filtrado[
+                df_extrato_filtrado["tipo"] == filtro_tipo
+            ]
+
+        if ordenacao_val == "Maior para Menor":
+            df_extrato_filtrado = df_extrato_filtrado.sort_values(
+                by="valor", ascending=False
+            )
+        elif ordenacao_val == "Menor para Maior":
+            df_extrato_filtrado = df_extrato_filtrado.sort_values(
+                by="valor", ascending=True
+            )
+
+        if not df_extrato_filtrado.empty:
+            df_extrato_filtrado_exib = df_extrato_filtrado.copy()
+            df_extrato_filtrado_exib["data"] = df_extrato_filtrado_exib[
+                "data"
+            ].apply(formatar_data_ptbr)
+            st.write(
+                f"### 📋 Resultados Encontrados ({len(df_extrato_filtrado_exib)}"
+                " registros)"
+            )
             st.dataframe(
-                df_trans_geral.rename(
+                df_extrato_filtrado_exib, use_container_width=True, hide_index=True
+            )
+
+            st.markdown(
+                "### ⚙️ Gerenciar / Editar / Excluir Lançamentos do Extrato"
+            )
+            id_trans_sel = st.selectbox(
+                "Selecione o ID da transação para editar ou excluir:",
+                df_extrato_filtrado["id"].tolist(),
+                key="sel_transacao_gerenciar",
+            )
+
+            if id_trans_sel:
+                row_trans_atual = df_extrato_filtrado[
+                    df_extrato_filtrado["id"] == id_trans_sel
+                ].iloc[0]
+
+                col_ed_op1, col_ed_op2 = st.columns(2)
+                with col_ed_op1:
+                    st.markdown(f"**Editando Lançamento ID {id_trans_sel}:**")
+                    with st.form(f"form_editar_transacao_{id_trans_sel}"):
+                        novo_tipo_t = st.selectbox(
+                            "Tipo:",
+                            ["Despesa", "Receita"],
+                            index=0 if row_trans_atual["tipo"] == "Despesa" else 1,
+                        )
+                        nova_desc_t = st.text_input(
+                            "Descrição:", value=row_trans_atual["descricao"]
+                        )
+                        novo_val_t = st.number_input(
+                            "Valor (R$):",
+                            min_value=0.0,
+                            value=float(row_trans_atual["valor"]),
+                            step=1.0,
+                            format="%.2f",
+                        )
+                        nova_data_t = st.date_input(
+                            "Data (DD/MM/AAAA):",
+                            value=datetime.strptime(
+                                str(row_trans_atual["data"])[:10], "%Y-%m-%d"
+                            ).date(),
+                            format="DD/MM/YYYY",
+                        )
+
+                        if st.form_submit_button(
+                            "Salvar Alterações da Transação", use_container_width=True
+                        ):
+                            c.execute(
+                                "UPDATE transacoes SET tipo = ?, descricao = ?, valor = ?,"
+                                " data = ? WHERE id = ?",
+                                (
+                                    novo_tipo_t,
+                                    nova_desc_t.strip(),
+                                    novo_val_t,
+                                    nova_data_t.strftime("%Y-%m-%d"),
+                                    id_trans_sel,
+                                ),
+                            )
+                            conn.commit()
+                            st.success(f"Transação ID {id_trans_sel} atualizada com sucesso!")
+                            st.rerun()
+
+                with col_ed_op2:
+                    st.markdown(f"**Excluir Lançamento ID {id_trans_sel}:**")
+                    st.write(
+                        f"Deseja remover permanentemente o registro"
+                        f" *{row_trans_atual['descricao']}* (R$"
+                        f" {row_trans_atual['valor']:,.2f})?"
+                    )
+                    if st.button(
+                        "🗑️ Excluir Transação Selecionada", use_container_width=True
+                    ):
+                        c.execute("DELETE FROM transacoes WHERE id = ?", (id_trans_sel,))
+                        conn.commit()
+                        st.success(f"Transação ID {id_trans_sel} excluída com sucesso!")
+                        st.rerun()
+        else:
+            st.info(
+                "Nenhuma transação encontrada com os filtros e termos pesquisados."
+            )
+    else:
+        st.info("Nenhum extrato armazenado no banco de dados.")
+
+# ==========================================
+# --- SEÇÃO 12: HOLERITES (COM SENHA DE ACESSO) ---
+# ==========================================
+elif st.session_state.pagina_atual == "📄 Holerites":
+    botao_voltar()
+    
+    if "holerites_desbloqueado" not in st.session_state:
+        st.session_state.holerites_desbloqueado = False
+
+    if not st.session_state.holerites_desbloqueado:
+        st.subheader("🔒 Acesso Restrito à Seção de Holerites")
+        st.markdown("Esta seção contém informações salariais e fiscais confidenciais. Digite a senha para prosseguir:")
+        
+        senha_holerite = st.text_input("Senha de Acesso aos Holerites:", type="password", key="input_senha_holerite")
+        
+        col_h_b1, col_h_b2 = st.columns(2)
+        with col_h_b1:
+            if st.button("Desbloquear Holerites", use_container_width=True):
+                if senha_holerite == "1234":
+                    st.session_state.holerites_desbloqueado = True
+                    st.success("Acesso liberado com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Senha incorreta!")
+        with col_h_b2:
+            if st.button("Bloquear / Sair da Seção", use_container_width=True):
+                st.session_state.holerites_desbloqueado = False
+                mudar_pagina("🏠 Início / Painel")
+                st.rerun()
+    else:
+        col_sup1, col_sup2 = st.columns([4, 1])
+        with col_sup1:
+            st.subheader(
+                "📄 Análise, Comparativo Mês a Mês & Leitura Dinâmica de Holerites via PDF"
+            )
+            st.info(
+                "Faça o upload de arquivos PDF de contracheques. O sistema lerá com"
+                " precisão cirúrgica os impostos e proventos."
+            )
+        with col_sup2:
+            if st.button("🔒 Bloquear Seção", use_container_width=True):
+                st.session_state.holerites_desbloqueado = False
+                st.rerun()
+
+        pdfs_holerites = st.file_uploader(
+            "Escolha os arquivos PDF dos Holerites Corporativos",
+            type=["pdf"],
+            accept_multiple_files=True,
+            key="upload_multiplos_holerites",
+        )
+
+        if pdfs_holerites:
+            upload_ids = "-".join([f"{f.name}-{f.size}" for f in pdfs_holerites])
+            if st.session_state.get("ultimo_upload_processado") != upload_ids:
+                importados_automaticos = 0
+                for arquivo_pdf in pdfs_holerites:
+                    texto_holerite = ""
+                    try:
+                        with pdfplumber.open(arquivo_pdf) as pdf:
+                            for pagina in pdf.pages:
+                                ext = pagina.extract_text()
+                                if ext:
+                                    texto_holerite += ext + "\n"
+
+                        (
+                            mes_ano_extraido,
+                            bruto_val,
+                            desc_val,
+                            liquido_val,
+                            inss_val,
+                            irrf_val,
+                            vale_val,
+                        ) = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
+
+                        cursor_check = c.execute(
+                            "SELECT id FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,)
+                        )
+                        row_existente = cursor_check.fetchone()
+
+                        if not row_existente:
+                            c.execute(
+                                "INSERT INTO holerites (mes_ano, salario_bruto,"
+                                " total_descontos, liquido, inss, irrf, vale) VALUES"
+                                " (?,?,?,?,?,?,?)",
+                                (
+                                    mes_ano_extraido,
+                                    bruto_val,
+                                    desc_val,
+                                    liquido_val,
+                                    inss_val,
+                                    irrf_val,
+                                    vale_val,
+                                ),
+                            )
+                            conn.commit()
+                            importados_automaticos += 1
+                        else:
+                            c.execute(
+                                "UPDATE holerites SET salario_bruto = ?, total_descontos = ?,"
+                                " liquido = ?, inss = ?, irrf = ?, vale = ? WHERE mes_ano = ?",
+                                (
+                                    bruto_val,
+                                    desc_val,
+                                    liquido_val,
+                                    inss_val,
+                                    irrf_val,
+                                    vale_val,
+                                    mes_ano_extraido,
+                                ),
+                            )
+                            conn.commit()
+                            importados_automaticos += 1
+                    except Exception as e:
+                        st.error(f"Erro ao processar o arquivo {arquivo_pdf.name}: {e}")
+
+                st.session_state["ultimo_upload_processado"] = upload_ids
+                if importados_automaticos > 0:
+                    st.success(f"🎉 {importados_automaticos} holerite(s) processado(s) e gravado(s) com sucesso!")
+                    st.rerun()
+
+        st.markdown("---")
+        st.subheader("📋 Histórico de Holerites Cadastrados")
+        df_hol_all = pd.read_sql("SELECT * FROM holerites ORDER BY id DESC", conn)
+        if not df_hol_all.empty:
+            st.dataframe(
+                df_hol_all.rename(
                     columns={
                         "id": "ID",
-                        "data": "Data",
-                        "tipo": "Tipo",
-                        "descricao": "Descrição",
-                        "categoria": "Categoria",
-                        "valor": "Valor (R$)",
-                        "origem": "Origem",
+                        "mes_ano": "Mês/Ano",
+                        "salario_bruto": "Salário Bruto (R$)",
+                        "total_descontos": "Total Descontos (R$)",
+                        "liquido": "Líquido (R$)",
+                        "inss": "INSS (R$)",
+                        "irrf": "IRRF (R$)",
+                        "vale": "Vale (R$)",
                     }
                 ),
                 use_container_width=True,
                 hide_index=True,
             )
 
-            id_del_trans = st.selectbox(
-                "Selecione o ID da transação para exclusão:",
-                df_trans_geral["id"].tolist(),
-                key="del_trans_unique_sel",
+            st.markdown("---")
+            st.subheader("📊 Comparativo Gráfico Mês a Mês (Evolução Salarial & Descontos)")
+            fig_hol = px.bar(
+                df_hol_all,
+                x="mes_ano",
+                y=["salario_bruto", "total_descontos", "liquido"],
+                barmode="group",
+                labels={"value": "Valor (R$)", "mes_ano": "Mês/Ano", "variable": "Indicador"},
+                color_discrete_sequence=["#3b82f6", "#ef4444", "#22c55e"],
             )
-            if st.button("Excluir Transação Selecionada", use_container_width=True):
-                c.execute("DELETE FROM transacoes WHERE id = ?", (id_del_trans,))
+            fig_hol.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font_color="#f8fafc",
+            )
+            st.plotly_chart(fig_hol, use_container_width=True)
+
+            st.markdown("---")
+            id_del_hol = st.selectbox(
+                "Selecione o ID do holerite para remoção:",
+                df_hol_all["id"].tolist(),
+                key="del_hol_sel",
+            )
+            if st.button("Remover Holerite Selecionado", use_container_width=True):
+                c.execute("DELETE FROM holerites WHERE id = ?", (id_del_hol,))
                 conn.commit()
-                st.success("Transação removida com sucesso!")
+                st.success("Holerite removido com sucesso!")
                 st.rerun()
         else:
-            st.info("Nenhuma transação registrada no sistema.")
-
-# ==========================================
-# --- SEÇÃO 12: HOLERITES ---
-# ==========================================
-elif st.session_state.pagina_atual == "📄 Holerites":
-    botao_voltar()
-    st.subheader("📄 Auditoria de Holerites & Comprovantes Salariais")
-    st.write(
-        "Faça o upload do seu holerite em PDF para extração automática de salário bruto, descontos, INSS, IRRF e líquido."
-    )
-
-    arquivo_holerite_pdf = st.file_uploader(
-        "Selecione o Holerite em PDF", type=["pdf"], key="upload_holerite_pdf"
-    )
-    if arquivo_holerite_pdf is not None:
-        try:
-            texto_holerite = ""
-            with pdfplumber.open(arquivo_holerite_pdf) as pdf:
-                for pagina in pdf.pages:
-                    ext = pagina.extract_text()
-                    if ext:
-                        texto_holerite += ext + "\n"
-
-            mes_ano, bruto, descontos, liquido, inss, irrf, vale = processar_texto_holerite(
-                texto_holerite, arquivo_holerite_pdf.name
-            )
-
-            st.success("Holerite lido e auditado com sucesso!")
-
-            with st.form("form_salvar_holerite_auditado"):
-                col_h1, col_h2 = st.columns(2)
-                with col_h1:
-                    mes_ano_input = st.text_input("Mês/Ano Referência:", value=mes_ano)
-                    bruto_input = st.number_input("Salário Bruto (R$):", value=bruto, format="%.2f")
-                    descontos_input = st.number_input("Total de Descontos (R$):", value=descontos, format="%.2f")
-                    liquido_input = st.number_input("Líquido a Receber (R$):", value=liquido, format="%.2f")
-                with col_h2:
-                    inss_input = st.number_input("INSS (R$):", value=inss, format="%.2f")
-                    irrf_input = st.number_input("IRRF (R$):", value=irrf, format="%.2f")
-                    vale_input = st.number_input("Vale / Adiantamento (R$):", value=vale, format="%.2f")
-
-                if st.form_submit_button("Salvar Holerite no Banco de Dados", use_container_width=True):
-                    c.execute(
-                        "INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf, vale) VALUES (?,?,?,?,?,?,?)",
-                        (
-                            mes_ano_input,
-                            bruto_input,
-                            descontos_input,
-                            liquido_input,
-                            inss_input,
-                            irrf_input,
-                            vale_input,
-                        ),
-                    )
-                    conn.commit()
-                    st.success("Holerite consolidado com sucesso!")
-                    st.rerun()
-        except Exception as e:
-            st.error(f"Erro ao processar holerite PDF: {e}")
-
-    st.markdown("---")
-    st.subheader("📋 Histórico de Holerites Auditados")
-    df_holerites_all = pd.read_sql("SELECT * FROM holerites ORDER BY id DESC", conn)
-    if not df_holerites_all.empty:
-        st.dataframe(
-            df_holerites_all.rename(
-                columns={
-                    "id": "ID",
-                    "mes_ano": "Mês/Ano",
-                    "salario_bruto": "Bruto (R$)",
-                    "total_descontos": "Descontos (R$)",
-                    "liquido": "Líquido (R$)",
-                    "inss": "INSS (R$)",
-                    "irrf": "IRRF (R$)",
-                    "vale": "Vale (R$)",
-                }
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
-
-        id_del_holerite = st.selectbox(
-            "Selecione o ID do holerite para exclusão:",
-            df_holerites_all["id"].tolist(),
-            key="del_holerite_unique",
-        )
-        if st.button("Excluir Holerite Selecionado", use_container_width=True):
-            c.execute("DELETE FROM holerites WHERE id = ?", (id_del_holerite,))
-            conn.commit()
-            st.success("Holerite removido com sucesso!")
-            st.rerun()
-    else:
-        st.info("Nenhum holerite processado até o momento.")
+            st.info("Nenhum holerite cadastrado ou importado até o momento.")
