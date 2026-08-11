@@ -27,6 +27,7 @@ if "sidebar_state" not in st.session_state:
     st.session_state.sidebar_state = "expanded"
 
 st.markdown(
+  st.markdown(
     """
     <style>
         footer {visibility: hidden;}
@@ -35,7 +36,14 @@ st.markdown(
         div[data-testid="stStatusWidget"] {visibility: hidden;}
         .stDeployButton {display:none;}
         footer {display: none !important;}
-        header {visibility: hidden;}
+        
+        /* CORREÇÃO PARA EXIBIR A BARRA LATERAL E O BOTÃO */
+        header {background-color: transparent !important;}
+        [data-testid="collapsedControl"] {
+            visibility: visible !important;
+            display: block !important;
+            z-index: 999999;
+        }
         
         section[data-testid="stSidebar"] {
             display: block !important;
@@ -56,7 +64,7 @@ st.markdown(
             --accent-blue: #3b82f6;
             --accent-purple: #8b5cf6;
         }
-
+        /* O restante do seu CSS continua igual abaixo... */
         .stApp {
             background-color: var(--bg-color);
             background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
