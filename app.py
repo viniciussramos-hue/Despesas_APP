@@ -35,13 +35,13 @@ st.markdown("""
         .stDeployButton {display:none;}
         footer {display: none !important;}
         
-        header {background-color: transparent !important; z-index: 99999;}
+        header {background-color: transparent !important;}
         
-        /* EXIBE O BOTÃO DE CONTROLE DA BARRA LATERAL NO TOPO */
+        /* REMOVE COMPLETAMENTE O BOTÃO DE EXPANDIR A BARRA LATERAL DA TELA */
         [data-testid="collapsedControl"] {
-            display: flex !important;
-            visibility: visible !important;
-            z-index: 999999;
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
         }
         
         section[data-testid="stSidebar"] {
