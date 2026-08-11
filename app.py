@@ -504,24 +504,12 @@ def mudar_pagina(nome_pagina):
 
 
 # ==========================================
-# --- CABEÇALHO E BARRA LATERAL (SIDEBAR) ---
+# --- CABEÇALHO DO SISTEMA ---
 # ==========================================
-col_tit, col_btn_sb = st.columns([5, 1])
-with col_tit:
-    st.title("💸 Gestor Financeiro Profissional")
-    st.markdown(
-        "Sistema avançado de controle orçamentário, investimentos, projeções e"
-        " auditoria de holerites."
-    )
-with col_btn_sb:
-    st.write("") # Espaçamento
-    if st.button("📂 Menu Lateral", use_container_width=True, help="Clique para alternar a exibição da barra lateral"):
-        if st.session_state.sidebar_state == "expanded":
-            st.session_state.sidebar_state = "collapsed"
-        else:
-            st.session_state.sidebar_state = "expanded"
-        st.rerun()
-
+st.title("💸 Gestor Financeiro Profissional")
+st.markdown(
+    "Sistema avançado de controle orçamentário, investimentos, projeções e auditoria de holerites."
+)
 # Força o estado da sidebar no Streamlit moderno
 if hasattr(st, "set_sidebar_state"):
     st.set_sidebar_state(st.session_state.sidebar_state)
