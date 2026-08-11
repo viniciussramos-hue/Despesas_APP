@@ -26,9 +26,7 @@ DATA_ATUALIZACAO = "10/08/2026"
 if "sidebar_state" not in st.session_state:
     st.session_state.sidebar_state = "expanded"
 
-st.markdown(
-  st.markdown(
-    """
+st.markdown("""
     <style>
         footer {visibility: hidden;}
         .viewerBadge_container__1QSob {visibility: hidden;}
@@ -37,7 +35,6 @@ st.markdown(
         .stDeployButton {display:none;}
         footer {display: none !important;}
         
-        /* CORREÇÃO PARA EXIBIR A BARRA LATERAL E O BOTÃO */
         header {background-color: transparent !important;}
         [data-testid="collapsedControl"] {
             visibility: visible !important;
@@ -64,7 +61,7 @@ st.markdown(
             --accent-blue: #3b82f6;
             --accent-purple: #8b5cf6;
         }
-        /* O restante do seu CSS continua igual abaixo... */
+
         .stApp {
             background-color: var(--bg-color);
             background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
@@ -122,10 +119,7 @@ st.markdown(
             letter-spacing: 0.8px;
         }
     </style>
-    """,
-    unsafe_allow_html=True,
-)
-
+""", unsafe_allow_html=True)
 # ==========================================
 # --- SISTEMA DE SEGURANÇA E AUTENTICAÇÃO ---
 # ==========================================
