@@ -42,6 +42,11 @@ st.markdown("""
             display: none !important;
             visibility: hidden !important;
         }
+
+        /* REMOVE QUALQUER BOTÃO FLUTUANTE DE MENU LATERAL NA TELA PRINCIPAL */
+        div[data-testid="stToolbar"], div[data-testid="stDecoration"], header + div button {
+            display: none !important;
+        }
         
         section[data-testid="stSidebar"] {
             display: block !important;
