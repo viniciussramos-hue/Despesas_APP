@@ -510,13 +510,13 @@ st.title("💸 Gestor Financeiro Profissional")
 st.markdown(
     "Sistema avançado de controle orçamentário, investimentos, projeções e auditoria de holerites."
 )
+
 # Força o estado da sidebar no Streamlit moderno
 if hasattr(st, "set_sidebar_state"):
     st.set_sidebar_state(st.session_state.sidebar_state)
 
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/combo-chart.png", width=70)
-    st.subheader("Menu de Navegação")
 
     if st.button("🏠 Painel Principal / Início", use_container_width=True):
         mudar_pagina("🏠 Início / Painel")
@@ -528,7 +528,6 @@ with st.sidebar:
     with st.expander("💾 Central de Backup & Segurança", expanded=False):
         st.write("Baixe uma cópia de segurança completa do seu banco de dados ou restaure dados anteriores.")
         
-        # Botão de Download Direto
         with open("gestor_financeiro.db", "rb") as f_bkp:
             st.download_button(
                 "📥 Baixar Backup (.db)",
@@ -540,12 +539,11 @@ with st.sidebar:
         
         st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
         
-        # Upload para Restaurar Backup
         arquivo_restore = st.file_uploader("Restaurar Banco de Dados (.db)", type=["db"], key="restore_db_sidebar")
         if arquivo_restore is not None:
             if st.button("🔄 Confirmar Restauração", use_container_width=True):
                 try:
-                    conn.close() # Fecha a conexão atual antes de substituir
+                    conn.close()
                     with open("gestor_financeiro.db", "wb") as f_out:
                         f_out.write(arquivo_restore.getbuffer())
                     st.success("Backup restaurado com sucesso! Reiniciando o app...")
