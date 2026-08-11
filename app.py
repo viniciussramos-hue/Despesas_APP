@@ -27,22 +27,22 @@ if "sidebar_state" not in st.session_state:
     st.session_state.sidebar_state = "expanded"
 
 st.markdown(
-    f"""
+    """
     <style>
-        footer {{visibility: hidden;}}
-        .viewerBadge_container__1QSob {{visibility: hidden;}}
-        #MainMenu {{visibility: hidden;}}
-        div[data-testid="stStatusWidget"] {{visibility: hidden;}}
-        .stDeployButton {{display:none;}}
-        footer {{display: none !important;}}
-        header {{visibility: hidden;}}
+        footer {visibility: hidden;}
+        .viewerBadge_container__1QSob {visibility: hidden;}
+        #MainMenu {visibility: hidden;}
+        div[data-testid="stStatusWidget"] {visibility: hidden;}
+        .stDeployButton {display:none;}
+        footer {display: none !important;}
+        header {visibility: hidden;}
         
-        section[data-testid="stSidebar"] {{
-            display: {'block' if st.session_state.sidebar_state == 'expanded' else 'none'} !important;
-            visibility: {'visible' if st.session_state.sidebar_state == 'expanded' else 'hidden'} !important;
+        section[data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
         }
 
-        :root {{
+        :root {
             --bg-color: #0f1117;
             --card-bg: rgba(25, 29, 38, 0.75);
             --card-hover: rgba(35, 41, 54, 0.9);
@@ -55,14 +55,14 @@ st.markdown(
             --accent-gold: #f59e0b;
             --accent-blue: #3b82f6;
             --accent-purple: #8b5cf6;
-        }}
+        }
 
-        .stApp {{
+        .stApp {
             background-color: var(--bg-color);
             background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
-        }}
+        }
 
-        .header-title {{
+        .header-title {
             display: flex;
             align-items: center;
             gap: 12px;
@@ -71,15 +71,15 @@ st.markdown(
             letter-spacing: -0.5px;
             margin-bottom: 8px;
             color: #ffffff;
-        }}
+        }
 
-        .header-subtitle {{
+        .header-subtitle {
             color: var(--text-secondary);
             font-size: 15px;
             margin-bottom: 25px;
-        }}
+        }
 
-        .section-indicator h2 {{
+        .section-indicator h2 {
             font-size: 18px;
             font-weight: 600;
             color: var(--text-primary);
@@ -87,15 +87,15 @@ st.markdown(
             align-items: center;
             gap: 8px;
             margin-bottom: 4px;
-        }}
+        }
 
-        .section-indicator p {{
+        .section-indicator p {
             color: var(--text-secondary);
             font-size: 13px;
             margin-bottom: 20px;
-        }}
+        }
 
-        .group-card {{
+        .group-card {
             background: linear-gradient(135deg, rgba(22, 27, 34, 0.8) 0%, rgba(15, 18, 24, 0.9) 100%);
             border: 1px solid rgba(255, 255, 255, 0.06);
             border-radius: 14px;
@@ -103,16 +103,16 @@ st.markdown(
             backdrop-filter: blur(12px);
             margin-bottom: 20px;
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-        }}
+        }
 
-        .group-title {{
+        .group-title {
             font-size: 13px;
             font-weight: 600;
             color: var(--text-secondary);
             margin-bottom: 14px;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-        }}
+        }
     </style>
     """,
     unsafe_allow_html=True,
