@@ -117,6 +117,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
 # ==========================================
 # --- SISTEMA DE SEGURANÇA E AUTENTICAÇÃO ---
 # ==========================================
@@ -126,8 +127,7 @@ if "autenticado" not in st.session_state:
 if not st.session_state.autenticado:
     st.title("🔒 Acesso Restrito - Gestor Financeiro Profissional")
     st.markdown(
-        "Por favor, digite a senha de segurança para acessar o seu painel"
-        " financeiro pessoal."
+        "Por favor, digite a senha de segurança para acessar o seu painel financeiro pessoal."
     )
 
     senha_digitada = st.text_input("Senha de Acesso:", type="password")
@@ -141,6 +141,19 @@ if not st.session_state.autenticado:
             st.error("Senha incorreta! Verifique a credencial e tente novamente.")
     st.stop()
 
+# ==========================================
+# --- BARRA LATERAL (SIDEBAR) COM SETA ---
+# ==========================================
+with st.sidebar:
+    st.markdown("### ➡️ Menu Principal")
+    st.markdown(f"<small>Versão: {VERSAO_SISTEMA} ({DATA_ATUALIZACAO})</small>", unsafe_allow_html=True)
+    st.divider()
+    
+    # Exemplo de navegação na barra lateral
+    menu_selecionado = st.radio(
+        "Navegação",
+        ["Dashboard", "Contas a Pagar", "Lançamentos", "Relatórios"]
+    )
 # ==========================================
 # --- CONEXÃO E MIGRAÇÃO AUTOMÁTICA DO DB ---
 # ==========================================
