@@ -36,10 +36,11 @@ st.markdown("""
         footer {display: none !important;}
         
         header {background-color: transparent !important;}
+        
+        /* BOTÃO PADRÃO REMOVIDO DA TELA */
         [data-testid="collapsedControl"] {
-            visibility: visible !important;
-            display: block !important;
-            z-index: 999999;
+            display: none !important;
+            visibility: hidden !important;
         }
         
         section[data-testid="stSidebar"] {
