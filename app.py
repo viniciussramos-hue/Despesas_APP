@@ -1225,14 +1225,15 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
 elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
     botao_voltar()
     st.subheader(
-        "🧾 Leitor Automático de Cupons Fiscais & Notas (PDF, Upload JPG/PNG,"
-        " Câmera ou Texto)"
+        "🧾 Leitor Automático de Cupons Fiscais & Notas (PDF, Upload JPG/PNG, Câmera ou Texto)"
     )
     st.write(
-        "Faça o upload do PDF ou de uma **foto/imagem (JPG, JPEG, PNG)** do seu"
-        " cupom fiscal, tire uma foto instantânea com a câmera ou cole o texto. O"
-        " sistema calibrará e extrairá os dados automaticamente!"
+        "Faça o upload do PDF ou de uma **foto/imagem (JPG, JPEG, PNG)** do seu cupom fiscal, tire uma foto instantânea com a câmera ou cole o texto. O sistema calibrará e extrairá os dados automaticamente!"
     )
+
+    # Inicializa variáveis de controle de limpeza no session_state se não existirem
+    if "limpar_campos_nf" not in st.session_state:
+        st.session_state.limpar_campos_nf = False
 
     tab_nf1, tab_nf2, tab_nf3 = st.tabs([
         "📁 Upload de PDF ou Imagem (JPG/PNG)",
@@ -1316,12 +1317,9 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                         key="val_up_pdf",
                     )
 
-                    if st.button(
-                        "Salvar Nota Fiscal em PDF no Sistema", use_container_width=True
-                    ):
+                    if st.button("Salvar Nota Fiscal em PDF no Sistema", use_container_width=True):
                         c.execute(
-                            "INSERT INTO notas_fiscais (data, estabelecimento,"
-                            " valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                            "INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
                             (
                                 date.today().strftime("%Y-%m-%d"),
                                 estab_input_pdf,
@@ -1333,9 +1331,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                         for it in itens_extraidos:
                             c.execute(
-                                "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade,"
-                                " valor_unitario, valor_total, categoria) VALUES"
-                                " (?,?,?,?,?,?)",
+                                "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
                                 (
                                     nota_id_criada,
                                     it["produto"],
@@ -1347,8 +1343,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                             )
 
                         c.execute(
-                            "INSERT INTO transacoes (data, tipo, descricao, categoria,"
-                            " valor, origem) VALUES (?,?,?,?,?,?)",
+                            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
                             (
                                 date.today().strftime("%Y-%m-%d"),
                                 "Despesa",
@@ -1361,8 +1356,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                         conn.commit()
                         st.success(
-                            f"🎉 Nota fiscal em PDF processada e salva com sucesso! Total: R$"
-                            f" {val_input_pdf:,.2f}"
+                            f"🎉 Nota fiscal em PDF processada e salva com sucesso! Total: R$ {val_input_pdf:,.2f}"
                         )
                         st.rerun()
                 except Exception as e:
@@ -1374,9 +1368,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                     caption="Imagem do Cupom Fiscal Carregada com Sucesso",
                     use_container_width=True,
                 )
-                st.success(
-                    "🤖 Calibração automática da imagem realizada com sucesso!"
-                )
+                st.success("🤖 Calibração automática da imagem realizada com sucesso!")
 
                 estab_img = st.text_input(
                     "Nome do Estabelecimento:",
@@ -1392,15 +1384,11 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                     key="val_img_upload",
                 )
 
-                if st.button(
-                    "Processar Imagem do Cupom & Salvar Despesa",
-                    use_container_width=True,
-                ):
+                if st.button("Processar Imagem do Cupom & Salvar Despesa", use_container_width=True):
                     cat_img = categorizar_automaticamente(estab_img, "Despesa")
 
                     c.execute(
-                        "INSERT INTO notas_fiscais (data, estabelecimento, valor_total,"
-                        " origem_arquivo) VALUES (?,?,?,?)",
+                        "INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
                         (
                             date.today().strftime("%Y-%m-%d"),
                             estab_img,
@@ -1411,11 +1399,10 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                     n_id_img = c.lastrowid
 
                     c.execute(
-                        "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade,"
-                        " valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
+                        "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
                         (
                             n_id_img,
-                            f"Cerveja Budweiser e Itens em {estab_img}",
+                            f"Itens em {estab_img}",
                             1.0,
                             val_img_total,
                             val_img_total,
@@ -1424,8 +1411,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                     )
 
                     c.execute(
-                        "INSERT INTO transacoes (data, tipo, descricao, categoria,"
-                        " valor, origem) VALUES (?,?,?,?,?,?)",
+                        "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
                         (
                             date.today().strftime("%Y-%m-%d"),
                             "Despesa",
@@ -1438,15 +1424,17 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                     conn.commit()
                     st.success(
-                        f"🎉 Cupom Fiscal em imagem processado e salvo com sucesso!"
-                        f" Total: R$ {val_img_total:,.2f}"
+                        f"🎉 Cupom Fiscal em imagem processado e salvo com sucesso! Total: R$ {val_img_total:,.2f}"
                     )
                     st.rerun()
 
     with tab_nf2:
         st.write("### 📸 Capturar Cupom Fiscal / QR Code via Câmera")
+        
+        # Usamos uma chave dinâmica ou limpamos o estado para evitar que o Streamlit lembre da foto anterior
         foto_cupom_camera = st.camera_input(
-            "Aponte a câmera para o cupom fiscal ou QR Code e clique em Tirar Foto:"
+            "Aponte a câmera para o cupom fiscal ou QR Code e clique em Tirar Foto:",
+            key="widget_camera_nf"
         )
 
         if foto_cupom_camera is not None:
@@ -1470,14 +1458,11 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                 key="val_foto_input",
             )
 
-            if st.button(
-                "Processar Foto Escaneada & Salvar Despesa", use_container_width=True
-            ):
+            if st.button("Processar Foto Escaneada & Salvar Despesa", use_container_width=True):
                 cat_foto = categorizar_automaticamente(estab_foto, "Despesa")
 
                 c.execute(
-                    "INSERT INTO notas_fiscais (data, estabelecimento, valor_total,"
-                    " origem_arquivo) VALUES (?,?,?,?)",
+                    "INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
                     (
                         date.today().strftime("%Y-%m-%d"),
                         estab_foto,
@@ -1488,8 +1473,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                 n_id_cam = c.lastrowid
 
                 c.execute(
-                    "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade,"
-                    " valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
                     (
                         n_id_cam,
                         f"Compra em {estab_foto} (Foto Câmera)",
@@ -1501,8 +1485,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                 )
 
                 c.execute(
-                    "INSERT INTO transacoes (data, tipo, descricao, categoria,"
-                    " valor, origem) VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
                     (
                         date.today().strftime("%Y-%m-%d"),
                         "Despesa",
@@ -1514,19 +1497,20 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                 )
 
                 conn.commit()
+                
+                # Limpa explicitamente o cache da câmera no session_state para não memorizar a foto no próximo clique
+                if "widget_camera_nf" in st.session_state:
+                    del st.session_state["widget_camera_nf"]
+
                 st.success(
-                    f"🎉 Cupom escaneado via câmera salvo com sucesso! Total: R$"
-                    f" {val_foto_total:,.2f}"
+                    f"🎉 Cupom escaneado via câmera salvo com sucesso! Total: R$ {val_foto_total:,.2f}"
                 )
                 st.rerun()
 
     with tab_nf3:
         with st.form("form_texto_cupom_fiscal"):
             estab_txt = st.text_input(
-                (
-                    "Nome do Estabelecimento (Ex: Supermercado Shibata, Drogaria"
-                    " Pacheco):"
-                ),
+                "Nome do Estabelecimento (Ex: Supermercado Shibata, Drogaria Pacheco):",
                 value="Supermercado Shibata",
             )
             data_nf_txt = st.date_input(
@@ -1536,16 +1520,11 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
             )
             texto_copiado_nf = st.text_area(
                 "Cole aqui o texto copiado do cupom fiscal ou extrato do QR Code:",
-                placeholder=(
-                    "Ex:\n991012096 CERV. BUDWEISER LT.26 27,92\nTotal da Compra:"
-                    " 71,27"
-                ),
+                placeholder="Ex:\n991012096 CERV. BUDWEISER LT.26 27,92\nTotal da Compra: 71,27",
                 height=150,
             )
 
-            if st.form_submit_button(
-                "Processar Texto e Inserir no Sistema", use_container_width=True
-            ):
+            if st.form_submit_button("Processar Texto e Inserir no Sistema", use_container_width=True):
                 if texto_copiado_nf.strip():
                     linhas_txt = texto_copiado_nf.split("\n")
                     itens_txt_list = []
@@ -1592,8 +1571,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                         })
 
                     c.execute(
-                        "INSERT INTO notas_fiscais (data, estabelecimento, valor_total,"
-                        " origem_arquivo) VALUES (?,?,?,?)",
+                        "INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
                         (
                             data_nf_txt.strftime("%Y-%m-%d"),
                             estab_txt,
@@ -1605,9 +1583,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                     for it_t in itens_txt_list:
                         c.execute(
-                            "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade,"
-                            " valor_unitario, valor_total, categoria) VALUES"
-                            " (?,?,?,?,?,?)",
+                            "INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total, categoria) VALUES (?,?,?,?,?,?)",
                             (
                                 n_id,
                                 it_t["produto"],
@@ -1618,8 +1594,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
                             ),
                         )
                         c.execute(
-                            "INSERT INTO transacoes (data, tipo, descricao, categoria,"
-                            " valor, origem) VALUES (?,?,?,?,?,?)",
+                            "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
                             (
                                 data_nf_txt.strftime("%Y-%m-%d"),
                                 "Despesa",
@@ -1632,8 +1607,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
 
                     conn.commit()
                     st.success(
-                        f"🎉 Cupom fiscal processado com sucesso! Total: R$"
-                        f" {tot_geral_txt:,.2f}"
+                        f"🎉 Cupom fiscal processado com sucesso! Total: R$ {tot_geral_txt:,.2f}"
                     )
                     st.rerun()
                 else:
@@ -1663,10 +1637,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
         )
         if sel_nf_detalhe:
             df_itens_detalhe = pd.read_sql(
-                (
-                    "SELECT produto, quantidade, valor_unitario, valor_total,"
-                    " categoria FROM itens_nota_fiscal WHERE nota_id = ?"
-                ),
+                "SELECT produto, quantidade, valor_unitario, valor_total, categoria FROM itens_nota_fiscal WHERE nota_id = ?",
                 conn,
                 params=(sel_nf_detalhe,),
             )
@@ -1685,10 +1656,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
             )
 
             if st.button("Excluir Nota Fiscal Selecionada", use_container_width=True):
-                c.execute(
-                    "DELETE FROM itens_nota_fiscal WHERE nota_id = ?",
-                    (sel_nf_detalhe,),
-                )
+                c.execute("DELETE FROM itens_nota_fiscal WHERE nota_id = ?", (sel_nf_detalhe,))
                 c.execute("DELETE FROM notas_fiscais WHERE id = ?", (sel_nf_detalhe,))
                 conn.commit()
                 st.success("Nota fiscal e seus itens removidos com sucesso!")
