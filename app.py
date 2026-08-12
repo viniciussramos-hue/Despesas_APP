@@ -820,8 +820,8 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
                 mudar_pagina("🎙️ Lançar por Voz")
                 st.rerun()
         with sub2:
-            if st.button("📝 Tarefas" e "📝 Tarefas", use_container_width=True):
-                mudar_pagina("📝 Tarefas & Compras" e "📝 Tarefas")
+            if st.button("📝 Tarefas", use_container_width=True):
+                mudar_pagina("📝 Tarefas & Compras")
                 st.rerun()
         with sub3:
             if st.button("🧾 Notas", use_container_width=True):
