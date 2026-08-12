@@ -1136,31 +1136,42 @@ elif st.session_state.pagina_atual == "🎙️ Lançar por Voz":
 elif st.session_state.pagina_atual == "📝 Tarefas & Compras":
     botao_voltar()
     st.subheader("📝 Lista de Tarefas & Coisas para Comprar")
-    st.write("Organize suas pendências, adicione itens de compras e acompanhe o progresso de conclusão em porcentagem.")
+    st.write("Organize suas pendências, adicione itens com projeção de valores para compras e acompanhe o progresso.")
 
-    # Cria tabela caso não exista
+    # Cria tabela com a coluna de valor caso não exista
     c.execute("""
         CREATE TABLE IF NOT EXISTS tarefas_compras (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
             item TEXT, 
             tipo TEXT, 
+            valor REAL,
             concluido INTEGER
         )
     """)
     conn.commit()
 
+    # Migração segura caso a tabela antiga não tenha a coluna valor
+    try:
+        c.execute("ALTER TABLE tarefas_compras ADD COLUMN valor REAL")
+        conn.commit()
+    except:
+        pass
+
     # Formulário para adicionar novo item
     with st.form("form_nova_tarefa_compra", clear_on_submit=True):
-        col_t1, col_t2 = st.columns([3, 1])
+        col_t1, col_t2, col_t3 = st.columns([2, 1, 1])
         with col_t1:
             novo_item_texto = st.text_input("Descrição do Item ou Tarefa:")
         with col_t2:
             tipo_item = st.selectbox("Categoria:", ["🛒 Compra", "📋 Tarefa"])
+        with col_t3:
+            valor_item = st.number_input("Valor Estimado (R$):", min_value=0.0, step=10.0, format="%.2f")
         
         btn_add_item = st.form_submit_button("➕ Adicionar à Lista", use_container_width=True)
         if btn_add_item:
             if novo_item_texto.strip():
-                c.execute("INSERT INTO tarefas_compras (item, tipo, concluido) VALUES (?, ?, 0)", (novo_item_texto.strip(), tipo_item))
+                val_salvar = valor_item if tipo_item == "🛒 Compra" else 0.0
+                c.execute("INSERT INTO tarefas_compras (item, tipo, valor, concluido) VALUES (?, ?, ?, 0)", (novo_item_texto.strip(), tipo_item, val_salvar))
                 conn.commit()
                 st.success("Item adicionado com sucesso!")
                 st.rerun()
@@ -1176,42 +1187,60 @@ elif st.session_state.pagina_atual == "📝 Tarefas & Compras":
         total_itens = len(df_tarefas)
         concluidos = len(df_tarefas[df_tarefas["concluido"] == 1])
         porcentagem = (concluidos / total_itens) * 100 if total_itens > 0 else 0.0
+        
+        # Projeção de gastos (soma dos valores dos itens de compra que ainda NÃO foram concluídos)
+        df_pendentes_compras = df_tarefas[(df_tarefas["tipo"] == "🛒 Compra") & (df_tarefas["concluido"] == 0)]
+        projecao_gastos = df_pendentes_compras["valor"].sum() if not df_pendentes_compras.empty else 0.0
 
-        # Exibe a barra de progresso e métrica
+        # Exibe a barra de progresso e métricas
         st.markdown(f"### Progresso Geral: {porcentagem:.1f}% Concluído")
         st.progress(porcentagem / 100.0)
 
-        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         col_m1.metric("Total de Itens", total_itens)
         col_m2.metric("Concluídos", concluidos)
         col_m3.metric("Pendentes", total_itens - concluidos)
+        col_m4.metric("💰 Projeção de Gastos (Pendentes)", f"R$ {projecao_gastos:,.2f}")
 
         st.markdown("---")
-        st.subheader("📋 Seus Itens & Tarefas")
+        st.subheader("📋 Gerenciar Itens & Tarefas")
 
-        # Exibe cada item com checkbox interativo
+        # Exibe cada item com opções de checkbox, edição e exclusão
         for index, row in df_tarefas.iterrows():
-            col_check, col_del = st.columns([6, 1])
-            
-            with col_check:
+            with st.container():
+                col_check, col_edit, col_del = st.columns([5, 1, 1])
+                
                 status_atual = True if row["concluido"] == 1 else False
-                label_item = f"[{row['tipo']}] {row['item']}"
+                val_txt = f" (R$ {row['valor']:,.2f})" if row['tipo'] == "🛒 Compra" and row['valor'] > 0 else ""
+                label_item = f"[{row['tipo']}] {row['item']}{val_txt}"
                 
-                # Checkbox do Streamlit para marcar/desmarcar
-                marcado = st.checkbox(label_item, value=status_atual, key=f"check_tarefa_{row['id']}")
-                
-                # Atualiza no banco se o estado mudou
-                novo_estado = 1 if marcado else 0
-                if novo_estado != row["concluido"]:
-                    c.execute("UPDATE tarefas_compras SET concluido = ? WHERE id = ?", (novo_estado, row["id"]))
-                    conn.commit()
-                    st.rerun()
+                with col_check:
+                    marcado = st.checkbox(label_item, value=status_atual, key=f"check_tarefa_{row['id']}")
+                    novo_estado = 1 if marcado else 0
+                    if novo_estado != row["concluido"]:
+                        c.execute("UPDATE tarefas_compras SET concluido = ? WHERE id = ?", (novo_estado, row["id"]))
+                        conn.commit()
+                        st.rerun()
 
-            with col_del:
-                if st.button("🗑️", key=f"del_tarefa_{row['id']}"):
-                    c.execute("DELETE FROM tarefas_compras WHERE id = ?", (row["id"],))
-                    conn.commit()
-                    st.rerun()
+                with col_edit:
+                    with st.popover("✏️ Editar"):
+                        with st.form(f"form_edit_{row['id']}"):
+                            novo_desc = st.text_input("Descrição", value=row["item"])
+                            novo_tipo = st.selectbox("Tipo", ["🛒 Compra", "📋 Tarefa"], index=0 if row["tipo"] == "🛒 Compra" else 1)
+                            novo_val = st.number_input("Valor (R$)", value=float(row["valor"]) if row["valor"] else 0.0, step=10.0)
+                            
+                            if st.form_submit_button("Salvar Alterações"):
+                                c.execute("UPDATE tarefas_compras SET item = ?, tipo = ?, valor = ? WHERE id = ?", (novo_desc, novo_tipo, novo_val if novo_tipo == "🛒 Compra" else 0.0, row["id"]))
+                                conn.commit()
+                                st.success("Atualizado!")
+                                st.rerun()
+
+                with col_del:
+                    if st.button("🗑️", key=f"del_tarefa_{row['id']}"):
+                        c.execute("DELETE FROM tarefas_compras WHERE id = ?", (row["id"],))
+                        conn.commit()
+                        st.rerun()
+                st.markdown("<hr style='margin: 5px 0; border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
     else:
         st.info("Sua lista está vazia no momento. Adicione itens acima!")
 # ==========================================
