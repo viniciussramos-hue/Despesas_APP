@@ -126,30 +126,95 @@ st.markdown("""
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
+# Estado para controlar a tela de redefinição de senha
+if "esqueci_senha" not in st.session_state:
+    st.session_state.esqueci_senha = False
+
+# Senha padrão armazenada no session_state para permitir alteração
+if "senha_sistema" not in st.session_state:
+    st.session_state.senha_sistema = "1234"
+
 if not st.session_state.autenticado:
     st.title("🔒 Acesso Restrito - Gestor Financeiro Profissional")
-    st.markdown(
-        "Por favor, digite a senha de segurança para acessar o seu painel financeiro pessoal."
-    )
 
-    senha_digitada = st.text_input("Senha de Acesso:", type="password")
+    # Tela de Recuperação / Alteração de Senha
+    if st.session_state.esqueci_senha:
+        st.markdown(
+            "### 🔄 Redefinição de Senha\nPara redefinir, informe a senha mestre ou palavra-chave de segurança."
+        )
 
-    if st.button("Entrar no Sistema", use_container_width=True):
-        if senha_digitada == "1234":
-            st.session_state.autenticado = True
-            st.success("Acesso liberado com sucesso! Carregando painel...")
+        with st.form("form_recuperacao"):
+            palavra_chave = st.text_input(
+                "Palavra-chave de segurança (ou código de recuperação):",
+                type="password",
+            )
+            nova_senha = st.text_input("Nova Senha:", type="password")
+            confirmar_senha = st.text_input(
+                "Confirme a Nova Senha:", type="password"
+            )
+
+            col1, col2 = st.columns(2)
+            with col1:
+                btn_salvar = st.form_submit_button(
+                    "Salvar Nova Senha", use_container_width=True
+                )
+            with col2:
+                btn_voltar = st.form_submit_button(
+                    "Voltar ao Login", use_container_width=True
+                )
+
+            if btn_salvar:
+                # Defina aqui uma palavra-chave fixa para destravar (ex: "admin123")
+                if palavra_chave == "admin123":
+                    if nova_senha == confirmar_senha and nova_senha.strip() != "":
+                        st.session_state.senha_sistema = nova_senha
+                        st.session_state.esqueci_senha = False
+                        st.success(
+                            "Senha alterada com sucesso! Faça login com a nova senha."
+                        )
+                        st.rerun()
+                    else:
+                        st.error(
+                            "As senhas não coincidem ou estão vazias."
+                        )
+                else:
+                    st.error("Palavra-chave de segurança incorreta!")
+
+            if btn_voltar:
+                st.session_state.esqueci_senha = False
+                st.rerun()
+
+    # Tela Normal de Login (Com suporte a Enter)
+    else:
+        st.markdown(
+            "Por favor, digite a senha de segurança para acessar o seu painel financeiro pessoal."
+        )
+
+        # O uso do st.form faz com que pressionar 'Enter' envie o formulário
+        with st.form("form_login"):
+            senha_digitada = st.text_input("Senha de Acesso:", type="password")
+            submit_login = st.form_submit_button(
+                "Entrar no Sistema", use_container_width=True
+            )
+
+            if submit_login:
+                if senha_digitada == st.session_state.senha_sistema:
+                    st.session_state.autenticado = True
+                    st.success(
+                        "Acesso liberado com sucesso! Carregando painel..."
+                    )
+                    st.rerun()
+                else:
+                    st.error(
+                        "Senha incorreta! Verifique a credencial e tente novamente."
+                    )
+
+        # Botão fora do formulário para acionar a tela de recuperação
+        if st.button("Esqueci minha senha"):
+            st.session_state.esqueci_senha = True
             st.rerun()
-        else:
-            st.error("Senha incorreta! Verifique a credencial e tente novamente.")
-    st.stop()
 
-# ==========================================
-# --- BARRA LATERAL (SIDEBAR) COM SETA ---
-# ==========================================
-with st.sidebar:
-    st.markdown("### ➡️ Menu Principal")
-    st.markdown(f"<small>Versão: {VERSAO_SISTEMA} ({DATA_ATUALIZACAO})</small>", unsafe_allow_html=True)
-    st.divider()
+    st.stop()
     
    
 # ==========================================
