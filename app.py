@@ -5254,6 +5254,19 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
             st.markdown("---")
             st.subheader("🔍 Detalhamento Completo por Rubricas (Espelho do Holerite)")
+            
+            # CSS para compactar a tabela e aproximar as colunas
+            st.markdown("""
+                <style>
+                    /* Ajusta o padding e deixa a tabela mais compacta e coesa */
+                    [data-testid="stDataFrame"] div[data-testid="stTable"] {
+                        width: 100%;
+                    }
+                    th { font-size: 13px !important; }
+                    td { font-size: 13px !important; padding: 4px 8px !important; }
+                </style>
+            """, unsafe_allow_html=True)
+
             sel_hol_detalhe = st.selectbox(
                 "Selecione o Mês/Ano para ver o espelho oficial, os maiores gastos e o Pareto:",
                 df_hol_all["mes_ano"].tolist(),
@@ -5291,7 +5304,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 ]
                 
                 df_rubricas = pd.DataFrame(dados_rubricas)
-                st.dataframe(df_rubricas, use_container_width=True, hide_index=True)
+                st.dataframe(df_rubricas, use_container_width=False, hide_index=True)
 
                 # --- INDICADOR DOS MAIORES GASTOS/DESCONTOS DO MÊS ---
                 st.markdown("#### 🚨 Indicador: Maiores Descontos do Mês")
@@ -5332,7 +5345,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                         color_continuous_scale="Reds"
                     )
 
-                    # Posiciona os valores perfeitamente acima das barras com espaçamento ideal
                     fig_pareto.update_traces(
                         textposition='outside', 
                         cliponaxis=False,
