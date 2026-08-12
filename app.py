@@ -1133,24 +1133,25 @@ elif st.session_state.pagina_atual == "🎙️ Lançar por Voz":
 # ==========================================
 # --- SEÇÃO 2.2: ASSISTENTE IA & CHATBOT ---
 # ==========================================
-elif menu == "Assistente IA":
-    st.subheader("Assistente Financeiro Inteligente (Chatbot IA)")
+elif st.session_state.pagina_atual == "🤖 Assistente IA":
+    botao_voltar()
+    st.subheader("🤖 Assistente Financeiro Inteligente (Chatbot IA)")
     st.write(
         "Converse com a Inteligência Artificial para tirar dúvidas sobre"
         " seus gastos, pedir insights gerenciais ou fazer lançamentos"
         " automáticos digitando no chat."
     )
 
-    with st.expander("Ajuda: O que ou como pedir para o Chatbot IA? (Clique para expandir)", expanded=False):
+    with st.expander("💡 Ajuda: O que ou como pedir para o Chatbot IA? (Clique para expandir)", expanded=False):
         st.markdown(
             """
             Você pode interagir com o assistente usando frases naturais. Veja exemplos de comandos:
-            * **Consultar Resumo ou Saldo:**
+            * 📊 **Consultar Resumo ou Saldo:**
               * *"Qual é o meu saldo atual?"*
               * *"Como estão minhas finanças?"*
-            * **Identificar Maiores Gastos:**
+            * 🏆 **Identificar Maiores Gastos:**
               * *"Qual foi o meu maior gasto?"*
-            * **Lançar Despesas Rapidamente:**
+            * 💸 **Lançar Despesas Rapidamente:**
               * *"Gastei 45 reais no mercado"*
               * *"Comprei remédio na farmácia por 35.50"*
             """
@@ -1203,7 +1204,7 @@ elif menu == "Assistente IA":
                 if not df_d_ia.empty:
                     maior_gasto = df_d_ia.sort_values(by="valor", ascending=False).iloc[0]
                     resposta_ia = (
-                        f"O seu maior gasto registrado é"
+                        f"📊 O seu maior gasto registrado é"
                         f" **{maior_gasto['descricao']}** na categoria"
                         f" *{maior_gasto['categoria']}* no valor de **R$"
                         f" {maior_gasto['valor']:,.2f}**."
@@ -1215,7 +1216,7 @@ elif menu == "Assistente IA":
 
         elif any(k in query_up for k in ["SALDO", "RESUMO", "COMO ESTOU"]):
             resposta_ia = (
-                f"**Resumo Financeiro Atual:**\n- Entradas Totais: R$"
+                f"💰 **Resumo Financeiro Atual:**\n- Entradas Totais: R$"
                 f" {total_rec_ia:,.2f}\n- Saídas Totais: R$"
                 f" {total_desp_ia:,.2f}\n- Saldo em Caixa: R$ {saldo_caixa_ia:,.2f}"
             )
@@ -1226,7 +1227,6 @@ elif menu == "Assistente IA":
             if nums_chat:
                 val_chat = float(nums_chat[0])
                 
-                # Certifica que a tabela transacoes existe para salvar
                 c.execute("""
                     CREATE TABLE IF NOT EXISTS transacoes (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1252,7 +1252,7 @@ elif menu == "Assistente IA":
                 )
                 conn.commit()
                 resposta_ia = (
-                    f"Lançado com sucesso pelo chat!\n- Descrição:"
+                    f"✅ Lançado com sucesso pelo chat!\n- Descrição:"
                     f" {user_query}\n- Valor: R$ {val_chat:,.2f}"
                 )
             else:
@@ -1262,7 +1262,6 @@ elif menu == "Assistente IA":
                 )
 
         else:
-            # Caso queira usar o GPT para responder conversas abertas de forma inteligente:
             try:
                 k1 = "sk-proj-R1CPgWpxfnwhtoLkz26rPst"
                 k2 = "Xqe5wWC5bUQMGiSVRwcXD6QzRCJM6zP4vYSssQNL0ClmQtlZUpwT3BlbkFJFoQDDPZy6sO2wCS2TcyT0KinVb7y-elxpgPTlABLKvNYBUTtzj_WvEhLj1i84R778SjmJ0IhwA"
@@ -1278,7 +1277,7 @@ elif menu == "Assistente IA":
                 resposta_ia = res_gpt.choices[0].message.content
             except Exception:
                 resposta_ia = (
-                    f"Compreendi sua pergunta. Analisei seus dados atuais: Saldo"
+                    f"🤖 Compreendi sua pergunta. Analisei seus dados atuais: Saldo"
                     f" líquido em R$ {saldo_caixa_ia:,.2f}. Você pode me pedir"
                     " para mostrar seu maior gasto, ver o resumo ou lançar despesas!"
                 )
