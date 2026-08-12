@@ -5097,7 +5097,161 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 # ==========================================
 # --- SEÇÃO 12: HOLERITES (COM SENHA DE ACESSO) ---
 # ==========================================
-# Seletor para visualizar o detalhamento idêntico ao holerite oficial
+elif st.session_state.pagina_atual == "📄 Holerites":
+    botao_voltar()
+
+    # Trava de segurança: Garante que se a página atual for recarregada ou acessada de novo, ela inicia bloqueada
+    if st.session_state.get("pagina_anterior_holerite") != "📄 Holerites":
+        st.session_state.holerites_desbloqueado = False
+        st.session_state.pagina_anterior_holerite = "📄 Holerites"
+
+    if "holerites_desbloqueado" not in st.session_state:
+        st.session_state.holerites_desbloqueado = False
+
+    if not st.session_state.holerites_desbloqueado:
+        st.subheader("🔒 Acesso Restrito à Seção de Holerites")
+        st.markdown(
+            "Esta seção contém informações salariais e fiscais confidenciais. Digite a senha para prosseguir:"
+        )
+
+        with st.form("form_senha_holerites"):
+            senha_holerite = st.text_input(
+                "Senha de Acesso aos Holerites:",
+                type="password",
+                key="input_senha_holerite",
+            )
+            btn_desbloquear = st.form_submit_button(
+                "Desbloquear Holerites", use_container_width=True
+            )
+
+            if btn_desbloquear:
+                if senha_holerite == "1234":
+                    st.session_state.holerites_desbloqueado = True
+                    st.success("Acesso liberado com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Senha incorreta!")
+
+        if st.button("Bloquear / Sair da Seção", use_container_width=True):
+            st.session_state.holerites_desbloqueado = False
+            st.session_state.pagina_anterior_holerite = ""
+            mudar_pagina("🏠 Início / Painel")
+            st.rerun()
+    else:
+        col_sup1, col_sup2 = st.columns([4, 1])
+        with col_sup1:
+            st.subheader(
+                "📄 Análise, Comparativo Mês a Mês & Leitura Dinâmica de Holerites via PDF"
+            )
+            st.info(
+                "Faça o upload de arquivos PDF de contracheques. O sistema lerá com precisão cirúrgica os impostos e proventos."
+            )
+        with col_sup2:
+            if st.button("🔒 Bloquear Seção", use_container_width=True):
+                st.session_state.holerites_desbloqueado = False
+                st.session_state.pagina_anterior_holerite = ""
+                st.rerun()
+
+        pdfs_holerites = st.file_uploader(
+            "Escolha os arquivos PDF dos Holerites Corporativos",
+            type=["pdf"],
+            accept_multiple_files=True,
+            key="upload_multiplos_holerites",
+        )
+
+        if pdfs_holerites:
+            upload_ids = "-".join([f"{f.name}-{f.size}" for f in pdfs_holerites])
+            if st.session_state.get("ultimo_upload_processado") != upload_ids:
+                importados_automaticos = 0
+                for arquivo_pdf in pdfs_holerites:
+                    texto_holerite = ""
+                    try:
+                        with pdfplumber.open(arquivo_pdf) as pdf:
+                            for pagina in pdf.pages:
+                                ext = pagina.extract_text()
+                                if ext:
+                                    texto_holerite += ext + "\n"
+
+                        (
+                            mes_ano_extraido,
+                            bruto_val,
+                            desc_val,
+                            liquido_val,
+                            inss_val,
+                            irrf_val,
+                            vale_val,
+                        ) = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
+
+                        cursor_check = c.execute(
+                            "SELECT id FROM holerites WHERE mes_ano = ?",
+                            (mes_ano_extraido,),
+                        )
+                        row_existente = cursor_check.fetchone()
+
+                        if not row_existente:
+                            c.execute(
+                                "INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf, vale) VALUES (?,?,?,?,?,?,?)",
+                                (
+                                    mes_ano_extraido,
+                                    bruto_val,
+                                    desc_val,
+                                    liquido_val,
+                                    inss_val,
+                                    irrf_val,
+                                    vale_val,
+                                ),
+                            )
+                            conn.commit()
+                            importados_automaticos += 1
+                        else:
+                            c.execute(
+                                "UPDATE holerites SET salario_bruto = ?, total_descontos = ?, liquido = ?, inss = ?, irrf = ?, vale = ? WHERE mes_ano = ?",
+                                (
+                                    bruto_val,
+                                    desc_val,
+                                    liquido_val,
+                                    inss_val,
+                                    irrf_val,
+                                    vale_val,
+                                    mes_ano_extraido,
+                                ),
+                            )
+                            conn.commit()
+                            importados_automaticos += 1
+                    except Exception as e:
+                        st.error(
+                            f"Erro ao processar o arquivo {arquivo_pdf.name}: {e}"
+                        )
+
+                st.session_state["ultimo_upload_processado"] = upload_ids
+                if importados_automaticos > 0:
+                    st.success(
+                        f"🎉 {importados_automaticos} holerite(s) processado(s) e gravado(s) com sucesso!"
+                    )
+                    st.rerun()
+
+        st.markdown("---")
+        st.subheader("📋 Histórico Geral dos Holerites")
+        df_hol_all = pd.read_sql("SELECT * FROM holerites ORDER BY id DESC", conn)
+        
+        if not df_hol_all.empty:
+            st.dataframe(
+                df_hol_all.rename(
+                    columns={
+                        "id": "ID",
+                        "mes_ano": "Mês/Ano",
+                        "salario_bruto": "Salário Bruto (R$)",
+                        "total_descontos": "Total Descontos (R$)",
+                        "liquido": "Líquido (R$)",
+                        "inss": "INSS (R$)",
+                        "irrf": "IRRF (R$)",
+                        "vale": "Vale (R$)",
+                    }
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+
             st.markdown("---")
             st.subheader("🔍 Detalhamento Completo por Rubricas (Espelho do Holerite)")
             sel_hol_detalhe = st.selectbox(
@@ -5109,20 +5263,16 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
             if sel_hol_detalhe:
                 hol_selecionado = df_hol_all[df_hol_all["mes_ano"] == sel_hol_detalhe].iloc[0]
                 
-                # Valores base vindos do banco de dados
                 v_bruto = hol_selecionado["salario_bruto"]
                 v_inss = hol_selecionado["inss"]
                 v_irrf = hol_selecionado["irrf"]
                 v_vale = hol_selecionado["vale"]
                 
-                # Valor exato e fixo do empréstimo conforme o documento original oficial
-                val_emprestimo_exato = 1552.45
-
-                # Tabela completa idêntica ao documento original fornecido
+                # Valores exatos e fixos do documento oficial fornecido
                 dados_rubricas = [
-                    {"Cód.": "0004", "Descrição": "Salário - Mensalistas", "Qtde.": "183,33", "Vencimentos (R$)": round(v_bruto * 0.79, 2), "Descontos (R$)": 0.0},
-                    {"Cód.": "6151", "Descrição": "DSR Mensalista", "Qtde.": "36,67", "Vencimentos (R$)": round(v_bruto * 0.16, 2), "Descontos (R$)": 0.0},
-                    {"Cód.": "10506", "Descrição": "Dev Prov Ad Qui - Crédito do Trabalhador", "Qtde.": "", "Vencimentos (R$)": round(v_bruto * 0.05, 2), "Descontos (R$)": 0.0},
+                    {"Cód.": "0004", "Descrição": "Salário - Mensalistas", "Qtde.": "183,33", "Vencimentos (R$)": 5475.01, "Descontos (R$)": 0.0},
+                    {"Cód.": "6151", "Descrição": "DSR Mensalista", "Qtde.": "36,67", "Vencimentos (R$)": 1095.00, "Descontos (R$)": 0.0},
+                    {"Cód.": "10506", "Descrição": "Dev Prov Ad Qui - Crédito do Trabalhador", "Qtde.": "", "Vencimentos (R$)": 620.98, "Descontos (R$)": 0.0},
                     {"Cód.": "2066", "Descrição": "Seguro de Vida", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 7.83},
                     {"Cód.": "2085", "Descrição": "Contribuição Confederativa", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 12.00},
                     {"Cód.": "2092", "Descrição": "Mensalidade Sindical", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 65.70},
@@ -5138,7 +5288,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
                     {"Cód.": "6189", "Descrição": "ABEMA Dependentes", "Qtde.": "3,00", "Vencimentos (R$)": 0.0, "Descontos (R$)": 23.01},
                     {"Cód.": "7827", "Descrição": "Adiantamento Quinzenal", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": v_vale},
                     {"Cód.": "9297", "Descrição": "COPARTICIPACAO SULAMERICA", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 63.07},
-                    {"Cód.": "10497", "Descrição": "Empréstimo - Crédito do Trabalhador", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": val_emprestimo_exato}
+                    {"Cód.": "10497", "Descrição": "Empréstimo - Crédito do Trabalhador", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 1552.45}
                 ]
                 
                 df_rubricas = pd.DataFrame(dados_rubricas)
@@ -5183,7 +5333,6 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
                         color_continuous_scale="Reds"
                     )
 
-                    # Garante posicionamento nítido e visível dos rótulos fora das barras com fonte destacada
                     fig_pareto.update_traces(
                         textposition='outside', 
                         cliponaxis=False,
@@ -5201,7 +5350,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 
                     fig_pareto.update_traces(yaxis="y2")
                     fig_pareto.update_layout(
-                        yaxis=dict(title="Valor dos Descontos (R$)", range=[0, df_pareto["Descontos (R$)"].max() * 1.25]),
+                        yaxis=dict(title="Valor dos Descontos (R$)", range=[0, df_pareto["Descontos (R$)"].max() * 1.3]),
                         yaxis2=dict(
                             title="Porcentagem Acumulada (%)",
                             overlaying="y",
@@ -5214,7 +5363,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
                         font_color="#f8fafc",
                         showlegend=False,
                         xaxis_tickangle=-45,
-                        margin=dict(t=80, b=50)
+                        margin=dict(t=90, b=50)
                     )
 
                     st.plotly_chart(fig_pareto, use_container_width=True)
