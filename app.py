@@ -5099,30 +5099,45 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
 # ==========================================
 elif st.session_state.pagina_atual == "📄 Holerites":
     botao_voltar()
-    
+
+    # Trava de segurança: Garante que se a página atual for recarregada ou acessada de novo, ela inicia bloqueada
+    if st.session_state.get("pagina_anterior_holerite") != "📄 Holerites":
+        st.session_state.holerites_desbloqueado = False
+        st.session_state.pagina_anterior_holerite = "📄 Holerites"
+
     if "holerites_desbloqueado" not in st.session_state:
         st.session_state.holerites_desbloqueado = False
 
     if not st.session_state.holerites_desbloqueado:
         st.subheader("🔒 Acesso Restrito à Seção de Holerites")
-        st.markdown("Esta seção contém informações salariais e fiscais confidenciais. Digite a senha para prosseguir:")
-        
-        senha_holerite = st.text_input("Senha de Acesso aos Holerites:", type="password", key="input_senha_holerite")
-        
-        col_h_b1, col_h_b2 = st.columns(2)
-        with col_h_b1:
-            if st.button("Desbloquear Holerites", use_container_width=True):
+        st.markdown(
+            "Esta seção contém informações salariais e fiscais confidenciais. Digite a senha para prosseguir:"
+        )
+
+        # Uso do st.form para permitir o envio pressionando 'Enter'
+        with st.form("form_senha_holerites"):
+            senha_holerite = st.text_input(
+                "Senha de Acesso aos Holerites:",
+                type="password",
+                key="input_senha_holerite",
+            )
+            btn_desbloquear = st.form_submit_button(
+                "Desbloquear Holerites", use_container_width=True
+            )
+
+            if btn_desbloquear:
                 if senha_holerite == "1234":
                     st.session_state.holerites_desbloqueado = True
                     st.success("Acesso liberado com sucesso!")
                     st.rerun()
                 else:
                     st.error("Senha incorreta!")
-        with col_h_b2:
-            if st.button("Bloquear / Sair da Seção", use_container_width=True):
-                st.session_state.holerites_desbloqueado = False
-                mudar_pagina("🏠 Início / Painel")
-                st.rerun()
+
+        if st.button("Bloquear / Sair da Seção", use_container_width=True):
+            st.session_state.holerites_desbloqueado = False
+            st.session_state.pagina_anterior_holerite = ""
+            mudar_pagina("🏠 Início / Painel")
+            st.rerun()
     else:
         col_sup1, col_sup2 = st.columns([4, 1])
         with col_sup1:
@@ -5130,12 +5145,12 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 "📄 Análise, Comparativo Mês a Mês & Leitura Dinâmica de Holerites via PDF"
             )
             st.info(
-                "Faça o upload de arquivos PDF de contracheques. O sistema lerá com"
-                " precisão cirúrgica os impostos e proventos."
+                "Faça o upload de arquivos PDF de contracheques. O sistema lerá com precisão cirúrgica os impostos e proventos."
             )
         with col_sup2:
             if st.button("🔒 Bloquear Seção", use_container_width=True):
                 st.session_state.holerites_desbloqueado = False
+                st.session_state.pagina_anterior_holerite = ""
                 st.rerun()
 
         pdfs_holerites = st.file_uploader(
@@ -5169,15 +5184,14 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                         ) = processar_texto_holerite(texto_holerite, arquivo_pdf.name)
 
                         cursor_check = c.execute(
-                            "SELECT id FROM holerites WHERE mes_ano = ?", (mes_ano_extraido,)
+                            "SELECT id FROM holerites WHERE mes_ano = ?",
+                            (mes_ano_extraido,),
                         )
                         row_existente = cursor_check.fetchone()
 
                         if not row_existente:
                             c.execute(
-                                "INSERT INTO holerites (mes_ano, salario_bruto,"
-                                " total_descontos, liquido, inss, irrf, vale) VALUES"
-                                " (?,?,?,?,?,?,?)",
+                                "INSERT INTO holerites (mes_ano, salario_bruto, total_descontos, liquido, inss, irrf, vale) VALUES (?,?,?,?,?,?,?)",
                                 (
                                     mes_ano_extraido,
                                     bruto_val,
@@ -5192,8 +5206,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                             importados_automaticos += 1
                         else:
                             c.execute(
-                                "UPDATE holerites SET salario_bruto = ?, total_descontos = ?,"
-                                " liquido = ?, inss = ?, irrf = ?, vale = ? WHERE mes_ano = ?",
+                                "UPDATE holerites SET salario_bruto = ?, total_descontos = ?, liquido = ?, inss = ?, irrf = ?, vale = ? WHERE mes_ano = ?",
                                 (
                                     bruto_val,
                                     desc_val,
@@ -5207,11 +5220,15 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                             conn.commit()
                             importados_automaticos += 1
                     except Exception as e:
-                        st.error(f"Erro ao processar o arquivo {arquivo_pdf.name}: {e}")
+                        st.error(
+                            f"Erro ao processar o arquivo {arquivo_pdf.name}: {e}"
+                        )
 
                 st.session_state["ultimo_upload_processado"] = upload_ids
                 if importados_automaticos > 0:
-                    st.success(f"🎉 {importados_automaticos} holerite(s) processado(s) e gravado(s) com sucesso!")
+                    st.success(
+                        f"🎉 {importados_automaticos} holerite(s) processado(s) e gravado(s) com sucesso!"
+                    )
                     st.rerun()
 
         st.markdown("---")
@@ -5236,13 +5253,19 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             )
 
             st.markdown("---")
-            st.subheader("📊 Comparativo Gráfico Mês a Mês (Evolução Salarial & Descontos)")
+            st.subheader(
+                "📊 Comparativo Gráfico Mês a Mês (Evolução Salarial & Descontos)"
+            )
             fig_hol = px.bar(
                 df_hol_all,
                 x="mes_ano",
                 y=["salario_bruto", "total_descontos", "liquido"],
                 barmode="group",
-                labels={"value": "Valor (R$)", "mes_ano": "Mês/Ano", "variable": "Indicador"},
+                labels={
+                    "value": "Valor (R$)",
+                    "mes_ano": "Mês/Ano",
+                    "variable": "Indicador",
+                },
                 color_discrete_sequence=["#3b82f6", "#ef4444", "#22c55e"],
             )
             fig_hol.update_layout(
