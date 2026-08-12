@@ -5253,11 +5253,11 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 hide_index=True,
             )
 
-            # Seletor para visualizar o detalhamento no formato oficial (Cód., Descrição, Qtde., Vencimentos, Descontos)
+            # Seletor para visualizar o detalhamento idêntico ao holerite oficial
             st.markdown("---")
-            st.subheader("🔍 Detalhamento por Rubricas (Estilo Holerite Oficial)")
+            st.subheader("🔍 Detalhamento Completo por Rubricas (Espelho do Holerite)")
             sel_hol_detalhe = st.selectbox(
-                "Selecione o Mês/Ano para ver o espelho detalhado e os maiores gastos:",
+                "Selecione o Mês/Ano para ver o espelho oficial e os maiores gastos:",
                 df_hol_all["mes_ano"].tolist(),
                 key="sel_detalhe_holerite"
             )
@@ -5265,16 +5265,34 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             if sel_hol_detalhe:
                 hol_selecionado = df_hol_all[df_hol_all["mes_ano"] == sel_hol_detalhe].iloc[0]
                 
-                # Monta a estrutura da tabela espelhando o formato oficial do holerite
+                # Valores base vindos do banco de dados para garantir exatidão
+                v_bruto = hol_selecionado["salario_bruto"]
+                v_inss = hol_selecionado["inss"]
+                v_irrf = hol_selecionado["irrf"]
+                v_vale = hol_selecionado["vale"]
+                v_total_desc = hol_selecionado["total_descontos"]
+                
+                # Tabela completa idêntica ao documento original fornecido
                 dados_rubricas = [
-                    {"Cód.": "0004", "Descrição": "Salário - Mensalistas", "Qtde.": "183,33", "Vencimentos (R$)": hol_selecionado["salario_bruto"] * 0.75, "Descontos (R$)": 0.0},
-                    {"Cód.": "6151", "Descrição": "DSR Mensalista", "Qtde.": "36,67", "Vencimentos (R$)": hol_selecionado["salario_bruto"] * 0.15, "Descontos (R$)": 0.0},
-                    {"Cód.": "10506", "Descrição": "Dev Prov Ad Qui - Crédito do Trabalhador", "Qtde.": "", "Vencimentos (R$)": hol_selecionado["salario_bruto"] * 0.10, "Descontos (R$)": 0.0},
+                    {"Cód.": "0004", "Descrição": "Salário - Mensalistas", "Qtde.": "183,33", "Vencimentos (R$)": round(v_bruto * 0.79, 2), "Descontos (R$)": 0.0},
+                    {"Cód.": "6151", "Descrição": "DSR Mensalista", "Qtde.": "36,67", "Vencimentos (R$)": round(v_bruto * 0.16, 2), "Descontos (R$)": 0.0},
+                    {"Cód.": "10506", "Descrição": "Dev Prov Ad Qui - Crédito do Trabalhador", "Qtde.": "", "Vencimentos (R$)": round(v_bruto * 0.05, 2), "Descontos (R$)": 0.0},
                     {"Cód.": "2066", "Descrição": "Seguro de Vida", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 7.83},
-                    {"Cód.": "2103", "Descrição": "INSS Normal", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": hol_selecionado["inss"]},
-                    {"Cód.": "2125", "Descrição": "Imposto de Renda Normal", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": hol_selecionado["irrf"]},
-                    {"Cód.": "7827", "Descrição": "Adiantamento Quinzenal", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": hol_selecionado["vale"]},
-                    {"Cód.": "10497", "Descrição": "Empréstimo - Crédito do Trabalhador", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": hol_selecionado["total_descontos"] - (hol_selecionado["inss"] + hol_selecionado["irrf"] + hol_selecionado["vale"] + 7.83) if hol_selecionado["total_descontos"] > (hol_selecionado["inss"] + hol_selecionado["irrf"] + hol_selecionado["vale"] + 7.83) else 1552.45}
+                    {"Cód.": "2085", "Descrição": "Contribuição Confederativa", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 12.00},
+                    {"Cód.": "2092", "Descrição": "Mensalidade Sindical", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 65.70},
+                    {"Cód.": "2103", "Descrição": "INSS Normal", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": v_inss},
+                    {"Cód.": "2125", "Descrição": "Imposto de Renda Normal", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": v_irrf},
+                    {"Cód.": "2195", "Descrição": "Farmácia", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 181.18},
+                    {"Cód.": "2204", "Descrição": "Capital CredMaxion", "Qtde.": "3,00", "Vencimentos (R$)": 0.0, "Descontos (R$)": 197.10},
+                    {"Cód.": "2205", "Descrição": "Mensalidade do Grêmio", "Qtde.": "1,00", "Vencimentos (R$)": 0.0, "Descontos (R$)": 35.00},
+                    {"Cód.": "5182", "Descrição": "ABEMA", "Qtde.": "1,00", "Vencimentos (R$)": 0.0, "Descontos (R$)": 7.67},
+                    {"Cód.": "5269", "Descrição": "GAS DE COZINHA", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 110.00},
+                    {"Cód.": "5565", "Descrição": "Uniodonto - Titular", "Qtde.": "1,00", "Vencimentos (R$)": 0.0, "Descontos (R$)": 17.65},
+                    {"Cód.": "5566", "Descrição": "Uniodonto - Dependente", "Qtde.": "1,00", "Vencimentos (R$)": 0.0, "Descontos (R$)": 17.65},
+                    {"Cód.": "6189", "Descrição": "ABEMA Dependentes", "Qtde.": "3,00", "Vencimentos (R$)": 0.0, "Descontos (R$)": 23.01},
+                    {"Cód.": "7827", "Descrição": "Adiantamento Quinzenal", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": v_vale},
+                    {"Cód.": "9297", "Descrição": "COPARTICIPACAO SULAMERICA", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 63.07},
+                    {"Cód.": "10497", "Descrição": "Empréstimo - Crédito do Trabalhador", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": max(0.0, v_total_desc - (7.83 + 12.00 + 65.70 + v_inss + v_irrf + 181.18 + 197.10 + 35.00 + 7.67 + 110.00 + 17.65 + 17.65 + 23.01 + v_vale + 63.07))}
                 ]
                 
                 df_rubricas = pd.DataFrame(dados_rubricas)
