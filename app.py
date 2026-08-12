@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.5.8"
+VERSAO_SISTEMA = "v2.6.0"
 DATA_ATUALIZACAO = "10/08/2026"
 
 # ==========================================
@@ -1131,134 +1131,89 @@ elif st.session_state.pagina_atual == "🎙️ Lançar por Voz":
         st.info("Nenhum lançamento por voz registrado ainda.")
 
 # ==========================================
-# --- SEÇÃO 2.2: ASSISTENTE IA & CHATBOT ---
+# --- SEÇÃO: LISTA DE TAREFAS & COMPRAS ---
 # ==========================================
-elif st.session_state.pagina_atual == "🤖 Assistente IA":
+elif st.session_state.pagina_atual == "📝 Tarefas & Compras":
     botao_voltar()
-    st.subheader("🤖 Assistente Financeiro Inteligente (Chatbot IA)")
-    st.write(
-        "Converse com a Inteligência Artificial para analisar suas finanças,"
-        " tirar dúvidas sobre gastos ou registrar lançamentos por comando de voz/texto."
-    )
+    st.subheader("📝 Lista de Tarefas & Coisas para Comprar")
+    st.write("Organize suas pendências, adicione itens de compras e acompanhe o progresso de conclusão em porcentagem.")
 
-    with st.expander("💡 Ajuda: O que ou como pedir para o Chatbot IA? (Clique para expandir)", expanded=False):
-        st.markdown(
-            """
-            Você pode conversar livremente ou usar comandos rápidos:
-            * 📊 **Consultar Resumo ou Saldo:**
-              * *"Qual é o meu saldo atual?"*
-              * *"Como estão minhas finanças?"*
-            * 🏆 **Identificar Maiores Gastos:**
-              * *"Qual foi o meu maior gasto?"*
-            * 💸 **Lançar Despesas Rapidamente:**
-              * *"Gastei 45 reais no mercado"*
-              * *"Comprei remédio na farmácia por 35.50"*
-            """
+    # Cria tabela caso não exista
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS tarefas_compras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            item TEXT, 
+            tipo TEXT, 
+            concluido INTEGER
         )
+    """)
+    conn.commit()
 
-    if "historico_chat" not in st.session_state:
-        st.session_state.historico_chat = [{
-            "role": "assistant",
-            "content": (
-                "Olá Vinícius! Sou seu assistente financeiro pessoal com inteligência artificial. "
-                "Como posso ajudar a organizar suas finanças hoje?"
-            ),
-        }]
-
-    for msg in st.session_state.historico_chat:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
-
-    user_query = st.chat_input("Digite sua pergunta ou comando para o Assistente IA...")
-
-    if user_query:
-        st.session_state.historico_chat.append(
-            {"role": "user", "content": user_query}
-        )
-        with st.chat_message("user"):
-            st.write(user_query)
-
-        query_up = user_query.upper()
-        resposta_ia = ""
-
-        # Lê transações para contexto da IA
-        df_trans_ia = pd.read_sql("SELECT * FROM transacoes", conn) if "transacoes" in [row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()] else pd.DataFrame()
+    # Formulário para adicionar novo item
+    with st.form("form_nova_tarefa_compra", clear_on_submit=True):
+        col_t1, col_t2 = st.columns([3, 1])
+        with col_t1:
+            novo_item_texto = st.text_input("Descrição do Item ou Tarefa:")
+        with col_t2:
+            tipo_item = st.selectbox("Categoria:", ["🛒 Compra", "📋 Tarefa"])
         
-        total_rec_ia = (
-            df_trans_ia[df_trans_ia["tipo"] == "Receita"]["valor"].sum()
-            if not df_trans_ia.empty and "tipo" in df_trans_ia.columns
-            else 0.0
-        )
-        total_desp_ia = (
-            df_trans_ia[df_trans_ia["tipo"] == "Despesa"]["valor"].sum()
-            if not df_trans_ia.empty and "tipo" in df_trans_ia.columns
-            else 0.0
-        )
-        saldo_caixa_ia = total_rec_ia - total_desp_ia
-
-        # Processamento inteligente com IA via OpenAI
-        try:
-            k1 = "sk-proj-R1CPgWpxfnwhtoLkz26rPst"
-            k2 = "Xqe5wWC5bUQMGiSVRwcXD6QzRCJM6zP4vYSssQNL0ClmQtlZUpwT3BlbkFJFoQDDPZy6sO2wCS2TcyT0KinVb7y-elxpgPTlABLKvNYBUTtzj_WvEhLj1i84R778SjmJ0IhwA"
-            client = openai.OpenAI(api_key=k1 + k2)
-            
-            # Prepara um resumo das transações recentes para o contexto da IA
-            resumo_trans = df_trans_ia.tail(15).to_string() if not df_trans_ia.empty else "Nenhuma transação registrada."
-            
-            prompt_sistema = f"""
-            Você é um assistente financeiro pessoal especialista e amigável do Vinícius.
-            Dados atuais do usuário:
-            - Entradas Totais: R$ {total_rec_ia:,.2f}
-            - Despesas Totais: R$ {total_desp_ia:,.2f}
-            - Saldo Atual em Caixa: R$ {saldo_caixa_ia:,.2f}
-            - Histórico recente de transações:
-            {resumo_trans}
-
-            Se o usuário pedir para lançar alguma despesa ou receita, analise o texto, extraia o valor e a descrição, e execute o registro.
-            Responda de forma clara, prestativa e objetiva focando nas finanças pessoais dele.
-            """
-            
-            resposta_gpt = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": prompt_sistema},
-                    {"role": "user", "content": user_query}
-                ]
-            )
-            resposta_ia = resposta_gpt.choices[0].message.content
-
-            # Se o usuário pediu para registrar algo e contém valores, podemos automatizar o salvamento:
-            if any(k in query_up for k in ["GASTEI", "COMPREI", "PAGUEI", "LANCEI"]):
-                import re
-                nums_chat = re.findall(r"(\d+(?:[.,]\d+)?)", user_query.replace(",", "."))
-                if nums_chat:
-                    val_chat = float(nums_chat[0])
-                    c.execute(
-                        "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
-                        (
-                            date.today().strftime("%Y-%m-%d"),
-                            "Despesa",
-                            user_query.strip(),
-                            "Outros Desejos (Desejos)",
-                            val_chat,
-                            "Chat_IA",
-                        ),
-                    )
-                    conn.commit()
-                    resposta_ia += f"\n\n*(✅ Lançamento automático de R$ {val_chat:,.2f} efetuado com sucesso no banco de dados!)*"
-
-        except Exception as e:
-            # Fallback caso ocorra erro na API
-            if any(k in query_up for k in ["SALDO", "RESUMO"]):
-                resposta_ia = f"💰 **Saldo Atual:** R$ {saldo_caixa_ia:,.2f} (Entradas: R$ {total_rec_ia:,.2f} | Saídas: R$ {total_desp_ia:,.2f})"
+        btn_add_item = st.form_submit_button("➕ Adicionar à Lista", use_container_width=True)
+        if btn_add_item:
+            if novo_item_texto.strip():
+                c.execute("INSERT INTO tarefas_compras (item, tipo, concluido) VALUES (?, ?, 0)", (novo_item_texto.strip(), tipo_item))
+                conn.commit()
+                st.success("Item adicionado com sucesso!")
+                st.rerun()
             else:
-                resposta_ia = f"🤖 Olá! Analisei suas finanças (Saldo: R$ {saldo_caixa_ia:,.2f}). Como posso ajudar mais detalhadamente com seus gastos hoje?"
+                st.error("Digite a descrição do item.")
 
-        st.session_state.historico_chat.append(
-            {"role": "assistant", "content": resposta_ia}
-        )
-        with st.chat_message("assistant"):
-            st.write(resposta_ia)
+    st.markdown("---")
+
+    # Recupera os itens do banco
+    df_tarefas = pd.read_sql("SELECT * FROM tarefas_compras", conn)
+
+    if not df_tarefas.empty:
+        total_itens = len(df_tarefas)
+        concluidos = len(df_tarefas[df_tarefas["concluido"] == 1])
+        porcentagem = (concluidos / total_itens) * 100 if total_itens > 0 else 0.0
+
+        # Exibe a barra de progresso e métrica
+        st.markdown(f"### Progresso Geral: {porcentagem:.1f}% Concluído")
+        st.progress(porcentagem / 100.0)
+
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric("Total de Itens", total_itens)
+        col_m2.metric("Concluídos", concluidos)
+        col_m3.metric("Pendentes", total_itens - concluidos)
+
+        st.markdown("---")
+        st.subheader("📋 Seus Itens & Tarefas")
+
+        # Exibe cada item com checkbox interativo
+        for index, row in df_tarefas.iterrows():
+            col_check, col_del = st.columns([6, 1])
+            
+            with col_check:
+                status_atual = True if row["concluido"] == 1 else False
+                label_item = f"[{row['tipo']}] {row['item']}"
+                
+                # Checkbox do Streamlit para marcar/desmarcar
+                marcado = st.checkbox(label_item, value=status_atual, key=f"check_tarefa_{row['id']}")
+                
+                # Atualiza no banco se o estado mudou
+                novo_estado = 1 if marcado else 0
+                if novo_estado != row["concluido"]:
+                    c.execute("UPDATE tarefas_compras SET concluido = ? WHERE id = ?", (novo_estado, row["id"]))
+                    conn.commit()
+                    st.rerun()
+
+            with col_del:
+                if st.button("🗑️", key=f"del_tarefa_{row['id']}"):
+                    c.execute("DELETE FROM tarefas_compras WHERE id = ?", (row["id"],))
+                    conn.commit()
+                    st.rerun()
+    else:
+        st.info("Sua lista está vazia no momento. Adicione itens acima!")
 # ==========================================
 # --- SEÇÃO 2.3: LEITOR AUTOMÁTICO DE NOTAS FISCAIS ---
 # ==========================================
