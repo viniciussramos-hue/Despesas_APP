@@ -5267,8 +5267,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 v_inss = hol_selecionado["inss"]
                 v_irrf = hol_selecionado["irrf"]
                 v_vale = hol_selecionado["vale"]
-                
-                # Valores exatos e fixos do documento oficial fornecido
+
                 dados_rubricas = [
                     {"Cód.": "0004", "Descrição": "Salário - Mensalistas", "Qtde.": "183,33", "Vencimentos (R$)": 5475.01, "Descontos (R$)": 0.0},
                     {"Cód.": "6151", "Descrição": "DSR Mensalista", "Qtde.": "36,67", "Vencimentos (R$)": 1095.00, "Descontos (R$)": 0.0},
@@ -5333,10 +5332,11 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                         color_continuous_scale="Reds"
                     )
 
+                    # Posiciona os valores perfeitamente acima das barras com espaçamento ideal
                     fig_pareto.update_traces(
                         textposition='outside', 
                         cliponaxis=False,
-                        textfont=dict(color="#f8fafc", size=11, family="sans-serif")
+                        textfont=dict(color="#f8fafc", size=12, family="sans-serif")
                     )
 
                     fig_pareto.add_trace(
@@ -5350,7 +5350,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
                     fig_pareto.update_traces(yaxis="y2")
                     fig_pareto.update_layout(
-                        yaxis=dict(title="Valor dos Descontos (R$)", range=[0, df_pareto["Descontos (R$)"].max() * 1.3]),
+                        yaxis=dict(title="Valor dos Descontos (R$)", range=[0, df_pareto["Descontos (R$)"].max() * 1.35]),
                         yaxis2=dict(
                             title="Porcentagem Acumulada (%)",
                             overlaying="y",
@@ -5363,7 +5363,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                         font_color="#f8fafc",
                         showlegend=False,
                         xaxis_tickangle=-45,
-                        margin=dict(t=90, b=50)
+                        margin=dict(t=120, b=50, l=40, r=40)
                     )
 
                     st.plotly_chart(fig_pareto, use_container_width=True)
