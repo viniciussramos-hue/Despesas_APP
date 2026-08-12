@@ -5232,9 +5232,11 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                     st.rerun()
 
         st.markdown("---")
-        st.subheader("📋 Histórico de Holerites Cadastrados")
+        st.subheader("📋 Histórico e Detalhamento de Ganhos vs. Descontos")
         df_hol_all = pd.read_sql("SELECT * FROM holerites ORDER BY id DESC", conn)
+        
         if not df_hol_all.empty:
+            st.markdown("### 📊 Resumo Geral dos Holerites")
             st.dataframe(
                 df_hol_all.rename(
                     columns={
@@ -5251,6 +5253,36 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 use_container_width=True,
                 hide_index=True,
             )
+
+            # Seletor para visualizar o detalhamento separado em colunas
+            st.markdown("### 🔍 Detalhamento por Rubrica (Ganhos e Descontos)")
+            sel_hol_detalhe = st.selectbox(
+                "Selecione o Mês/Ano para ver a divisão detalhada entre Ganhos e Descontos:",
+                df_hol_all["mes_ano"].tolist(),
+                key="sel_detalhe_holerite"
+            )
+
+            if sel_hol_detalhe:
+                hol_selecionado = df_hol_all[df_hol_all["mes_ano"] == sel_hol_detalhe].iloc[0]
+                
+                col_ganhos, col_descontos = st.columns(2)
+                
+                with col_ganhos:
+                    st.markdown("#### 🟢 Ganhos / Proventos")
+                    df_ganhos = pd.DataFrame([
+                        {"Descrição": "Salário Base / Bruto", "Valor (R$)": hol_selecionado["salario_bruto"]}
+                    ])
+                    st.dataframe(df_ganhos, use_container_width=True, hide_index=True)
+                
+                with col_descontos:
+                    st.markdown("#### 🔴 Descontos")
+                    df_desc = pd.DataFrame([
+                        {"Descrição": "INSS", "Valor (R$)": hol_selecionado["inss"]},
+                        {"Descrição": "IRRF", "Valor (R$)": hol_selecionado["irrf"]},
+                        {"Descrição": "Vale / Outros", "Valor (R$)": hol_selecionado["vale"]},
+                        {"Descrição": "Total de Descontos", "Valor (R$)": hol_selecionado["total_descontos"]}
+                    ])
+                    st.dataframe(df_desc, use_container_width=True, hide_index=True)
 
             st.markdown("---")
             st.subheader(
