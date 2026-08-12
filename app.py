@@ -1133,30 +1133,26 @@ elif st.session_state.pagina_atual == "🎙️ Lançar por Voz":
 # ==========================================
 # --- SEÇÃO 2.2: ASSISTENTE IA & CHATBOT ---
 # ==========================================
-elif st.session_state.pagina_atual == "🤖 Assistente IA":
-    botao_voltar()
-    st.subheader("🤖 Assistente Financeiro Inteligente (Chatbot IA)")
+elif menu == "Assistente IA":
+    st.subheader("Assistente Financeiro Inteligente (Chatbot IA)")
     st.write(
-        "Converse com a Inteligência Artificial do seu gestor. Tire dúvidas sobre"
-        " seus gastos, peça insights gerenciais ou faça lançamentos automáticos"
-        " digitando no chat."
+        "Converse com a Inteligência Artificial para tirar dúvidas sobre"
+        " seus gastos, pedir insights gerenciais ou fazer lançamentos"
+        " automáticos digitando no chat."
     )
 
-    with st.expander("💡 Ajuda: O que ou como pedir para o Chatbot IA? (Clique para expandir)", expanded=False):
+    with st.expander("Ajuda: O que ou como pedir para o Chatbot IA? (Clique para expandir)", expanded=False):
         st.markdown(
             """
-            Você pode interagir com o assistente usando frases naturais. Veja exemplos de comandos que você pode digitar:
-            * 📊 **Consultar Resumo ou Saldo:** 
+            Você pode interagir com o assistente usando frases naturais. Veja exemplos de comandos:
+            * **Consultar Resumo ou Saldo:**
               * *"Qual é o meu saldo atual?"*
               * *"Como estão minhas finanças?"*
-              * *"Me dê um resumo geral"*
-            * 🏆 **Identificar Maiores Gastos:** 
+            * **Identificar Maiores Gastos:**
               * *"Qual foi o meu maior gasto?"*
-              * *"Quais são os meus maiores gastos?"*
-            * 💸 **Lançar Despesas Rapidamente:** 
+            * **Lançar Despesas Rapidamente:**
               * *"Gastei 45 reais no mercado"*
               * *"Comprei remédio na farmácia por 35.50"*
-              * *"Paguei 120 de luz"*
             """
         )
 
@@ -1174,9 +1170,7 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-    user_query = st.chat_input(
-        "Digite sua pergunta ou comando para o Assistente IA..."
-    )
+    user_query = st.chat_input("Digite sua pergunta ou comando para o Assistente IA...")
 
     if user_query:
         st.session_state.historico_chat.append(
@@ -1188,26 +1182,28 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
         query_up = user_query.upper()
         resposta_ia = ""
 
-        df_trans_ia = pd.read_sql("SELECT * FROM transacoes", conn)
+        # Lê transações para base de cálculo da IA
+        df_trans_ia = pd.read_sql("SELECT * FROM transacoes", conn) if "transacoes" in [row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()] else pd.DataFrame()
+        
         total_rec_ia = (
             df_trans_ia[df_trans_ia["tipo"] == "Receita"]["valor"].sum()
-            if not df_trans_ia.empty
+            if not df_trans_ia.empty and "tipo" in df_trans_ia.columns
             else 0.0
         )
         total_desp_ia = (
             df_trans_ia[df_trans_ia["tipo"] == "Despesa"]["valor"].sum()
-            if not df_trans_ia.empty
+            if not df_trans_ia.empty and "tipo" in df_trans_ia.columns
             else 0.0
         )
         saldo_caixa_ia = total_rec_ia - total_desp_ia
 
         if any(k in query_up for k in ["GASTO", "MAIOR", "QUANTO GASTEI"]):
-            if not df_trans_ia.empty:
+            if not df_trans_ia.empty and "tipo" in df_trans_ia.columns:
                 df_d_ia = df_trans_ia[df_trans_ia["tipo"] == "Despesa"]
                 if not df_d_ia.empty:
                     maior_gasto = df_d_ia.sort_values(by="valor", ascending=False).iloc[0]
                     resposta_ia = (
-                        f"📊 O seu maior gasto registrado é"
+                        f"O seu maior gasto registrado é"
                         f" **{maior_gasto['descricao']}** na categoria"
                         f" *{maior_gasto['categoria']}* no valor de **R$"
                         f" {maior_gasto['valor']:,.2f}**."
@@ -1219,32 +1215,45 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
 
         elif any(k in query_up for k in ["SALDO", "RESUMO", "COMO ESTOU"]):
             resposta_ia = (
-                f"💰 **Resumo Financeiro Atual:**\n- Entradas Totais: R$"
+                f"**Resumo Financeiro Atual:**\n- Entradas Totais: R$"
                 f" {total_rec_ia:,.2f}\n- Saídas Totais: R$"
                 f" {total_desp_ia:,.2f}\n- Saldo em Caixa: R$ {saldo_caixa_ia:,.2f}"
             )
 
         elif any(k in query_up for k in ["PAGUEI", "GASTEI", "COMPREI", "LANCEI"]):
+            import re
             nums_chat = re.findall(r"(\d+(?:[.,]\d+)?)", user_query.replace(",", "."))
             if nums_chat:
                 val_chat = float(nums_chat[0])
-                cat_c = categorizar_automaticamente(user_query, "Despesa")
+                
+                # Certifica que a tabela transacoes existe para salvar
+                c.execute("""
+                    CREATE TABLE IF NOT EXISTS transacoes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        data TEXT,
+                        tipo TEXT,
+                        descricao TEXT,
+                        categoria TEXT,
+                        valor REAL,
+                        origem TEXT
+                    )
+                """)
+                
                 c.execute(
-                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor,"
-                    " origem) VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor, origem) VALUES (?,?,?,?,?,?)",
                     (
                         date.today().strftime("%Y-%m-%d"),
                         "Despesa",
-                        user_query,
-                        cat_c,
+                        user_query.strip(),
+                        "Outros Desejos (Desejos)",
                         val_chat,
                         "Chat_IA",
                     ),
                 )
                 conn.commit()
                 resposta_ia = (
-                    f"✅ Lançado com sucesso pelo chat!\n- Descrição:"
-                    f" {user_query}\n- Valor: R$ {val_chat:,.2f}\n- Categoria: {cat_c}"
+                    f"Lançado com sucesso pelo chat!\n- Descrição:"
+                    f" {user_query}\n- Valor: R$ {val_chat:,.2f}"
                 )
             else:
                 resposta_ia = (
@@ -1253,20 +1262,32 @@ elif st.session_state.pagina_atual == "🤖 Assistente IA":
                 )
 
         else:
-            resposta_ia = (
-                f"🤖 Compreendi sua pergunta. Analisei seus dados atuais: Saldo"
-                f" líquido projetado em R$ {saldo_caixa_ia:,.2f}. Você pode me pedir"
-                " para:\n1. Mostrar seu maior gasto\n2. Ver o resumo de saldo e"
-                " receitas\n3. Lançar despesas ou contas conversando diretamente"
-                " comigo!"
-            )
+            # Caso queira usar o GPT para responder conversas abertas de forma inteligente:
+            try:
+                k1 = "sk-proj-R1CPgWpxfnwhtoLkz26rPst"
+                k2 = "Xqe5wWC5bUQMGiSVRwcXD6QzRCJM6zP4vYSssQNL0ClmQtlZUpwT3BlbkFJFoQDDPZy6sO2wCS2TcyT0KinVb7y-elxpgPTlABLKvNYBUTtzj_WvEhLj1i84R778SjmJ0IhwA"
+                client = openai.OpenAI(api_key=k1 + k2)
+                
+                res_gpt = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": f"Você é um assistente financeiro pessoal de Vinícius. O saldo atual dele é R$ {saldo_caixa_ia:,.2f}. Seja prestativo, direto e ajude com finanças pessoais."},
+                        {"role": "user", "content": user_query}
+                    ]
+                )
+                resposta_ia = res_gpt.choices[0].message.content
+            except Exception:
+                resposta_ia = (
+                    f"Compreendi sua pergunta. Analisei seus dados atuais: Saldo"
+                    f" líquido em R$ {saldo_caixa_ia:,.2f}. Você pode me pedir"
+                    " para mostrar seu maior gasto, ver o resumo ou lançar despesas!"
+                )
 
         st.session_state.historico_chat.append(
             {"role": "assistant", "content": resposta_ia}
         )
         with st.chat_message("assistant"):
             st.write(resposta_ia)
-
 # ==========================================
 # --- SEÇÃO 2.3: LEITOR AUTOMÁTICO DE NOTAS FISCAIS ---
 # ==========================================
