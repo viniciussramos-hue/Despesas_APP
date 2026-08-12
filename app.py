@@ -151,10 +151,7 @@ with st.sidebar:
     st.markdown(f"<small>Versão: {VERSAO_SISTEMA} ({DATA_ATUALIZACAO})</small>", unsafe_allow_html=True)
     st.divider()
     
-    menu_selecionado = st.radio(
-        "Navegação",
-        ["Dashboard", "Contas a Pagar", "Lançamentos", "Relatórios"]
-    )
+   
 # ==========================================
 # --- CONEXÃO E MIGRAÇÃO AUTOMÁTICA DO DB ---
 # ==========================================
