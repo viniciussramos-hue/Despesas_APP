@@ -925,6 +925,30 @@ elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
                     "Preencha uma descrição válida e um valor superior a zero."
                 )
 
+    # Tabela de visualização dos últimos lançamentos de despesa
+    st.markdown("---")
+    st.subheader("📋 Últimas Despesas Lançadas")
+    df_ultimas_desp = pd.read_sql(
+        "SELECT id, data, descricao, categoria, valor FROM transacoes WHERE tipo = 'Despesa' ORDER BY id DESC LIMIT 5",
+        conn
+    )
+    if not df_ultimas_desp.empty:
+        st.dataframe(
+            df_ultimas_desp.rename(
+                columns={
+                    "id": "ID",
+                    "data": "Data",
+                    "descricao": "Descrição",
+                    "categoria": "Categoria",
+                    "valor": "Valor (R$)",
+                }
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("Nenhuma despesa registrada recentemente.")
+
 # ==========================================
 # --- SEÇÃO 2: ENTRADAS & SALÁRIOS ---
 # ==========================================
@@ -986,6 +1010,30 @@ elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
                 )
             else:
                 st.error("Informe uma descrição e um valor de receita válido.")
+
+    # Tabela de visualização das últimas entradas lançadas
+    st.markdown("---")
+    st.subheader("📋 Últimas Entradas Lançadas")
+    df_ultimas_rec = pd.read_sql(
+        "SELECT id, data, descricao, categoria, valor FROM transacoes WHERE tipo = 'Receita' ORDER BY id DESC LIMIT 5",
+        conn
+    )
+    if not df_ultimas_rec.empty:
+        st.dataframe(
+            df_ultimas_rec.rename(
+                columns={
+                    "id": "ID",
+                    "data": "Data",
+                    "descricao": "Descrição",
+                    "categoria": "Tipo de Receita",
+                    "valor": "Valor (R$)",
+                }
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("Nenhuma entrada registrada recentemente.")
 
 # ==========================================
 # --- SEÇÃO 2.1: LANÇAR DESPESA POR COMANDO DE VOZ ---
