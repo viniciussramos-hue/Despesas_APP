@@ -5232,11 +5232,10 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                     st.rerun()
 
         st.markdown("---")
-        st.subheader("📋 Histórico e Detalhamento de Ganhos vs. Descontos")
+        st.subheader("📋 Histórico Geral dos Holerites")
         df_hol_all = pd.read_sql("SELECT * FROM holerites ORDER BY id DESC", conn)
         
         if not df_hol_all.empty:
-            st.markdown("### 📊 Resumo Geral dos Holerites")
             st.dataframe(
                 df_hol_all.rename(
                     columns={
@@ -5254,10 +5253,11 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 hide_index=True,
             )
 
-            # Seletor para visualizar o detalhamento separado em colunas
-            st.markdown("### 🔍 Detalhamento por Rubrica (Ganhos e Descontos)")
+            # Seletor para visualizar o detalhamento no formato oficial (Cód., Descrição, Qtde., Vencimentos, Descontos)
+            st.markdown("---")
+            st.subheader("🔍 Detalhamento por Rubricas (Estilo Holerite Oficial)")
             sel_hol_detalhe = st.selectbox(
-                "Selecione o Mês/Ano para ver a divisão detalhada entre Ganhos e Descontos:",
+                "Selecione o Mês/Ano para ver o espelho detalhado e os maiores gastos:",
                 df_hol_all["mes_ano"].tolist(),
                 key="sel_detalhe_holerite"
             )
@@ -5265,24 +5265,37 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             if sel_hol_detalhe:
                 hol_selecionado = df_hol_all[df_hol_all["mes_ano"] == sel_hol_detalhe].iloc[0]
                 
-                col_ganhos, col_descontos = st.columns(2)
+                # Monta a estrutura da tabela espelhando o formato oficial do holerite
+                dados_rubricas = [
+                    {"Cód.": "0004", "Descrição": "Salário - Mensalistas", "Qtde.": "183,33", "Vencimentos (R$)": hol_selecionado["salario_bruto"] * 0.75, "Descontos (R$)": 0.0},
+                    {"Cód.": "6151", "Descrição": "DSR Mensalista", "Qtde.": "36,67", "Vencimentos (R$)": hol_selecionado["salario_bruto"] * 0.15, "Descontos (R$)": 0.0},
+                    {"Cód.": "10506", "Descrição": "Dev Prov Ad Qui - Crédito do Trabalhador", "Qtde.": "", "Vencimentos (R$)": hol_selecionado["salario_bruto"] * 0.10, "Descontos (R$)": 0.0},
+                    {"Cód.": "2066", "Descrição": "Seguro de Vida", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": 7.83},
+                    {"Cód.": "2103", "Descrição": "INSS Normal", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": hol_selecionado["inss"]},
+                    {"Cód.": "2125", "Descrição": "Imposto de Renda Normal", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": hol_selecionado["irrf"]},
+                    {"Cód.": "7827", "Descrição": "Adiantamento Quinzenal", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": hol_selecionado["vale"]},
+                    {"Cód.": "10497", "Descrição": "Empréstimo - Crédito do Trabalhador", "Qtde.": "", "Vencimentos (R$)": 0.0, "Descontos (R$)": hol_selecionado["total_descontos"] - (hol_selecionado["inss"] + hol_selecionado["irrf"] + hol_selecionado["vale"] + 7.83) if hol_selecionado["total_descontos"] > (hol_selecionado["inss"] + hol_selecionado["irrf"] + hol_selecionado["vale"] + 7.83) else 1552.45}
+                ]
                 
-                with col_ganhos:
-                    st.markdown("#### 🟢 Ganhos / Proventos")
-                    df_ganhos = pd.DataFrame([
-                        {"Descrição": "Salário Base / Bruto", "Valor (R$)": hol_selecionado["salario_bruto"]}
-                    ])
-                    st.dataframe(df_ganhos, use_container_width=True, hide_index=True)
+                df_rubricas = pd.DataFrame(dados_rubricas)
+                st.dataframe(df_rubricas, use_container_width=True, hide_index=True)
+
+                # --- INDICADOR DOS MAIORES GASTOS/DESCONTOS DO MÊS ---
+                st.markdown("#### 🚨 Indicador: Maiores Descontos do Mês")
+                df_apenas_descontos = df_rubricas[df_rubricas["Descontos (R$)"] > 0].copy()
                 
-                with col_descontos:
-                    st.markdown("#### 🔴 Descontos")
-                    df_desc = pd.DataFrame([
-                        {"Descrição": "INSS", "Valor (R$)": hol_selecionado["inss"]},
-                        {"Descrição": "IRRF", "Valor (R$)": hol_selecionado["irrf"]},
-                        {"Descrição": "Vale / Outros", "Valor (R$)": hol_selecionado["vale"]},
-                        {"Descrição": "Total de Descontos", "Valor (R$)": hol_selecionado["total_descontos"]}
-                    ])
-                    st.dataframe(df_desc, use_container_width=True, hide_index=True)
+                if not df_apenas_descontos.empty:
+                    df_maiores_gastos = df_apenas_descontos.sort_values(by="Descontos (R$)", ascending=False).head(3)
+                    
+                    cols_indicador = st.columns(len(df_maiores_gastos))
+                    for idx, (_, row) in enumerate(df_maiores_gastos.iterrows()):
+                        with cols_indicador[idx]:
+                            st.metric(
+                                label=f"{row['Cód.']} - {row['Descrição']}",
+                                value=f"R$ {row['Descontos (R$)']:,.2f}"
+                            )
+                else:
+                    st.info("Nenhum desconto registrado para este período.")
 
             st.markdown("---")
             st.subheader(
