@@ -511,14 +511,7 @@ with col_tit:
         "Sistema avançado de controle orçamentário, investimentos, projeções e"
         " auditoria de holerites."
     )
-with col_btn_sb:
-    st.write("") # Espaçamento
-    if st.button("📂 Menu Lateral", use_container_width=True, help="Clique para alternar a exibição da barra lateral"):
-        if st.session_state.sidebar_state == "expanded":
-            st.session_state.sidebar_state = "collapsed"
-        else:
-            st.session_state.sidebar_state = "expanded"
-        st.rerun()
+
 
 # Força o estado da sidebar no Streamlit moderno
 if hasattr(st, "set_sidebar_state"):
