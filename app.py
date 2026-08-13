@@ -5054,54 +5054,53 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 # ==========================================
 # MÓDULO: LEITOR SIMPLIFICADO DE NOTAS
 # ==========================================
-st.subheader("🧾 Leitor de Notas Fiscais")
+# No local onde você gerencia a exibição das páginas do seu app:
+if pagina_atual == "🧾 Leitor de Notas Fiscais":
+    st.subheader("🧾 Leitor de Notas Fiscais")
+    
+    # Câmera compactada centralizada
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        nota_path = st.camera_input("Tire uma foto da nota para lançamento:")
 
-# Câmera compactada nas colunas para não ficar gigante na tela
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    nota_foto = st.camera_input("Tire uma foto da nota para lançamento:")
-
-if st.button("Processar Nota e Lançar Despesa", use_container_width=True):
-    if nota_foto:
-        with st.spinner("Lendo nota com IA..."):
-            try:
-                from google import genai
-                from PIL import Image
-                import json
-                
-                client = genai.Client(api_key=st.secrets.get("GEMINI_API_KEY"))
-                imagem = Image.open(nota_foto)
-                
-                # Prompt direto para extrair apenas o essencial
-                prompt = """
-                Extraia apenas a descrição do estabelecimento e o valor total desta nota.
-                Retorne apenas JSON puro no formato: {"descricao": "nome", "valor": 00.00}
-                """
-                
-                response = client.models.generate_content(
-                    model="gemini-1.5-flash",
-                    contents=[imagem, prompt]
-                )
-                
-                # Extrai o JSON da resposta
-                texto = response.text.replace("```json", "").replace("```", "").strip()
-                dados = json.loads(texto)
-                
-                # Lança direto na tabela de despesas manual
-                conn = sqlite3.connect("despesas.db")
-                cursor = conn.cursor()
-                cursor.execute(
-                    "INSERT INTO transacoes (data, descricao, valor, tipo) VALUES (?, ?, ?, ?)",
-                    (date.today().strftime('%Y-%m-%d'), dados['descricao'], float(dados['valor']), "Despesa")
-                )
-                conn.commit()
-                conn.close()
-                
-                st.success(f"✅ Lançado: {dados['descricao']} - R$ {float(dados['valor']):.2f}")
-                time.sleep(2)
-                st.rerun()
-                
-            except Exception as e:
-                st.error(f"Erro ao ler nota: {e}")
-    else:
-        st.warning("Por favor, tire a foto da nota primeiro.")
+    if st.button("Processar Nota e Lançar Despesa", use_container_width=True):
+        if nota_path:
+            with st.spinner("Lendo nota com IA..."):
+                try:
+                    from google import genai
+                    from PIL import Image
+                    import json
+                    
+                    client = genai.Client(api_key=st.secrets.get("GEMINI_API_KEY"))
+                    imagem = Image.open(nota_path)
+                    
+                    prompt = """
+                    Extraia apenas a descrição do estabelecimento e o valor total desta nota.
+                    Retorne apenas JSON puro no formato: {"descricao": "nome", "valor": 00.00}
+                    """
+                    
+                    response = client.models.generate_content(
+                        model="gemini-1.5-flash",
+                        contents=[imagem, prompt]
+                    )
+                    
+                    texto = response.text.replace("```json", "").replace("```", "").strip()
+                    dados = json.loads(texto)
+                    
+                    conn = sqlite3.connect("despesas.db")
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "INSERT INTO transacoes (data, descricao, valor, tipo) VALUES (?, ?, ?, ?)",
+                        (date.today().strftime('%Y-%m-%d'), dados['descricao'], float(dados['valor']), "Despesa")
+                    )
+                    conn.commit()
+                    conn.close()
+                    
+                    st.success(f"✅ Lançado: {dados['descricao']} - R$ {float(dados['valor']):.2f}")
+                    time.sleep(2)
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Erro ao ler nota: {e}")
+        else:
+            st.warning("Por favor, tire a foto da nota primeiro.")
