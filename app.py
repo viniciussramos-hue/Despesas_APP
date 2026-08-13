@@ -5049,7 +5049,8 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 st.success("Holerite removido com sucesso!")
                 st.rerun()
         else:
-          
+            st.info("Nenhum holerite cadastrado ou importado até o momento.")
+
 # ==========================================
 # INTERAÇÃO COM I.A. (GEMINI API) - DESPESAS
 # ==========================================
@@ -5064,41 +5065,41 @@ st.markdown(
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 
 if api_key:
-  genai.configure(api_key=api_key)
-  prompt_despesas = st.text_input(
-      "Exemplo: Quais foram minhas maiores despesas este mês? Ou dê dicas"
-      " para economizar:"
-  )
+    genai.configure(api_key=api_key)
+    prompt_despesas = st.text_input(
+        "Exemplo: Quais foram minhas maiores despesas este mês? Ou dê dicas"
+        " para economizar:"
+    )
 
-  if st.button("Consultar IA sobre Despesas", use_container_width=True):
-    if prompt_despesas:
-      with st.spinner("Analisando seus dados financeiros com Inteligência Artificial..."):
-        try:
-          # Converte as transações atuais para um resumo de texto para o modelo
-          resumo_transacoes = (
-              df_transacoes.tail(50).to_string(index=False)
-              if "df_transacoes" in locals()
-              else "Dados indisponíveis"
-          )
-          prompt_completo = f"""
-                    Com base nas seguintes transações/despesas financeiras do usuário:
-                    {resumo_transacoes}
-                    
-                    Responda à seguinte solicitação de forma objetiva, profissional e em português:
-                    {prompt_despesas}
-                    """
+    if st.button("Consultar IA sobre Despesas", use_container_width=True):
+        if prompt_despesas:
+            with st.spinner("Analisando seus dados financeiros com Inteligência Artificial..."):
+                try:
+                    # Converte as transações atuais para um resumo de texto para o modelo
+                    resumo_transacoes = (
+                        df_transacoes.tail(50).to_string(index=False)
+                        if "df_transacoes" in locals()
+                        else "Dados indisponíveis"
+                    )
+                    prompt_completo = f"""
+                        Com base nas seguintes transações/despesas financeiras do usuário:
+                        {resumo_transacoes}
+                        
+                        Responda à seguinte solicitação de forma objetiva, profissional e em português:
+                        {prompt_despesas}
+                        """
 
-          model = genai.GenerativeModel("gemini-1.5-flash")
-          response = model.generate_content(prompt_completo)
+                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    response = model.generate_content(prompt_completo)
 
-          st.success("Análise do Assistente:")
-          st.write(response.text)
-        except Exception as e:
-          st.error(f"Erro ao comunicar com a API do Gemini: {e}")
-    else:
-      st.warning("Por favor, digite uma pergunta ou comando para a IA.")
+                    st.success("Análise do Assistente:")
+                    st.write(response.text)
+                except Exception as e:
+                    st.error(f"Erro ao comunicar com a API do Gemini: {e}")
+        else:
+            st.warning("Por favor, digite uma pergunta ou comando para a IA.")
 else:
-  st.info(
-      "⚠️ Para ativar a IA, certifique-se de salvar a sua `GEMINI_API_KEY` na"
-      " aba **Secrets** das configurações do aplicativo no Streamlit Cloud."
-  )
+    st.info(
+        "⚠️ Para ativar a IA, certifique-se de salvar a sua `GEMINI_API_KEY` na"
+        " aba **Secrets** das configurações do aplicativo no Streamlit Cloud."
+    )
