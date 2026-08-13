@@ -5051,37 +5051,57 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         else:
             st.info("Nenhum holerite cadastrado ou importado até o momento.")import google.generativeai as genai
 
+import google.generativeai as genai
+
 # ==========================================
 # INTERAÇÃO COM I.A. (GEMINI API) - DESPESAS
 # ==========================================
-if texto_extraido.strip():
-                st.success("Arquivo PDF lido com sucesso!")
-                st.text_area("Prévia do Texto Extraído:", texto_extraido[:1500], height=200)
+st.markdown("---")
+st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
+st.markdown(
+    "Faça perguntas, analise seus gastos ou peça insights sobre as despesas"
+    " cadastradas:"
+)
 
-                if st.button("Processar e Inserir Transações com I.A.", use_container_width=True):
-                    # --- AQUI VOCÊ INTEGRA A CHAMADA PARA A I.A. ---
-                    with st.spinner("Processando transações com inteligência artificial..."):
-                        
-                        # 1. Prompt para enviar o texto do PDF para a I.A. estruturar
-                        prompt_ia = f"""
-                        Analise o texto extraído de um documento financeiro (extrato bancário ou nota fiscal) abaixo. 
-                        Extraia todas as transações financeiras encontradas.
-                        Para cada transação, retorne estritamente no formato CSV ou JSON contendo:
-                        - data (YYYY-MM-DD)
-                        - tipo ('Despesa' ou 'Receita')
-                        - descricao (breve resumo do estabelecimento ou histórico)
-                        - categoria (ex: Alimentação, Transporte, Moradia, Salário, Lazer, Outros)
-                        - valor (número decimal com ponto, ex: 150.50)
-                        
-                        Texto do documento:
-                        {texto_extraido}
-                        """
-                        
-                        # Exemplo de chamada ao modelo (substitua conforme sua configuração de API do Gemini)
-                        # response = client.models.generate_content(
-                        #     model='gemini-2.5-flash',
-                        #     contents=prompt_ia,
-                        # )
-                        # dados_processados = response.text
-                        
-                    st.success("Transações processadas pela I.A. com sucesso!")
+# Utiliza a chave configurada nos Secrets do Streamlit Cloud
+api_key = st.secrets.get("GEMINI_API_KEY", None)
+
+if api_key:
+  genai.configure(api_key=api_key)
+  prompt_despesas = st.text_input(
+      "Exemplo: Quais foram minhas maiores despesas este mês? Ou dê dicas"
+      " para economizar:"
+  )
+
+  if st.button("Consultar IA sobre Despesas", use_container_width=True):
+    if prompt_despesas:
+      with st.spinner("Analisando seus dados financeiros com Inteligência Artificial..."):
+        try:
+          # Converte as transações atuais para um resumo de texto para o modelo
+          resumo_transacoes = (
+              df_transacoes.tail(50).to_string(index=False)
+              if "df_transacoes" in locals()
+              else "Dados indisponíveis"
+          )
+          prompt_completo = f"""
+                    Com base nas seguintes transações/despesas financeiras do usuário:
+                    {resumo_transacoes}
+                    
+                    Responda à seguinte solicitação de forma objetiva, profissional e em português:
+                    {prompt_despesas}
+                    """
+
+          model = genai.GenerativeModel("gemini-1.5-flash")
+          response = model.generate_content(prompt_completo)
+
+          st.success("Análise do Assistente:")
+          st.write(response.text)
+        except Exception as e:
+          st.error(f"Erro ao comunicar com a API do Gemini: {e}")
+    else:
+      st.warning("Por favor, digite uma pergunta ou comando para a IA.")
+else:
+  st.info(
+      "⚠️ Para ativar a IA, certifique-se de salvar a sua `GEMINI_API_KEY` na"
+      " aba **Secrets** das configurações do aplicativo no Streamlit Cloud."
+  )
