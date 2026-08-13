@@ -5092,9 +5092,9 @@ if api_key:
                     {prompt_despesas}
                     """
                     
-                    # Utilizando o modelo gemini-2.0-flash suportado pela nova SDK
+                    # Utilizando o modelo atualizado gemini-3.5-flash
                     response = client.models.generate_content(
-                        model="gemini-2.0-flash",
+                        model="gemini-3.5-flash",
                         contents=prompt_completo,
                     )
                     
