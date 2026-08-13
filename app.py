@@ -5065,7 +5065,11 @@ st.markdown(
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 
 if api_key:
-    genai.configure(api_key=api_key)
+    # Importação e cliente da nova SDK oficial
+    from google import genai
+    
+    client = genai.Client(api_key=api_key)
+    
     prompt_despesas = st.text_input(
         "Exemplo: Quais foram minhas maiores despesas este mês? Ou dê dicas para economizar:"
     )
@@ -5080,8 +5084,6 @@ if api_key:
                         else "Dados indisponíveis"
                     )
                     
-                    model = genai.GenerativeModel("gemini-1.5-flash")
-                    
                     prompt_completo = f"""
                     Com base nestas transações:
                     {resumo_transacoes}
@@ -5090,7 +5092,12 @@ if api_key:
                     {prompt_despesas}
                     """
                     
-                    response = model.generate_content(prompt_completo)
+                    # Chamada utilizando o modelo padrão atual via nova SDK
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=prompt_completo,
+                    )
+                    
                     st.success("Análise do Assistente:")
                     st.markdown(response.text)
                 except Exception as e:
