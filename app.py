@@ -5062,9 +5062,6 @@ st.markdown(
 )
 
 # Utiliza a chave configurada nos Secrets do Streamlit Cloud
-# --- SUBSTITUA A PARTIR DAQUI ATÉ O FIM DO ARQUIVO ---
-
-# Utiliza a chave configurada nos Secrets do Streamlit Cloud
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 
 if api_key:
@@ -5083,8 +5080,7 @@ if api_key:
                         else "Dados indisponíveis"
                     )
                     
-                    # Usando o modelo mais estável e universal
-                   model = genai.GenerativeModel("gemini-2.5-flash")
+                    model = genai.GenerativeModel("gemini-1.5-flash")
                     
                     prompt_completo = f"""
                     Com base nestas transações:
@@ -5102,4 +5098,4 @@ if api_key:
         else:
             st.warning("Por favor, digite uma pergunta.")
 else:
-    st.info("⚠️ Configure uma chave válida (começando com AIza) nos Secrets.")
+    st.info("⚠️ Configure uma chave válida nos Secrets.")
