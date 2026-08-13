@@ -5056,7 +5056,6 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 # ==========================================================
 # MÓDULO: ASSISTENTE COM IA EXCLUSIVO NA ABA NOTAS
 # ==========================================================
-# (Se a variável do seu menu se chamar diferente de 'selected', substitua abaixo)
 if 'selected' in locals() and selected == "📜 Notas":
     st.markdown("---")
     st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
@@ -5074,7 +5073,6 @@ if 'selected' in locals() and selected == "📜 Notas":
         
         prompt_despesas = st.text_input("Digite seu comando ou pergunta:", key="input_ia_notas_final")
         
-        # Câmera compactada usando colunas
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             arquivo_foto = st.camera_input("Tire uma foto do recibo:", key="camera_notas_final")
@@ -5118,4 +5116,27 @@ if 'selected' in locals() and selected == "📜 Notas":
                                 else:
                                     raise err
                         
-                        texto_resposta = response.text.replace("```json", "").replace("
+                        texto_resposta = response.text.replace("```json", "").replace("```", "").strip()
+                        dados_ia = json.loads(texto_resposta)
+                        
+                        if dados_ia.get("acao") == "lancar":
+                            conn = sqlite3.connect("despesas.db")
+                            cursor = conn.cursor()
+                            cursor.execute(
+                                "INSERT INTO transacoes (data, descricao, valor, tipo) VALUES (?, ?, ?, ?)",
+                                (dados_ia.get("data", hoje_str), dados_ia.get("descricao"), float(dados_ia.get("valor")), dados_ia.get("tipo", "Despesa"))
+                            )
+                            conn.commit()
+                            conn.close()
+                            st.success(f"✅ Lançado: {dados_ia.get('descricao')} - R$ {dados_ia.get('valor')}")
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.markdown(dados_ia.get("resposta"))
+                            
+                    except Exception as e:
+                        st.error(f"Erro na IA: {e}")
+            else:
+                st.warning("Digite algo ou tire uma foto.")
+    else:
+        st.info("⚠️ Configure a chave GEMINI_API_KEY nos Secrets.")
