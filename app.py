@@ -5058,8 +5058,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 st.markdown("---")
 st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
 st.markdown(
-    "Faça perguntas, analise seus gastos ou peça insights sobre as despesas"
-    " cadastradas:"
+    "Faça perguntas, analise seus gastos ou peça insights sobre as despesas cadastradas:"
 )
 
 # Utiliza a chave configurada nos Secrets do Streamlit Cloud
@@ -5068,15 +5067,13 @@ api_key = st.secrets.get("GEMINI_API_KEY", None)
 if api_key:
     genai.configure(api_key=api_key)
     prompt_despesas = st.text_input(
-        "Exemplo: Quais foram minhas maiores despesas este mês? Ou dê dicas"
-        " para economizar:"
+        "Exemplo: Quais foram minhas maiores despesas este mês? Ou dê dicas para economizar:"
     )
 
     if st.button("Consultar IA sobre Despesas", use_container_width=True):
         if prompt_despesas:
             with st.spinner("Analisando seus dados financeiros com Inteligência Artificial..."):
                 try:
-                    # Converte as transações atuais para um resumo de texto para o modelo
                     resumo_transacoes = (
                         df_transacoes.tail(50).to_string(index=False)
                         if "df_transacoes" in locals()
@@ -5090,7 +5087,7 @@ if api_key:
                         {prompt_despesas}
                         """
 
-                   model = genai.GenerativeModel("gemini-1.5-flash")
+                    model = genai.GenerativeModel("gemini-1.5-flash")
                     response = model.generate_content(prompt_completo)
 
                     st.success("Análise do Assistente:")
@@ -5101,6 +5098,5 @@ if api_key:
             st.warning("Por favor, digite uma pergunta ou comando para a IA.")
 else:
     st.info(
-        "⚠️ Para ativar a IA, certifique-se de salvar a sua `GEMINI_API_KEY` na"
-        " aba **Secrets** das configurações do aplicativo no Streamlit Cloud."
+        "⚠️ Para ativar a IA, certifique-se de salvar a sua `GEMINI_API_KEY` na aba **Secrets** das configurações do aplicativo no Streamlit Cloud."
     )
