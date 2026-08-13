@@ -5051,14 +5051,12 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 st.rerun()
         else:
             st.info("Nenhum holerite cadastrado ou importado até o momento.")
-# ==========================================
-# INTERAÇÃO COM I.A., CÂMERA E LANÇAMENTOS
-# ==========================================
+# ==========================================================
+# INTERAÇÃO COM I.A., CÂMERA COMPACTA E LANÇAMENTOS
+# ==========================================================
 st.markdown("---")
 st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
-st.markdown(
-    "Faça perguntas, envie arquivos ou **tire uma foto com a câmera** para lançar despesas:"
-)
+st.markdown("Faça perguntas ou tire uma foto para lançar despesas:")
 
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 
@@ -5070,16 +5068,16 @@ if api_key:
     
     client = genai.Client(api_key=api_key)
     
-    prompt_despesas = st.text_input(
-        "Digite seu comando ou pergunta (opcional se tirar foto):"
-    )
+    prompt_despesas = st.text_input("Digite seu comando ou pergunta:")
     
-    # Componente exclusivo para captura direta via câmera
-    arquivo_foto = st.camera_input("Tire uma foto do comprovante ou recibo:")
+    # Câmera compactada usando colunas
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        arquivo_foto = st.camera_input("Tire uma foto do recibo:")
 
     if st.button("Executar com IA", use_container_width=True):
         if prompt_despesas or arquivo_foto:
-            with st.spinner("Processando dados e imagem com IA..."):
+            with st.spinner("Processando..."):
                 try:
                     resumo_transacoes = (
                         df_transacoes.tail(20).to_string(index=False)
@@ -5088,7 +5086,6 @@ if api_key:
                     )
                     
                     conteudos = []
-                    
                     if arquivo_foto is not None:
                         imagem_obj = Image.open(arquivo_foto)
                         conteudos.append(imagem_obj)
@@ -5096,23 +5093,13 @@ if api_key:
                     hoje_str = date.today().strftime('%Y-%m-%d')
                     
                     texto_instrucao = f"""
-                    Você é um assistente financeiro inteligente integrado a um sistema em Python.
-                    Analise a imagem enviada (se houver) e o comando do usuário: "{prompt_despesas}"
-                    
-                    As últimas transações do usuário são:
-                    {resumo_transacoes}
-                    
-                    Sua tarefa:
-                    1. Se a imagem for um comprovante/recibo/nota fiscal ou o usuário pedir para adicionar, gastar, pagar ou lançar, extraia as informações e retorne estritamente um objeto JSON puro no formato:
-                    {{"acao": "lancar", "descricao": "nome ou estabelecimento", "valor": 00.00, "tipo": "Despesa", "data": "{hoje_str}"}}
-                    (Use a data {hoje_str} se não houver data legível. O valor deve ser numérico).
-                    
-                    2. Se for uma pergunta, análise ou dúvida geral, retorne um JSON no formato:
-                    {{"acao": "responder", "resposta": "Sua resposta analítica detalhada aqui..."}}
+                    Analise: "{prompt_despesas}". Transações recentes: {resumo_transacoes}.
+                    1. Se for lançamento, retorne JSON puro: {{"acao": "lancar", "descricao": "nome", "valor": 00.00, "tipo": "Despesa", "data": "{hoje_str}"}}
+                    2. Se for dúvida, retorne JSON puro: {{"acao": "responder", "resposta": "Sua resposta..."}}
                     """
-                    
                     conteudos.append(texto_instrucao)
                     
+                    # Re-tentativa automática (503)
                     response = None
                     for tentativa in range(3):
                         try:
@@ -5128,38 +5115,27 @@ if api_key:
                             else:
                                 raise err
                     
-                    texto_resposta = response.text.strip()
-                    if texto_resposta.startswith("```json"):
-                        texto_resposta = texto_resposta[7:]
-                    if texto_resposta.endswith("```"):
-                        texto_resposta = texto_resposta[:-3]
-                    
-                    dados_ia = json.loads(texto_resposta.strip())
+                    # Limpeza da resposta
+                    texto_resposta = response.text.replace("```json", "").replace("```", "").strip()
+                    dados_ia = json.loads(texto_resposta)
                     
                     if dados_ia.get("acao") == "lancar":
-                        desc = dados_ia.get("descricao")
-                        val = float(dados_ia.get("valor"))
-                        tipo = dados_ia.get("tipo", "Despesa")
-                        dt = dados_ia.get("data", str(date.today()))
-                        
                         conn = sqlite3.connect("despesas.db")
                         cursor = conn.cursor()
                         cursor.execute(
                             "INSERT INTO transacoes (data, descricao, valor, tipo) VALUES (?, ?, ?, ?)",
-                            (dt, desc, val, tipo)
+                            (dados_ia.get("data", hoje_str), dados_ia.get("descricao"), float(dados_ia.get("valor")), dados_ia.get("tipo", "Despesa"))
                         )
                         conn.commit()
                         conn.close()
-                        
-                        st.success(f"✅ Lançamento extraído e salvo com sucesso!\n\n* **Descrição:** {desc}\n* **Valor:** R$ {val:.2f}\n* **Data:** {dt}")
+                        st.success(f"✅ Lançado: {dados_ia.get('descricao')} - R$ {dados_ia.get('valor')}")
                         st.rerun()
                     else:
-                        st.success("Análise do Assistente:")
-                        st.markdown(dados_ia.get("resposta", "Sem resposta."))
+                        st.markdown(dados_ia.get("resposta"))
                         
                 except Exception as e:
-                    st.error(f"Erro ao processar com a IA: {e}")
+                    st.error(f"Erro na IA: {e}")
         else:
-            st.warning("Por favor, digite uma pergunta ou tire uma foto.")
+            st.warning("Digite algo ou tire uma foto.")
 else:
-    st.info("⚠️ Configure uma chave válida nos Secrets.")
+    st.info("⚠️ Configure a chave GEMINI_API_KEY nos Secrets.")
