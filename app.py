@@ -1,13 +1,14 @@
-from datetime import date, datetime, timedelta
-import difflib
-import json
 import os
 import re
+import json
 import sqlite3
+from datetime import date, datetime, timedelta
+import difflib
 import pandas as pd
 import pdfplumber
 import plotly.express as px
 import streamlit as st
+import google.generativeai as genai
 
 # ==========================================
 # --- CONFIGURAÇÃO DA PÁGINA E TEMA ---
@@ -824,6 +825,10 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
                 mudar_pagina("📝 Tarefas & Compras")
                 st.rerun()
         with sub3:
+            if st.button("🧾 Notas", use_container_width=True):
+                mudar_pagina("🧾 Leitor de Notas Fiscais")
+                st.rerun()
+        with sub4:
             if st.button("❤️ Saúde", use_container_width=True):
                 mudar_pagina("❤️ Saúde Financeira")
                 st.rerun()
@@ -5046,58 +5051,91 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 st.rerun()
         else:
             st.info("Nenhum holerite cadastrado ou importado até o momento.")
+# ==========================================================
+# INTERAÇÃO COM I.A., CÂMERA COMPACTA E LANÇAMENTOS
+# ==========================================================
+st.markdown("---")
+st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
+st.markdown("Faça perguntas ou tire uma foto para lançar despesas:")
 
-# ==========================================
-# MÓDULO: LANÇAMENTO MANUAL DE NOTAS
-# ==========================================
-pagina_atual = st.sidebar.selectbox(
-    "Menu de Navegação",
-    ["Início", "🧾 Leitor de Notas Fiscais", "Outras Páginas"] # Ajuste conforme as opções do seu app
-)
+api_key = st.secrets.get("GEMINI_API_KEY", None)
 
-# ==========================================
-# MÓDULO: LANÇAMENTO MANUAL DE NOTAS
-# ==========================================
-if pagina_atual in ["🧾 Leitor de Notas Fiscais", "Notas Fiscais"]:
-    st.subheader("🧾 Lançamento Manual de Despesa")
-    st.write("Preencha os campos abaixo para registrar a sua despesa manualmente:")
+if api_key:
+    from google import genai
+    import time
+    import json
+    from PIL import Image
     
-    with st.form("form_lancamento_manual"):
-        data_despesa = st.date_input("Data", value=date.today())
-        descricao_despesa = st.text_input("Descrição do Estabelecimento / Nota")
-        valor_despesa = st.number_input("Valor Total (R$)", min_value=0.0, format="%.2f")
-        
-        submit_manual = st.form_submit_button("Lançar Despesa", use_container_width=True)
-        
-        if submit_manual:
-            if descricao_despesa and valor_despesa > 0:
+    client = genai.Client(api_key=api_key)
+    
+    prompt_despesas = st.text_input("Digite seu comando ou pergunta:")
+    
+    # Câmera compactada usando colunas
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        arquivo_foto = st.camera_input("Tire uma foto do recibo:")
+
+    if st.button("Executar com IA", use_container_width=True):
+        if prompt_despesas or arquivo_foto:
+            with st.spinner("Processando..."):
                 try:
-                    conn = sqlite3.connect("despesas.db")
-                    cursor = conn.cursor()
-                    
-                    # Cria a tabela caso ela não exista para evitar erros
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS transacoes (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            data TEXT,
-                            descricao TEXT,
-                            valor REAL,
-                            tipo TEXT
-                        )
-                    """)
-                    
-                    cursor.execute(
-                        "INSERT INTO transacoes (data, descricao, valor, tipo) VALUES (?, ?, ?, ?)",
-                        (data_despesa.strftime('%Y-%m-%d'), descricao_despesa, float(valor_despesa), "Despesa")
+                    resumo_transacoes = (
+                        df_transacoes.tail(20).to_string(index=False)
+                        if "df_transacoes" in locals()
+                        else "Dados indisponíveis"
                     )
-                    conn.commit()
-                    conn.close()
                     
-                    st.success(f"✅ Lançado com sucesso: {descricao_despesa} - R$ {valor_despesa:.2f}")
-                    time.sleep(2)
-                    st.rerun()
+                    conteudos = []
+                    if arquivo_foto is not None:
+                        imagem_obj = Image.open(arquivo_foto)
+                        conteudos.append(imagem_obj)
                     
+                    hoje_str = date.today().strftime('%Y-%m-%d')
+                    
+                    texto_instrucao = f"""
+                    Analise: "{prompt_despesas}". Transações recentes: {resumo_transacoes}.
+                    1. Se for lançamento, retorne JSON puro: {{"acao": "lancar", "descricao": "nome", "valor": 00.00, "tipo": "Despesa", "data": "{hoje_str}"}}
+                    2. Se for dúvida, retorne JSON puro: {{"acao": "responder", "resposta": "Sua resposta..."}}
+                    """
+                    conteudos.append(texto_instrucao)
+                    
+                    # Re-tentativa automática (503)
+                    response = None
+                    for tentativa in range(3):
+                        try:
+                            response = client.models.generate_content(
+                                model="gemini-3.5-flash",
+                                contents=conteudos,
+                            )
+                            break
+                        except Exception as err:
+                            if "503" in str(err) and tentativa < 2:
+                                time.sleep(2)
+                                continue
+                            else:
+                                raise err
+                    
+                    # Limpeza da resposta
+                    texto_resposta = response.text.replace("```json", "").replace("```", "").strip()
+                    dados_ia = json.loads(texto_resposta)
+                    
+                    if dados_ia.get("acao") == "lancar":
+                        conn = sqlite3.connect("despesas.db")
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "INSERT INTO transacoes (data, descricao, valor, tipo) VALUES (?, ?, ?, ?)",
+                            (dados_ia.get("data", hoje_str), dados_ia.get("descricao"), float(dados_ia.get("valor")), dados_ia.get("tipo", "Despesa"))
+                        )
+                        conn.commit()
+                        conn.close()
+                        st.success(f"✅ Lançado: {dados_ia.get('descricao')} - R$ {dados_ia.get('valor')}")
+                        st.rerun()
+                    else:
+                        st.markdown(dados_ia.get("resposta"))
+                        
                 except Exception as e:
-                    st.error(f"Erro ao salvar no banco de dados: {e}")
-            else:
-                st.warning("Por favor, preencha a descrição e informe um valor maior que zero.")
+                    st.error(f"Erro na IA: {e}")
+        else:
+            st.warning("Digite algo ou tire uma foto.")
+else:
+    st.info("⚠️ Configure a chave GEMINI_API_KEY nos Secrets.")
