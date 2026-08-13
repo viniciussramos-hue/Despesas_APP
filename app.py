@@ -5056,15 +5056,18 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 # ==========================================
 st.subheader("🧾 Leitor de Notas Fiscais")
 
-# Câmera para capturar apenas uma nota
-nota_foto = st.camera_input("Tire uma foto da nota para lançamento:")
+# Câmera compactada nas colunas para não ficar gigante na tela
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    nota_foto = st.camera_input("Tire uma foto da nota para lançamento:")
 
 if st.button("Processar Nota e Lançar Despesa", use_container_width=True):
     if nota_foto:
-        with st.spinner("Lendo nota..."):
+        with st.spinner("Lendo nota com IA..."):
             try:
                 from google import genai
                 from PIL import Image
+                import json
                 
                 client = genai.Client(api_key=st.secrets.get("GEMINI_API_KEY"))
                 imagem = Image.open(nota_foto)
@@ -5072,11 +5075,11 @@ if st.button("Processar Nota e Lançar Despesa", use_container_width=True):
                 # Prompt direto para extrair apenas o essencial
                 prompt = """
                 Extraia apenas a descrição do estabelecimento e o valor total desta nota.
-                Retorne apenas JSON: {"descricao": "nome", "valor": 00.00}
+                Retorne apenas JSON puro no formato: {"descricao": "nome", "valor": 00.00}
                 """
                 
                 response = client.models.generate_content(
-                    model="gemini-3.5-flash",
+                    model="gemini-1.5-flash",
                     contents=[imagem, prompt]
                 )
                 
@@ -5094,7 +5097,8 @@ if st.button("Processar Nota e Lançar Despesa", use_container_width=True):
                 conn.commit()
                 conn.close()
                 
-                st.success(f"✅ Lançado: {dados['descricao']} - R$ {dados['valor']}")
+                st.success(f"✅ Lançado: {dados['descricao']} - R$ {float(dados['valor']):.2f}")
+                time.sleep(2)
                 st.rerun()
                 
             except Exception as e:
