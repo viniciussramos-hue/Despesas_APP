@@ -824,10 +824,6 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
                 mudar_pagina("📝 Tarefas & Compras")
                 st.rerun()
         with sub3:
-            if st.button("🧾 Notas", use_container_width=True):
-                mudar_pagina("🧾 Leitor de Notas Fiscais")
-                st.rerun()
-        with sub4:
             if st.button("❤️ Saúde", use_container_width=True):
                 mudar_pagina("❤️ Saúde Financeira")
                 st.rerun()
