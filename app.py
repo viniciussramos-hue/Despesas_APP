@@ -5062,8 +5062,9 @@ pagina_atual = st.sidebar.selectbox(
 # ==========================================
 # MÓDULO: LANÇAMENTO MANUAL DE NOTAS
 # ==========================================
-if pagina_atual == "🧾 Leitor de Notas Fiscais":
+if pagina_atual in ["🧾 Leitor de Notas Fiscais", "Notas Fiscais"]:
     st.subheader("🧾 Lançamento Manual de Despesa")
+    st.write("Preencha os campos abaixo para registrar a sua despesa manualmente:")
     
     with st.form("form_lancamento_manual"):
         data_despesa = st.date_input("Data", value=date.today())
@@ -5077,6 +5078,18 @@ if pagina_atual == "🧾 Leitor de Notas Fiscais":
                 try:
                     conn = sqlite3.connect("despesas.db")
                     cursor = conn.cursor()
+                    
+                    # Cria a tabela caso ela não exista para evitar erros
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS transacoes (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            data TEXT,
+                            descricao TEXT,
+                            valor REAL,
+                            tipo TEXT
+                        )
+                    """)
+                    
                     cursor.execute(
                         "INSERT INTO transacoes (data, descricao, valor, tipo) VALUES (?, ?, ?, ?)",
                         (data_despesa.strftime('%Y-%m-%d'), descricao_despesa, float(valor_despesa), "Despesa")
