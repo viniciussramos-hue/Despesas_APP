@@ -5062,6 +5062,9 @@ st.markdown(
 )
 
 # Utiliza a chave configurada nos Secrets do Streamlit Cloud
+# --- SUBSTITUA A PARTIR DAQUI ATÉ O FIM DO ARQUIVO ---
+
+# Utiliza a chave configurada nos Secrets do Streamlit Cloud
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 
 if api_key:
@@ -5072,31 +5075,31 @@ if api_key:
 
     if st.button("Consultar IA sobre Despesas", use_container_width=True):
         if prompt_despesas:
-            with st.spinner("Analisando seus dados financeiros com Inteligência Artificial..."):
+            with st.spinner("Analisando seus dados financeiros com IA..."):
                 try:
                     resumo_transacoes = (
                         df_transacoes.tail(50).to_string(index=False)
                         if "df_transacoes" in locals()
                         else "Dados indisponíveis"
                     )
+                    
+                    # Usando o modelo mais estável e universal
+                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    
                     prompt_completo = f"""
-                        Com base nas seguintes transações/despesas financeiras do usuário:
-                        {resumo_transacoes}
-                        
-                        Responda à seguinte solicitação de forma objetiva, profissional e em português:
-                        {prompt_despesas}
-                        """
-
-                    model = genai.GenerativeModel("gemini-2.5-flash")
+                    Com base nestas transações:
+                    {resumo_transacoes}
+                    
+                    Responda à solicitação abaixo de forma objetiva:
+                    {prompt_despesas}
+                    """
+                    
                     response = model.generate_content(prompt_completo)
-
                     st.success("Análise do Assistente:")
-                    st.write(response.text)
+                    st.markdown(response.text)
                 except Exception as e:
-                    st.error(f"Erro ao comunicar com a API do Gemini: {e}")
+                    st.error(f"Erro na IA: {e}")
         else:
-            st.warning("Por favor, digite uma pergunta ou comando para a IA.")
+            st.warning("Por favor, digite uma pergunta.")
 else:
-    st.info(
-        "⚠️ Para ativar a IA, certifique-se de salvar a sua `GEMINI_API_KEY` na aba **Secrets** das configurações do aplicativo no Streamlit Cloud."
-    )
+    st.info("⚠️ Configure uma chave válida (começando com AIza) nos Secrets.")
