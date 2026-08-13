@@ -5078,7 +5078,7 @@ if api_key:
             with st.spinner("Analisando seus dados financeiros com IA..."):
                 try:
                     resumo_transacoes = (
-                        df_transacoes.tail(50).to_string(index=False)
+                        df_transacoes.tail(20).to_string(index=False)
                         if "df_transacoes" in locals()
                         else "Dados indisponíveis"
                     )
