@@ -5088,7 +5088,6 @@ if api_key:
                         """
 
                     model = genai.GenerativeModel("gemini-2.0-flash")
-                    response = model = genai.GenerativeModel("gemini-1.5-flash")
                     response = model.generate_content(prompt_completo)
 
                     st.success("Análise do Assistente:")
