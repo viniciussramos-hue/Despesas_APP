@@ -4,7 +4,6 @@ import json
 import sqlite3
 from datetime import date, datetime, timedelta
 import difflib
-
 import pandas as pd
 import pdfplumber
 import plotly.express as px
@@ -5091,7 +5090,7 @@ if api_key:
                         {prompt_despesas}
                         """
 
-                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    model = genai.GenerativeModel("gemini-2.5-flash")
                     response = model.generate_content(prompt_completo)
 
                     st.success("Análise do Assistente:")
