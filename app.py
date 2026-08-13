@@ -5065,9 +5065,9 @@ st.markdown(
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 
 if api_key:
-    # Importação e cliente da nova SDK oficial
     from google import genai
     
+    # Inicializa o cliente com a nova SDK unificada
     client = genai.Client(api_key=api_key)
     
     prompt_despesas = st.text_input(
@@ -5092,9 +5092,9 @@ if api_key:
                     {prompt_despesas}
                     """
                     
-                    # Chamada utilizando o modelo padrão atual via nova SDK
+                    # Utilizando o modelo gemini-2.0-flash suportado pela nova SDK
                     response = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-2.0-flash",
                         contents=prompt_completo,
                     )
                     
