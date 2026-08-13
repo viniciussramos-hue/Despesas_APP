@@ -5088,8 +5088,8 @@ if api_key:
                         """
 
                     model = genai.GenerativeModel("gemini-2.0-flash")
-                    response = model.generate_content(prompt_completo)
-
+                    response = model = genai.GenerativeModel("gemini-2.0-flash")
+                    
                     st.success("Análise do Assistente:")
                     st.write(response.text)
                 except Exception as e:
