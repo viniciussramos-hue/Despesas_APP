@@ -5051,4 +5051,67 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 st.rerun()
         else:
             st.info("Nenhum holerite cadastrado ou importado até o momento.")
+# ==========================================
+# INTERAÇÃO COM I.A. (GEMINI API) - DESPESAS
+# ==========================================
+st.markdown("---")
+st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
+st.markdown(
+    "Faça perguntas, analise seus gastos ou peça insights sobre as despesas cadastradas:"
+)
 
+# Utiliza a chave configurada nos Secrets do Streamlit Cloud
+api_key = st.secrets.get("GEMINI_API_KEY", None)
+
+if api_key:
+    from google import genai
+    import time
+    
+    client = genai.Client(api_key=api_key)
+    
+    prompt_despesas = st.text_input(
+        "Exemplo: Quais foram minhas maiores despesas este mês? Ou dê dicas para economizar:"
+    )
+
+    if st.button("Consultar IA sobre Despesas", use_container_width=True):
+        if prompt_despesas:
+            with st.spinner("Analisando seus dados financeiros com IA..."):
+                try:
+                    resumo_transacoes = (
+                        df_transacoes.tail(50).to_string(index=False)
+                        if "df_transacoes" in locals()
+                        else "Dados indisponíveis"
+                    )
+                    
+                    prompt_completo = f"""
+                    Com base nestas transações:
+                    {resumo_transacoes}
+                    
+                    Responda à solicitação abaixo de forma objetiva:
+                    {prompt_despesas}
+                    """
+                    
+                    # Tentativa com re-tentativa automática caso dê congestionamento (503)
+                    response = None
+                    for tentativa in range(3):
+                        try:
+                            response = client.models.generate_content(
+                                model="gemini-3.5-flash",
+                                contents=prompt_completo,
+                            )
+                            break
+                        except Exception as err:
+                            if "503" in str(err) and tentativa < 2:
+                                time.sleep(2)  # Aguarda 2 segundos e tenta novamente
+                                continue
+                            else:
+                                raise err
+                    
+                    st.success("Análise do Assistente:")
+                    st.markdown(response.text)
+                except Exception as e:
+                    st.error(f"Erro na IA: {e}")
+        else:
+            st.warning("Por favor, digite uma pergunta.")
+else:
+    st.info("⚠️ Configure uma chave válida nos Secrets.")
