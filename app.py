@@ -5070,12 +5070,10 @@ if api_key:
     
     client = genai.Client(api_key=api_key)
     
-    # Campo de texto para comandos ou perguntas
     prompt_despesas = st.text_input(
         "Digite seu comando ou pergunta (opcional se enviar foto):"
     )
     
-    # Campo para upload de foto (comprovante, cupom fiscal, etc.)
     arquivo_foto = st.file_uploader(
         "Envie uma foto de comprovante, cupom ou nota fiscal:", 
         type=["png", "jpg", "jpeg"]
@@ -5091,34 +5089,32 @@ if api_key:
                         else "Dados indisponíveis"
                     )
                     
-                    # Prepara os conteúdos que serão enviados para o Gemini
                     conteudos = []
                     
-                    # Se o usuário enviou uma foto, abre a imagem usando o Pillow
-                    imagem_obj = None
                     if arquivo_foto is not None:
                         imagem_obj = Image.open(arquivo_foto)
                         conteudos.append(imagem_obj)
                     
-                    texto_instrucao = f"""
-                    Você é um assistente financeiro inteligente integrado a um sistema em Python.
-                    Analise a imagem enviada (se houver) e o comando do usuário: "{prompt_despesas}"
+                    hoje_str = date.today().strftime('%Y-%m-%d')
                     
-                    As últimas transações do usuário são:
+                    texto_instrucao = f"""
+                    Você e um assistente financeiro inteligente integrado a um sistema em Python.
+                    Analise a imagem enviada (se houver) e o comando do usuario: "{prompt_despesas}"
+                    
+                    As ultimas transacoes do usuario sao:
                     {resumo_transacoes}
                     
                     Sua tarefa:
-                    1. Se a imagem for um comprovante/recibo/nota fiscal ou o usuário pedir para **adicionar, gastar, pagar ou lançar**, extraia as informações e retorne estritamente um objeto JSON puro no formato:
-                    {{"acao": "lancar", "descricao": "nome ou estabelecimento", "valor": 00.00, "tipo": "Despesa", "data": "YYYY-MM-DD"}}
-                    (Use a data de hoje: {date.today().strftime('%Y-%m-%d')} se não houver data legível na imagem. O valor deve ser numérico).
+                    1. Se a imagem for um comprovante/recibo/nota fiscal ou o usuario pedir para adicionar, gastar, pagar ou lancar, extraia as informacoes e retorne estritamente um objeto JSON puro no formato:
+                    {{"acao": "lancar", "descricao": "nome ou estabelecimento", "valor": 00.00, "tipo": "Despesa", "data": "{hoje_str}"}}
+                    (Use a data {hoje_str} se nao houver data legivel. O valor deve ser numerico).
                     
-                    2. Se for uma pergunta, análise ou dúvida geral, retorne um JSON no formato:
-                    {{"acao": "responder", "resposta": "Sua resposta analítica detalhada aqui..."}}
+                    2. Se for uma pergunta, analise ou duvida geral, retorne um JSON no formato:
+                    {{"acao": "responder", "resposta": "Sua resposta analitica detalhada aqui..."}}
                     """
                     
                     conteudos.append(texto_instrucao)
                     
-                    # Chamada com re-tentativa automática para evitar erro 503
                     response = None
                     for tentativa in range(3):
                         try:
@@ -5137,4 +5133,35 @@ if api_key:
                     texto_resposta = response.text.strip()
                     if texto_resposta.startswith("```json"):
                         texto_resposta = texto_resposta[7:]
-                    if texto_resposta.endswith("
+                    if texto_resposta.endswith("```"):
+                        texto_resposta = texto_resposta[:-3]
+                    
+                    dados_ia = json.loads(texto_resposta.strip())
+                    
+                    if dados_ia.get("acao") == "lancar":
+                        desc = dados_ia.get("descricao")
+                        val = float(dados_ia.get("valor"))
+                        tipo = dados_ia.get("tipo", "Despesa")
+                        dt = dados_ia.get("data", str(date.today()))
+                        
+                        conn = sqlite3.connect("despesas.db")
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "INSERT INTO transacoes (data, descricao, valor, tipo) VALUES (?, ?, ?, ?)",
+                            (dt, desc, val, tipo)
+                        )
+                        conn.commit()
+                        conn.close()
+                        
+                        st.success(f"✅ Lançamento extraído e salvo com sucesso!\n\n* **Descrição:** {desc}\n* **Valor:** R$ {val:.2f}\n* **Data:** {dt}")
+                        st.rerun()
+                    else:
+                        st.success("Análise do Assistente:")
+                        st.markdown(dados_ia.get("resposta", "Sem resposta."))
+                        
+                except Exception as e:
+                    st.error(f"Erro ao processar com a IA: {e}")
+        else:
+            st.warning("Por favor, digite uma pergunta ou envie uma foto.")
+else:
+    st.info("⚠️ Configure uma chave válida nos Secrets.")
