@@ -5052,12 +5052,12 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         else:
             st.info("Nenhum holerite cadastrado ou importado até o momento.")
 # ==========================================
-# INTERAÇÃO COM I.A., FOTOS, CÂMERA E LANÇAMENTOS
+# INTERAÇÃO COM I.A., CÂMERA E LANÇAMENTOS
 # ==========================================
 st.markdown("---")
 st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
 st.markdown(
-    "Faça perguntas, envie arquivos ou **tire uma foto direto com a câmera** para lançar despesas:"
+    "Faça perguntas, envie arquivos ou **tire uma foto com a câmera** para lançar despesas:"
 )
 
 api_key = st.secrets.get("GEMINI_API_KEY", None)
@@ -5074,13 +5074,8 @@ if api_key:
         "Digite seu comando ou pergunta (opcional se tirar foto):"
     )
     
-    # Permite upload de arquivo OU captura direta pela câmera do dispositivo
-    arquivo_foto = st.file_uploader(
-        "Envie a foto ou use a câmera:", 
-        type=["png", "jpg", "jpeg"],
-        accept_multiple_files=False,
-        # Habilita a captura por câmera quando suportado pelo dispositivo
-    )
+    # Componente exclusivo para captura direta via câmera
+    arquivo_foto = st.camera_input("Tire uma foto do comprovante ou recibo:")
 
     if st.button("Executar com IA", use_container_width=True):
         if prompt_despesas or arquivo_foto:
@@ -5165,6 +5160,6 @@ if api_key:
                 except Exception as e:
                     st.error(f"Erro ao processar com a IA: {e}")
         else:
-            st.warning("Por favor, digite uma pergunta ou envie/tire uma foto.")
+            st.warning("Por favor, digite uma pergunta ou tire uma foto.")
 else:
     st.info("⚠️ Configure uma chave válida nos Secrets.")
