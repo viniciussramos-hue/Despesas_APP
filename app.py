@@ -5052,30 +5052,38 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         else:
             st.info("Nenhum holerite cadastrado ou importado até o momento.")
 # ==========================================
-# INTERAÇÃO COM I.A. (GEMINI API) - DESPESAS
+# INTERAÇÃO COM I.A., FOTOS E LANÇAMENTOS
 # ==========================================
 st.markdown("---")
 st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
 st.markdown(
-    "Faça perguntas, analise seus gastos ou peça insights sobre as despesas cadastradas:"
+    "Faça perguntas, envie **prints/fotos de comprovantes** ou digite um lançamento:"
 )
 
-# Utiliza a chave configurada nos Secrets do Streamlit Cloud
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 
 if api_key:
     from google import genai
     import time
+    import json
+    from PIL import Image
     
     client = genai.Client(api_key=api_key)
     
+    # Campo de texto para comandos ou perguntas
     prompt_despesas = st.text_input(
-        "Exemplo: Quais foram minhas maiores despesas este mês? Ou dê dicas para economizar:"
+        "Digite seu comando ou pergunta (opcional se enviar foto):"
+    )
+    
+    # Campo para upload de foto (comprovante, cupom fiscal, etc.)
+    arquivo_foto = st.file_uploader(
+        "Envie uma foto de comprovante, cupom ou nota fiscal:", 
+        type=["png", "jpg", "jpeg"]
     )
 
-    if st.button("Consultar IA sobre Despesas", use_container_width=True):
-        if prompt_despesas:
-            with st.spinner("Analisando seus dados financeiros com IA..."):
+    if st.button("Executar com IA", use_container_width=True):
+        if prompt_despesas or arquivo_foto:
+            with st.spinner("Processando dados e imagem com IA..."):
                 try:
                     resumo_transacoes = (
                         df_transacoes.tail(20).to_string(index=False)
@@ -5083,35 +5091,50 @@ if api_key:
                         else "Dados indisponíveis"
                     )
                     
-                    prompt_completo = f"""
-                    Com base nestas transações:
+                    # Prepara os conteúdos que serão enviados para o Gemini
+                    conteudos = []
+                    
+                    # Se o usuário enviou uma foto, abre a imagem usando o Pillow
+                    imagem_obj = None
+                    if arquivo_foto is not None:
+                        imagem_obj = Image.open(arquivo_foto)
+                        conteudos.append(imagem_obj)
+                    
+                    texto_instrucao = f"""
+                    Você é um assistente financeiro inteligente integrado a um sistema em Python.
+                    Analise a imagem enviada (se houver) e o comando do usuário: "{prompt_despesas}"
+                    
+                    As últimas transações do usuário são:
                     {resumo_transacoes}
                     
-                    Responda à solicitação abaixo de forma objetiva:
-                    {prompt_despesas}
+                    Sua tarefa:
+                    1. Se a imagem for um comprovante/recibo/nota fiscal ou o usuário pedir para **adicionar, gastar, pagar ou lançar**, extraia as informações e retorne estritamente um objeto JSON puro no formato:
+                    {{"acao": "lancar", "descricao": "nome ou estabelecimento", "valor": 00.00, "tipo": "Despesa", "data": "YYYY-MM-DD"}}
+                    (Use a data de hoje: {date.today().strftime('%Y-%m-%d')} se não houver data legível na imagem. O valor deve ser numérico).
+                    
+                    2. Se for uma pergunta, análise ou dúvida geral, retorne um JSON no formato:
+                    {{"acao": "responder", "resposta": "Sua resposta analítica detalhada aqui..."}}
                     """
                     
-                    # Tentativa com re-tentativa automática caso dê congestionamento (503)
+                    conteudos.append(texto_instrucao)
+                    
+                    # Chamada com re-tentativa automática para evitar erro 503
                     response = None
                     for tentativa in range(3):
                         try:
                             response = client.models.generate_content(
                                 model="gemini-3.5-flash",
-                                contents=prompt_completo,
+                                contents=conteudos,
                             )
                             break
                         except Exception as err:
                             if "503" in str(err) and tentativa < 2:
-                                time.sleep(2)  # Aguarda 2 segundos e tenta novamente
+                                time.sleep(2)
                                 continue
                             else:
                                 raise err
                     
-                    st.success("Análise do Assistente:")
-                    st.markdown(response.text)
-                except Exception as e:
-                    st.error(f"Erro na IA: {e}")
-        else:
-            st.warning("Por favor, digite uma pergunta.")
-else:
-    st.info("⚠️ Configure uma chave válida nos Secrets.")
+                    texto_resposta = response.text.strip()
+                    if texto_resposta.startswith("```json"):
+                        texto_resposta = texto_resposta[7:]
+                    if texto_resposta.endswith("
