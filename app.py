@@ -5084,7 +5084,7 @@ if api_key:
                     )
                     
                     # Usando o modelo mais estável e universal
-                    model = genai.GenerativeModel("gemini-1.5-flash")
+                   model = genai.GenerativeModel("gemini-2.5-flash")
                     
                     prompt_completo = f"""
                     Com base nestas transações:
