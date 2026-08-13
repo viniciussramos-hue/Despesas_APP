@@ -5054,8 +5054,10 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
 
 # ==========================================================
-    # MÓDULO: ASSISTENTE COM IA NA ABA NOTAS
-    # ==========================================================
+# MÓDULO: ASSISTENTE COM IA EXCLUSIVO NA ABA NOTAS
+# ==========================================================
+# Insira a verificação exata da sua aba de Notas abaixo:
+if "Notas" in str(locals().get("pagina", locals().get("selected", "Notas"))):
     st.markdown("---")
     st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
     st.markdown("Faça perguntas ou tire uma foto para lançar despesas:")
@@ -5070,13 +5072,13 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         
         client = genai.Client(api_key=api_key)
         
-        prompt_despesas = st.text_input("Digite seu comando ou pergunta:", key="input_ia_notas_final")
+        prompt_despesas = st.text_input("Digite seu comando ou pergunta:", key="input_ia_notas_exclusivo")
         
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            arquivo_foto = st.camera_input("Tire uma foto do recibo:", key="camera_notas_final")
+            arquivo_foto = st.camera_input("Tire uma foto do recibo:", key="camera_notas_exclusivo")
 
-        if st.button("Executar com IA", use_container_width=True, key="btn_ia_notas_final"):
+        if st.button("Executar com IA", use_container_width=True, key="btn_ia_notas_exclusivo"):
             if prompt_despesas or arquivo_foto:
                 with st.spinner("Processando..."):
                     try:
