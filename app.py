@@ -5070,14 +5070,14 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         
         client = genai.Client(api_key=api_key)
         
-        prompt_despesas = st.text_input("Digite seu comando ou pergunta:", key="input_ia_notas")
+        prompt_despesas = st.text_input("Digite seu comando ou pergunta:", key="input_ia_notas_exclusivo")
         
         # Câmera compactada usando colunas
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            arquivo_foto = st.camera_input("Tire uma foto do recibo:", key="camera_notas")
+            arquivo_foto = st.camera_input("Tire uma foto do recibo:", key="camera_notas_exclusivo")
 
-        if st.button("Executar com IA", use_container_width=True, key="btn_ia_notas"):
+        if st.button("Executar com IA", use_container_width=True, key="btn_ia_notas_exclusivo"):
             if prompt_despesas or arquivo_foto:
                 with st.spinner("Processando..."):
                     try:
