@@ -5056,8 +5056,10 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 # ==========================================================
 # MÓDULO: ASSISTENTE COM IA EXCLUSIVO NA ABA NOTAS
 # ==========================================================
-# Altere 'selected' para o nome da variável do seu menu (ex: pagina, menu, aba) se necessário:
-if 'selected' in locals() and selected == "📜 Notas":
+# Verificação flexível para garantir que apareça na aba de Notas
+aba_ativa = locals().get("selected", locals().get("pagina", locals().get("menu", "Notas")))
+
+if "Notas" in str(aba_ativa):
     st.markdown("---")
     st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
     st.markdown("Faça perguntas ou tire uma foto para lançar despesas:")
