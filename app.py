@@ -5087,7 +5087,7 @@ if api_key:
                         {prompt_despesas}
                         """
 
-                    model = genai.GenerativeModel("gemini-2.0-flash")
+                    model = genai.GenerativeModel("gemini-2.5")
                     response = model.generate_content(prompt_completo)
 
                     st.success("Análise do Assistente:")
