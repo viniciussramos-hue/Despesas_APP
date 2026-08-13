@@ -5052,12 +5052,12 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         else:
             st.info("Nenhum holerite cadastrado ou importado até o momento.")
 # ==========================================
-# INTERAÇÃO COM I.A., FOTOS E LANÇAMENTOS
+# INTERAÇÃO COM I.A., FOTOS, CÂMERA E LANÇAMENTOS
 # ==========================================
 st.markdown("---")
 st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
 st.markdown(
-    "Faça perguntas, envie **prints/fotos de comprovantes** ou digite um lançamento:"
+    "Faça perguntas, envie arquivos ou **tire uma foto direto com a câmera** para lançar despesas:"
 )
 
 api_key = st.secrets.get("GEMINI_API_KEY", None)
@@ -5071,12 +5071,15 @@ if api_key:
     client = genai.Client(api_key=api_key)
     
     prompt_despesas = st.text_input(
-        "Digite seu comando ou pergunta (opcional se enviar foto):"
+        "Digite seu comando ou pergunta (opcional se tirar foto):"
     )
     
+    # Permite upload de arquivo OU captura direta pela câmera do dispositivo
     arquivo_foto = st.file_uploader(
-        "Envie uma foto de comprovante, cupom ou nota fiscal:", 
-        type=["png", "jpg", "jpeg"]
+        "Envie a foto ou use a câmera:", 
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=False,
+        # Habilita a captura por câmera quando suportado pelo dispositivo
     )
 
     if st.button("Executar com IA", use_container_width=True):
@@ -5098,19 +5101,19 @@ if api_key:
                     hoje_str = date.today().strftime('%Y-%m-%d')
                     
                     texto_instrucao = f"""
-                    Você e um assistente financeiro inteligente integrado a um sistema em Python.
-                    Analise a imagem enviada (se houver) e o comando do usuario: "{prompt_despesas}"
+                    Você é um assistente financeiro inteligente integrado a um sistema em Python.
+                    Analise a imagem enviada (se houver) e o comando do usuário: "{prompt_despesas}"
                     
-                    As ultimas transacoes do usuario sao:
+                    As últimas transações do usuário são:
                     {resumo_transacoes}
                     
                     Sua tarefa:
-                    1. Se a imagem for um comprovante/recibo/nota fiscal ou o usuario pedir para adicionar, gastar, pagar ou lancar, extraia as informacoes e retorne estritamente um objeto JSON puro no formato:
+                    1. Se a imagem for um comprovante/recibo/nota fiscal ou o usuário pedir para adicionar, gastar, pagar ou lançar, extraia as informações e retorne estritamente um objeto JSON puro no formato:
                     {{"acao": "lancar", "descricao": "nome ou estabelecimento", "valor": 00.00, "tipo": "Despesa", "data": "{hoje_str}"}}
-                    (Use a data {hoje_str} se nao houver data legivel. O valor deve ser numerico).
+                    (Use a data {hoje_str} se não houver data legível. O valor deve ser numérico).
                     
-                    2. Se for uma pergunta, analise ou duvida geral, retorne um JSON no formato:
-                    {{"acao": "responder", "resposta": "Sua resposta analitica detalhada aqui..."}}
+                    2. Se for uma pergunta, análise ou dúvida geral, retorne um JSON no formato:
+                    {{"acao": "responder", "resposta": "Sua resposta analítica detalhada aqui..."}}
                     """
                     
                     conteudos.append(texto_instrucao)
@@ -5162,6 +5165,6 @@ if api_key:
                 except Exception as e:
                     st.error(f"Erro ao processar com a IA: {e}")
         else:
-            st.warning("Por favor, digite uma pergunta ou envie uma foto.")
+            st.warning("Por favor, digite uma pergunta ou envie/tire uma foto.")
 else:
     st.info("⚠️ Configure uma chave válida nos Secrets.")
