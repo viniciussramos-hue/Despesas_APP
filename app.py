@@ -5052,55 +5052,35 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             st.info("Nenhum holerite cadastrado ou importado até o momento.")
 
 # ==========================================
-# MÓDULO: LEITOR SIMPLIFICADO DE NOTAS
+# MÓDULO: LANÇAMENTO MANUAL DE NOTAS
 # ==========================================
-# No local onde você gerencia a exibição das páginas do seu app:
 if pagina_atual == "🧾 Leitor de Notas Fiscais":
-    st.subheader("🧾 Leitor de Notas Fiscais")
+    st.subheader("🧾 Lançamento Manual de Despesa")
     
-    # Câmera compactada centralizada
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        nota_path = st.camera_input("Tire uma foto da nota para lançamento:")
-
-    if st.button("Processar Nota e Lançar Despesa", use_container_width=True):
-        if nota_path:
-            with st.spinner("Lendo nota com IA..."):
+    with st.form("form_lancamento_manual"):
+        data_despesa = st.date_input("Data", value=date.today())
+        descricao_despesa = st.text_input("Descrição do Estabelecimento / Nota")
+        valor_despesa = st.number_input("Valor Total (R$)", min_value=0.0, format="%.2f")
+        
+        submit_manual = st.form_submit_button("Lançar Despesa", use_container_width=True)
+        
+        if submit_manual:
+            if descricao_despesa and valor_despesa > 0:
                 try:
-                    from google import genai
-                    from PIL import Image
-                    import json
-                    
-                    client = genai.Client(api_key=st.secrets.get("GEMINI_API_KEY"))
-                    imagem = Image.open(nota_path)
-                    
-                    prompt = """
-                    Extraia apenas a descrição do estabelecimento e o valor total desta nota.
-                    Retorne apenas JSON puro no formato: {"descricao": "nome", "valor": 00.00}
-                    """
-                    
-                    response = client.models.generate_content(
-                        model="gemini-1.5-flash",
-                        contents=[imagem, prompt]
-                    )
-                    
-                    texto = response.text.replace("```json", "").replace("```", "").strip()
-                    dados = json.loads(texto)
-                    
                     conn = sqlite3.connect("despesas.db")
                     cursor = conn.cursor()
                     cursor.execute(
                         "INSERT INTO transacoes (data, descricao, valor, tipo) VALUES (?, ?, ?, ?)",
-                        (date.today().strftime('%Y-%m-%d'), dados['descricao'], float(dados['valor']), "Despesa")
+                        (data_despesa.strftime('%Y-%m-%d'), descricao_despesa, float(valor_despesa), "Despesa")
                     )
                     conn.commit()
                     conn.close()
                     
-                    st.success(f"✅ Lançado: {dados['descricao']} - R$ {float(dados['valor']):.2f}")
+                    st.success(f"✅ Lançado com sucesso: {descricao_despesa} - R$ {valor_despesa:.2f}")
                     time.sleep(2)
                     st.rerun()
                     
                 except Exception as e:
-                    st.error(f"Erro ao ler nota: {e}")
-        else:
-            st.warning("Por favor, tire a foto da nota primeiro.")
+                    st.error(f"Erro ao salvar no banco de dados: {e}")
+            else:
+                st.warning("Por favor, preencha a descrição e informe um valor maior que zero.")
