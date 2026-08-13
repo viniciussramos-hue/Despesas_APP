@@ -5056,6 +5056,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 # ==========================================================
 # MÓDULO: ASSISTENTE COM IA EXCLUSIVO NA ABA NOTAS
 # ==========================================================
+# (Se a variável do seu menu se chamar diferente de 'selected', substitua abaixo)
 if 'selected' in locals() and selected == "📜 Notas":
     st.markdown("---")
     st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
@@ -5073,6 +5074,7 @@ if 'selected' in locals() and selected == "📜 Notas":
         
         prompt_despesas = st.text_input("Digite seu comando ou pergunta:", key="input_ia_notas_final")
         
+        # Câmera compactada usando colunas
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             arquivo_foto = st.camera_input("Tire uma foto do recibo:", key="camera_notas_final")
