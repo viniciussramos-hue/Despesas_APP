@@ -1,13 +1,15 @@
-from datetime import date, datetime, timedelta
-import difflib
-import json
 import os
 import re
+import json
 import sqlite3
+from datetime import date, datetime, timedelta
+import difflib
+
 import pandas as pd
 import pdfplumber
 import plotly.express as px
 import streamlit as st
+import google.generativeai as genai
 
 # ==========================================
 # --- CONFIGURAÇÃO DA PÁGINA E TEMA ---
