@@ -5054,6 +5054,14 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 # ==========================================
 # MÓDULO: LANÇAMENTO MANUAL DE NOTAS
 # ==========================================
+pagina_atual = st.sidebar.selectbox(
+    "Menu de Navegação",
+    ["Início", "🧾 Leitor de Notas Fiscais", "Outras Páginas"] # Ajuste conforme as opções do seu app
+)
+
+# ==========================================
+# MÓDULO: LANÇAMENTO MANUAL DE NOTAS
+# ==========================================
 if pagina_atual == "🧾 Leitor de Notas Fiscais":
     st.subheader("🧾 Lançamento Manual de Despesa")
     
