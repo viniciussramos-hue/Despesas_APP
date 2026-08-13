@@ -5054,9 +5054,10 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
 
 # ==========================================================
-# MÓDULO: ASSISTENTE COM IA APENAS DENTRO DE NOTAS FISCAIS
+# MÓDULO: ASSISTENTE COM IA DENTRO DA ABA NOTAS
 # ==========================================================
-if pagina_atual in ["🧾 Leitor de Notas Fiscais", "Notas Fiscais"]:
+# Altere para a variável ou aba correspondente ao seu menu superior (ex: selecionado == "📜 Notas")
+if selecionado == "📜 Notas" or ('pagina_atual' in locals() and pagina_atual in ["📜 Leitor de Notas Fiscais", "Notas Fiscais", "📜 Notas"]):
     st.markdown("---")
     st.subheader("🤖 Assistente Financeiro com Inteligência Artificial (Gemini)")
     st.markdown("Faça perguntas ou tire uma foto para lançar despesas:")
