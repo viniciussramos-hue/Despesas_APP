@@ -5050,3 +5050,54 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 st.rerun()
         else:
             st.info("Nenhum holerite cadastrado ou importado até o momento.")
+
+# ==========================================
+# MÓDULO: LEITOR SIMPLIFICADO DE NOTAS
+# ==========================================
+st.subheader("🧾 Leitor de Notas Fiscais")
+
+# Câmera para capturar apenas uma nota
+nota_foto = st.camera_input("Tire uma foto da nota para lançamento:")
+
+if st.button("Processar Nota e Lançar Despesa", use_container_width=True):
+    if nota_foto:
+        with st.spinner("Lendo nota..."):
+            try:
+                from google import genai
+                from PIL import Image
+                
+                client = genai.Client(api_key=st.secrets.get("GEMINI_API_KEY"))
+                imagem = Image.open(nota_foto)
+                
+                # Prompt direto para extrair apenas o essencial
+                prompt = """
+                Extraia apenas a descrição do estabelecimento e o valor total desta nota.
+                Retorne apenas JSON: {"descricao": "nome", "valor": 00.00}
+                """
+                
+                response = client.models.generate_content(
+                    model="gemini-3.5-flash",
+                    contents=[imagem, prompt]
+                )
+                
+                # Extrai o JSON da resposta
+                texto = response.text.replace("```json", "").replace("```", "").strip()
+                dados = json.loads(texto)
+                
+                # Lança direto na tabela de despesas manual
+                conn = sqlite3.connect("despesas.db")
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO transacoes (data, descricao, valor, tipo) VALUES (?, ?, ?, ?)",
+                    (date.today().strftime('%Y-%m-%d'), dados['descricao'], float(dados['valor']), "Despesa")
+                )
+                conn.commit()
+                conn.close()
+                
+                st.success(f"✅ Lançado: {dados['descricao']} - R$ {dados['valor']}")
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"Erro ao ler nota: {e}")
+    else:
+        st.warning("Por favor, tire a foto da nota primeiro.")
