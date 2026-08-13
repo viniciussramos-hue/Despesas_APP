@@ -5049,10 +5049,7 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 st.success("Holerite removido com sucesso!")
                 st.rerun()
         else:
-            st.info("Nenhum holerite cadastrado ou importado até o momento.")import google.generativeai as genai
-
-import google.generativeai as genai
-
+          
 # ==========================================
 # INTERAÇÃO COM I.A. (GEMINI API) - DESPESAS
 # ==========================================
