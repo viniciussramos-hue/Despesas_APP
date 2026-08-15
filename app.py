@@ -5174,12 +5174,6 @@ paginas = ["Início", "🧾 Leitor de Notas Fiscais", "💡 Sugestões"]
 pagina_selecionada = st.sidebar.radio("Ir para:", paginas, key="menu_navegacao")
 st.session_state.pagina_atual = pagina_selecionada
 
-# ==========================================
-# --- PÁGINA: INÍCIO ---
-# ==========================================
-if st.session_state.pagina_atual == "Início":
-    st.title("Painel Principal")
-    st.write("Selecione uma opção no menu lateral para começar.")
 
 # ==========================================
 # --- PÁGINA: LEITOR DE NOTAS FISCAIS ---
