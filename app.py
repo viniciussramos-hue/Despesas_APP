@@ -8,7 +8,146 @@ import pandas as pd
 import pdfplumber
 import plotly.express as px
 import streamlit as st
+import streamlit as st
+import pandas as pd
+import sqlite3
 
+# --- 1. CONEXÃO COM O BANCO DE DADOS ---
+conn = sqlite3.connect("dados.db", check_same_thread=False)
+c = conn.cursor()
+
+# Criação das tabelas caso não existam
+c.execute("""
+    CREATE TABLE IF NOT EXISTS notas_fiscais (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT,
+        estabelecimento TEXT,
+        valor_total REAL,
+        origem_arquivo TEXT
+    )
+""")
+c.execute("""
+    CREATE TABLE IF NOT EXISTS itens_nota_fiscal (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nota_id INTEGER,
+        produto TEXT,
+        quantidade REAL,
+        valor_unitario REAL,
+        valor_total REAL,
+        FOREIGN KEY(nota_id) REFERENCES notas_fiscais(id)
+    )
+""")
+conn.commit()
+
+# --- 2. CONTROLE DE ESTADO E MENU LATERAL ---
+if "pagina_atual" not in st.session_state:
+    st.session_state.pagina_atual = "Início"
+
+st.sidebar.title("Navegação")
+# Menu atualizado com a opção de Sugestões
+paginas = ["Início", "🧾 Leitor de Notas Fiscais", "💡 Sugestões"]
+pagina_selecionada = st.sidebar.radio("Ir para:", paginas, key="menu_navegacao")
+st.session_state.pagina_atual = pagina_selecionada
+
+# ==========================================
+# --- PÁGINA: INÍCIO ---
+# ==========================================
+if st.session_state.pagina_atual == "Início":
+    st.title("Painel Principal")
+    st.write("Selecione uma opção no menu lateral para começar.")
+
+# ==========================================
+# --- PÁGINA: LEITOR DE NOTAS FISCAIS ---
+# ==========================================
+elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
+    if st.button("⬅️ Voltar ao Início"):
+        st.session_state.pagina_atual = "Início"
+        st.rerun()
+
+    st.subheader("🧾 Lançamento Manual (Via Câmera)")
+    
+    # Câmera traseira (priorizada pelo mobile)
+    foto_nota = st.camera_input("Clique no ícone abaixo para tirar a foto da nota")
+
+    if foto_nota:
+        st.success("Nota capturada!")
+        
+        with st.form("form_lancar_nota_manual", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                estab = st.text_input("Estabelecimento")
+                data_nota = st.date_input("Data da Emissão")
+            with col2:
+                valor_nota = st.number_input("Valor Total (R$)", format="%.2f")
+                
+            st.write("---")
+            st.write("### Adicionar Itens (Opcional)")
+            num_itens = st.number_input("Quantos itens?", min_value=1, max_value=20, value=1)
+            
+            itens = []
+            for i in range(num_itens):
+                c1, c2, c3 = st.columns(3)
+                with c1: prod = st.text_input(f"Produto {i+1}", key=f"p{i}")
+                with c2: qtd = st.number_input(f"Qtd {i+1}", value=1.0, key=f"q{i}")
+                with c3: val_u = st.number_input(f"Vlr Unit {i+1}", value=0.0, format="%.2f", key=f"v{i}")
+                itens.append((prod, qtd, val_u, qtd * val_u))
+
+            if st.form_submit_button("Salvar Nota Fiscal"):
+                c.execute("INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                          (data_nota.strftime("%Y-%m-%d"), estab, valor_nota, "Captura Câmera"))
+                nota_id = c.lastrowid
+                
+                for item in itens:
+                    c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total) VALUES (?,?,?,?,?)",
+                              (nota_id, item[0], item[1], item[2], item[3]))
+                
+                conn.commit()
+                st.toast("Nota salva com sucesso!", icon="✅")
+                st.rerun()
+
+    # Histórico de Conferência Rápida
+    st.divider()
+    st.subheader("🕒 Lançamentos Recentes")
+    
+    query_check = """
+        SELECT data, estabelecimento, valor_total 
+        FROM notas_fiscais 
+        ORDER BY id DESC 
+        LIMIT 5
+    """
+    try:
+        df_check = pd.read_sql_query(query_check, conn)
+        if not df_check.empty:
+            st.dataframe(df_check.rename(columns={
+                'data': 'Data', 
+                'estabelecimento': 'Local', 
+                'valor_total': 'Total'
+            }), use_container_width=True, hide_index=True)
+        else:
+            st.caption("Nenhum lançamento registrado ainda.")
+    except Exception:
+        st.error("Erro ao carregar histórico.")
+
+# ==========================================
+# --- PÁGINA: SUGESTÕES (WHATSAPP) ---
+# ==========================================
+elif st.session_state.pagina_atual == "💡 Sugestões":
+    st.subheader("💡 Enviar Sugestão ou Melhoria")
+    st.write("Digite sua ideia ou reporte abaixo. Ao clicar no botão, você será direcionado para enviar diretamente pelo WhatsApp.")
+    
+    sugestao_texto = st.text_area("Escreva sua sugestão aqui:")
+    
+    if sugestao_texto:
+        import urllib.parse
+        # Formata a mensagem para o número (12 997999699)
+        numero_whatsapp = "5512997999699"
+        texto_formatado = urllib.parse.quote(f"Sugestão do App: {sugestao_texto}")
+        link_zap = f"https://wa.me/{numero_whatsapp}?text={texto_formatado}"
+        
+        st.markdown(
+            f'<a href="{link_zap}" target="_blank"><button style="background-color:#25D366; color:white; padding:10px 20px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">📤 Enviar Sugestão no WhatsApp</button></a>',
+            unsafe_allow_html=True
+        )
 # ==========================================
 # --- CONFIGURAÇÃO DA PÁGINA E TEMA ---
 # ==========================================
