@@ -5052,13 +5052,65 @@ elif st.session_state.pagina_atual == "📄 Holerites":
             st.info("Nenhum holerite cadastrado ou importado até o momento.")# ==========================================
 
 
-# ==========================================
-    # --- HISTÓRICO: CONFERÊNCIA RÁPIDA ---
-    # ==========================================
+import streamlit as st
+import pandas as pd
+import sqlite3
+
+# --- AJUSTE: Página Leitor de Notas Fiscais ---
+if st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
+    # Botão para retornar ao menu principal
+    if st.button("⬅️ Voltar"):
+        st.session_state.pagina_atual = "Início"
+        st.rerun()
+
+    st.subheader("🧾 Lançamento Manual (Via Câmera)")
+    
+    # Ícone e interface de captura pela câmera traseira
+    foto_nota = st.camera_input("Clique no ícone abaixo para tirar a foto da nota")
+
+    if foto_nota:
+        st.success("Nota capturada!")
+        
+        # Formulário para preenchimento manual dos dados
+        with st.form("form_lancar_nota_manual", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                estab = st.text_input("Estabelecimento")
+                data_nota = st.date_input("Data da Emissão")
+            with col2:
+                valor_nota = st.number_input("Valor Total (R$)", format="%.2f")
+                
+            st.write("---")
+            st.write("### Adicionar Itens (Opcional)")
+            num_itens = st.number_input("Quantos itens?", min_value=1, max_value=20, value=1)
+            
+            itens = []
+            for i in range(num_itens):
+                c1, c2, c3 = st.columns(3)
+                with c1: prod = st.text_input(f"Produto {i+1}", key=f"p{i}")
+                with c2: qtd = st.number_input(f"Qtd {i+1}", value=1.0, key=f"q{i}")
+                with c3: val_u = st.number_input(f"Vlr Unit {i+1}", value=0.0, format="%.2f", key=f"v{i}")
+                itens.append((prod, qtd, val_u, qtd * val_u))
+
+            if st.form_submit_button("Salvar Nota Fiscal"):
+                # Insere na tabela de notas
+                c.execute("INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                          (data_nota.strftime("%Y-%m-%d"), estab, valor_nota, "Captura Câmera"))
+                nota_id = c.lastrowid
+                
+                # Insere na tabela de itens
+                for item in itens:
+                    c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total) VALUES (?,?,?,?,?)",
+                              (nota_id, item[0], item[1], item[2], item[3]))
+                
+                conn.commit()
+                st.toast("Nota salva com sucesso!", icon="✅")
+                st.rerun()
+
+    # --- HISTÓRICO: Conferência Rápida ---
     st.divider()
     st.subheader("🕒 Lançamentos Recentes")
-
-    # Busca apenas os campos essenciais para confirmar o lançamento
+    
     query_check = """
         SELECT data, estabelecimento, valor_total 
         FROM notas_fiscais 
@@ -5066,11 +5118,16 @@ elif st.session_state.pagina_atual == "📄 Holerites":
         LIMIT 5
     """
     
-    import pandas as pd
-    df_check = pd.read_sql_query(query_check, conn)
-    
-    if not df_check.empty:
-        # Exibe uma tabela compacta para conferência visual
-        st.dataframe(df_check, use_container_width=True, hide_index=True)
-    else:
-        st.caption("Nenhum lançamento registrado ainda.")
+    try:
+        df_check = pd.read_sql_query(query_check, conn)
+        if not df_check.empty:
+            # Tabela simples para conferência visual
+            st.dataframe(df_check.rename(columns={
+                'data': 'Data', 
+                'estabelecimento': 'Local', 
+                'valor_total': 'Total'
+            }), use_container_width=True, hide_index=True)
+        else:
+            st.caption("Nenhum lançamento registrado ainda.")
+    except Exception as e:
+        st.error("Erro ao carregar histórico.")
