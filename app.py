@@ -5247,7 +5247,7 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
     except Exception:
         st.error("Erro ao carregar histórico.")
 
-# --- SEÇÃO: SUGESTÕES NO MENU LATERAL ---
+# --- 1. BARRA LATERAL (APENAS SUGESTÕES) ---
 st.sidebar.title("💬 Contato")
 
 with st.sidebar:
@@ -5255,19 +5255,27 @@ with st.sidebar:
     sugestao_texto = st.text_area("Digite sua sugestão aqui:")
     
     if sugestao_texto:
-        # Número formatado para o link
         numero_whatsapp = "5512997999699"
-        # Codifica o texto para garantir que caracteres especiais funcionem no link
         texto_formatado = urllib.parse.quote(f"Sugestão do App: {sugestao_texto}")
         link_zap = f"https://wa.me/{numero_whatsapp}?text={texto_formatado}"
         
-        # Botão de envio fixo no menu lateral
         st.markdown(
             f'<a href="{link_zap}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer;">📤 Enviar no WhatsApp</button></a>',
             unsafe_allow_html=True
         )
 
-# --- RESTANTE DA SUA APLICAÇÃO ---
-# Aqui entra o seu código normal de leitura de notas ou dashboards
-st.title("Meu App de Notas Fiscais")
-st.write("O campo de sugestões está disponível no menu lateral.")
+# --- 2. TELA PRINCIPAL DO APLICATIVO ---
+st.title("Meu App de Gestão")
+
+# Se você estiver usando navegação por abas ou páginas no seu app principal,
+# certifique-se de que o primeiro bloco comece com 'if' e não com 'elif':
+if "pagina_atual" not in st.session_state:
+    st.session_state.pagina_atual = "Início"
+
+# Exemplo de bloco inicial (deve ser 'if', nunca 'elif' solto):
+if st.session_state.pagina_atual == "Início":
+    st.write("Bem-vindo ao app!")
+
+# As próximas páginas podem usar 'elif':
+elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
+    st.write("Aqui vai o código da câmera e notas...")
