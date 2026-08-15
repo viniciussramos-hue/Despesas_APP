@@ -5247,23 +5247,27 @@ elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
     except Exception:
         st.error("Erro ao carregar histórico.")
 
-# ==========================================
-# --- PÁGINA: SUGESTÕES (WHATSAPP) ---
-# ==========================================
-elif st.session_state.pagina_atual == "💡 Sugestões":
-    st.subheader("💡 Enviar Sugestão ou Melhoria")
-    st.write("Digite sua ideia ou reporte abaixo. Ao clicar no botão, você será direcionado para enviar diretamente pelo WhatsApp.")
-    
-    sugestao_texto = st.text_area("Escreva sua sugestão aqui:")
+# --- SEÇÃO: SUGESTÕES NO MENU LATERAL ---
+st.sidebar.title("💬 Contato")
+
+with st.sidebar:
+    st.write("Tem uma sugestão ou precisa de suporte?")
+    sugestao_texto = st.text_area("Digite sua sugestão aqui:")
     
     if sugestao_texto:
-        import urllib.parse
-        # Formata a mensagem para o número (12 997999699)
+        # Número formatado para o link
         numero_whatsapp = "5512997999699"
+        # Codifica o texto para garantir que caracteres especiais funcionem no link
         texto_formatado = urllib.parse.quote(f"Sugestão do App: {sugestao_texto}")
         link_zap = f"https://wa.me/{numero_whatsapp}?text={texto_formatado}"
         
+        # Botão de envio fixo no menu lateral
         st.markdown(
-            f'<a href="{link_zap}" target="_blank"><button style="background-color:#25D366; color:white; padding:10px 20px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">📤 Enviar Sugestão no WhatsApp</button></a>',
+            f'<a href="{link_zap}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer;">📤 Enviar no WhatsApp</button></a>',
             unsafe_allow_html=True
         )
+
+# --- RESTANTE DA SUA APLICAÇÃO ---
+# Aqui entra o seu código normal de leitura de notas ou dashboards
+st.title("Meu App de Notas Fiscais")
+st.write("O campo de sugestões está disponível no menu lateral.")
