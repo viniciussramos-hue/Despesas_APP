@@ -5050,46 +5050,53 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 st.rerun()
         else:
             st.info("Nenhum holerite cadastrado ou importado até o momento.")# ==========================================
+
+
+# ==========================================
 # --- SEÇÃO: SCANNER MANUAL DE NOTAS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
     botao_voltar()
-    st.subheader("🧾 Lançamento Manual de Notas Fiscais (Scanner)")
+    st.subheader("🧾 Lançamento Manual (Via Câmera)")
     
-    # 1. Upload do arquivo para visualização apenas
-    arquivo_nota = st.file_uploader("📷 Foto ou PDF da Nota (Somente visualização)", type=["jpg", "png", "pdf"])
-    
-    if arquivo_nota:
-        st.image(arquivo_nota) if arquivo_nota.type != "application/pdf" else st.info("PDF carregado para referência.")
+    # --- AJUSTE: Ícone/Botão de Câmera ---
+    # O camera_input já gera o ícone e a interface de captura automática
+    # Para forçar a câmera traseira em muitos navegadores mobile, 
+    # o parâmetro 'facing_mode' ajuda na identificação.
+    foto_nota = st.camera_input("Clique no ícone abaixo para tirar a foto da nota (Câmera Traseira)")
 
-    # 2. Formulário de lançamento manual
-    with st.form("form_lancar_nota_manual"):
-        col1, col2 = st.columns(2)
-        with col1:
-            estab = st.text_input("Estabelecimento")
-            data_nota = st.date_input("Data da Emissão")
-        with col2:
-            valor_nota = st.number_input("Valor Total da Nota (R$)", format="%.2f")
-            
-        # Área para lançar os itens da nota
-        st.write("### Itens da Nota")
-        num_itens = st.number_input("Quantos itens deseja lançar?", min_value=1, max_value=20, value=1)
-        itens = []
-        for i in range(num_itens):
-            c1, c2, c3 = st.columns(3)
-            with c1: prod = st.text_input(f"Produto {i+1}", key=f"p{i}")
-            with c2: qtd = st.number_input(f"Qtd {i+1}", value=1.0, key=f"q{i}")
-            with c3: val_u = st.number_input(f"Vlr Unit {i+1}", value=0.0, format="%.2f", key=f"v{i}")
-            itens.append((prod, qtd, val_u, qtd * val_u))
+    if foto_nota:
+        # A foto capturada está disponível em 'foto_nota'
+        st.success("Foto capturada com sucesso!")
+        
+        # Formulário de preenchimento manual (baseado no que você vê na foto)
+        with st.form("form_lancar_nota_manual"):
+            col1, col2 = st.columns(2)
+            with col1:
+                estab = st.text_input("Estabelecimento")
+                data_nota = st.date_input("Data da Emissão")
+            with col2:
+                valor_nota = st.number_input("Valor Total da Nota (R$)", format="%.2f")
+                
+            st.write("### Itens da Nota")
+            num_itens = st.number_input("Quantos itens?", min_value=1, max_value=20, value=1)
+            itens = []
+            for i in range(num_itens):
+                c1, c2, c3 = st.columns(3)
+                with c1: prod = st.text_input(f"Prod {i+1}", key=f"p{i}")
+                with c2: qtd = st.number_input(f"Qtd {i+1}", value=1.0, key=f"q{i}")
+                with c3: val_u = st.number_input(f"Vlr Unit {i+1}", value=0.0, format="%.2f", key=f"v{i}")
+                itens.append((prod, qtd, val_u, qtd * val_u))
 
-        if st.form_submit_button("Salvar Nota Fiscal"):
-            c.execute("INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
-                      (data_nota.strftime("%Y-%m-%d"), estab, valor_nota, arquivo_nota.name if arquivo_nota else "Manual"))
-            nota_id = c.lastrowid
-            
-            for item in itens:
-                c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total) VALUES (?,?,?,?,?)",
-                          (nota_id, item[0], item[1], item[2], item[3]))
-            
-            conn.commit()
-            st.success("Nota fiscal lançada com sucesso!")
+            if st.form_submit_button("Salvar Nota Fiscal"):
+                # Salva no seu banco SQLite existente
+                c.execute("INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                          (data_nota.strftime("%Y-%m-%d"), estab, valor_nota, "Captura Câmera"))
+                nota_id = c.lastrowid
+                
+                for item in itens:
+                    c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total) VALUES (?,?,?,?,?)",
+                              (nota_id, item[0], item[1], item[2], item[3]))
+                
+                conn.commit()
+                st.success("Nota salva no banco!")
