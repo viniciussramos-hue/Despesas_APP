@@ -5053,50 +5053,24 @@ elif st.session_state.pagina_atual == "📄 Holerites":
 
 
 # ==========================================
-# --- SEÇÃO: SCANNER MANUAL DE NOTAS ---
-# ==========================================
-elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
-    botao_voltar()
-    st.subheader("🧾 Lançamento Manual (Via Câmera)")
+    # --- HISTÓRICO: CONFERÊNCIA RÁPIDA ---
+    # ==========================================
+    st.divider()
+    st.subheader("🕒 Lançamentos Recentes")
+
+    # Busca apenas os campos essenciais para confirmar o lançamento
+    query_check = """
+        SELECT data, estabelecimento, valor_total 
+        FROM notas_fiscais 
+        ORDER BY id DESC 
+        LIMIT 5
+    """
     
-    # --- AJUSTE: Ícone/Botão de Câmera ---
-    # O camera_input já gera o ícone e a interface de captura automática
-    # Para forçar a câmera traseira em muitos navegadores mobile, 
-    # o parâmetro 'facing_mode' ajuda na identificação.
-    foto_nota = st.camera_input("Clique no ícone abaixo para tirar a foto da nota (Câmera Traseira)")
-
-    if foto_nota:
-        # A foto capturada está disponível em 'foto_nota'
-        st.success("Foto capturada com sucesso!")
-        
-        # Formulário de preenchimento manual (baseado no que você vê na foto)
-        with st.form("form_lancar_nota_manual"):
-            col1, col2 = st.columns(2)
-            with col1:
-                estab = st.text_input("Estabelecimento")
-                data_nota = st.date_input("Data da Emissão")
-            with col2:
-                valor_nota = st.number_input("Valor Total da Nota (R$)", format="%.2f")
-                
-            st.write("### Itens da Nota")
-            num_itens = st.number_input("Quantos itens?", min_value=1, max_value=20, value=1)
-            itens = []
-            for i in range(num_itens):
-                c1, c2, c3 = st.columns(3)
-                with c1: prod = st.text_input(f"Prod {i+1}", key=f"p{i}")
-                with c2: qtd = st.number_input(f"Qtd {i+1}", value=1.0, key=f"q{i}")
-                with c3: val_u = st.number_input(f"Vlr Unit {i+1}", value=0.0, format="%.2f", key=f"v{i}")
-                itens.append((prod, qtd, val_u, qtd * val_u))
-
-            if st.form_submit_button("Salvar Nota Fiscal"):
-                # Salva no seu banco SQLite existente
-                c.execute("INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
-                          (data_nota.strftime("%Y-%m-%d"), estab, valor_nota, "Captura Câmera"))
-                nota_id = c.lastrowid
-                
-                for item in itens:
-                    c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total) VALUES (?,?,?,?,?)",
-                              (nota_id, item[0], item[1], item[2], item[3]))
-                
-                conn.commit()
-                st.success("Nota salva no banco!")
+    import pandas as pd
+    df_check = pd.read_sql_query(query_check, conn)
+    
+    if not df_check.empty:
+        # Exibe uma tabela compacta para conferência visual
+        st.dataframe(df_check, use_container_width=True, hide_index=True)
+    else:
+        st.caption("Nenhum lançamento registrado ainda.")
