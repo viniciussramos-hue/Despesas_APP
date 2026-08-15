@@ -5049,4 +5049,47 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 st.success("Holerite removido com sucesso!")
                 st.rerun()
         else:
-            st.info("Nenhum holerite cadastrado ou importado até o momento.")
+            st.info("Nenhum holerite cadastrado ou importado até o momento.")# ==========================================
+# --- SEÇÃO: SCANNER MANUAL DE NOTAS ---
+# ==========================================
+elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
+    botao_voltar()
+    st.subheader("🧾 Lançamento Manual de Notas Fiscais (Scanner)")
+    
+    # 1. Upload do arquivo para visualização apenas
+    arquivo_nota = st.file_uploader("📷 Foto ou PDF da Nota (Somente visualização)", type=["jpg", "png", "pdf"])
+    
+    if arquivo_nota:
+        st.image(arquivo_nota) if arquivo_nota.type != "application/pdf" else st.info("PDF carregado para referência.")
+
+    # 2. Formulário de lançamento manual
+    with st.form("form_lancar_nota_manual"):
+        col1, col2 = st.columns(2)
+        with col1:
+            estab = st.text_input("Estabelecimento")
+            data_nota = st.date_input("Data da Emissão")
+        with col2:
+            valor_nota = st.number_input("Valor Total da Nota (R$)", format="%.2f")
+            
+        # Área para lançar os itens da nota
+        st.write("### Itens da Nota")
+        num_itens = st.number_input("Quantos itens deseja lançar?", min_value=1, max_value=20, value=1)
+        itens = []
+        for i in range(num_itens):
+            c1, c2, c3 = st.columns(3)
+            with c1: prod = st.text_input(f"Produto {i+1}", key=f"p{i}")
+            with c2: qtd = st.number_input(f"Qtd {i+1}", value=1.0, key=f"q{i}")
+            with c3: val_u = st.number_input(f"Vlr Unit {i+1}", value=0.0, format="%.2f", key=f"v{i}")
+            itens.append((prod, qtd, val_u, qtd * val_u))
+
+        if st.form_submit_button("Salvar Nota Fiscal"):
+            c.execute("INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
+                      (data_nota.strftime("%Y-%m-%d"), estab, valor_nota, arquivo_nota.name if arquivo_nota else "Manual"))
+            nota_id = c.lastrowid
+            
+            for item in itens:
+                c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total) VALUES (?,?,?,?,?)",
+                          (nota_id, item[0], item[1], item[2], item[3]))
+            
+            conn.commit()
+            st.success("Nota fiscal lançada com sucesso!")
