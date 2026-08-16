@@ -18,8 +18,8 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.6.0"
-DATA_ATUALIZACAO = "10/08/2026"
+VERSAO_SISTEMA = "v2.6.1"
+DATA_ATUALIZACAO = "16/08/2026"
 
 # ==========================================
 # --- CONTROLE DE ESTADO DA BARRA LATERAL ---
@@ -563,11 +563,13 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
                 try:
                     v_dt = datetime.strptime(str(cp["vencimento"])[:10], "%Y-%m-%d").date()
                     if hoje_alerta <= v_dt <= daqui_5_dias:
+                        dias_restantes = (v_dt - hoje_alerta).days
                         contas_proximas.append({
                             "tipo": "Conta a Pagar",
                             "desc": cp["descricao"],
                             "val": cp["valor"],
                             "data": v_dt,
+                            "dias": dias_restantes,
                         })
                 except:
                     pass
@@ -577,11 +579,13 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
                 try:
                     v_dt = datetime.strptime(str(cr["vencimento"])[:10], "%Y-%m-%d").date()
                     if hoje_alerta <= v_dt <= daqui_5_dias:
+                        dias_restantes = (v_dt - hoje_alerta).days
                         contas_proximas.append({
                             "tipo": "Conta a Receber",
                             "desc": cr["descricao"],
                             "val": cr["valor"],
                             "data": v_dt,
+                            "dias": dias_restantes,
                         })
                 except:
                     pass
@@ -589,7 +593,7 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
         if contas_proximas:
             st.markdown(
                 """
-                <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 18px; margin-bottom: 22px;">
+                <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(239, 68, 68, 0.08) 100%); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 12px; padding: 18px; margin-bottom: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
                     <h4 style="color: #f59e0b; margin-top: 0; display: flex; align-items: center; gap: 8px;">🔔 Alerta: Contas Próximas ao Vencimento (Próximos 5 Dias)</h4>
                 """,
                 unsafe_allow_html=True,
@@ -598,8 +602,19 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
                 cor_badge = (
                     "#ef4444" if cp_prox["tipo"] == "Conta a Pagar" else "#22c55e"
                 )
+                
+                # Cálculo de dias mais visível e atrativo
+                if cp_prox["dias"] == 0:
+                    texto_dias = '<span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 11px;">VENCE HOJE!</span>'
+                elif cp_prox["dias"] == 1:
+                    texto_dias = '<span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 11px;">Vence amanhã</span>'
+                else:
+                    texto_dias = f'<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 11px;">Vence em {cp_prox["dias"]} dias</span>'
+
                 st.markdown(
-                    f"""<p style="margin: 4px 0; color: #f8fafc; font-size: 14px;">• <span style="color: {cor_badge}; font-weight: 600;">{cp_prox['tipo']}</span>: <b>{cp_prox['desc']}</b> no valor de <b>R$ {cp_prox['val']:,.2f}</b> com vencimento em <b>{cp_prox['data'].strftime('%d/%m/%Y')}</b></p>""",
+                    f"""<p style="margin: 8px 0; color: #f8fafc; font-size: 14px; display: flex; align-items: center; gap: 10px;">
+                        • <span style="color: {cor_badge}; font-weight: 600;">{cp_prox['tipo']}</span>: <b>{cp_prox['desc']}</b> no valor de <b style="color: #34d399;">R$ {cp_prox['val']:,.2f}</b> — {texto_dias} <span style="color: #94a3b8; font-size: 12px;">(Data: {cp_prox['data'].strftime('%d/%m/%Y')})</span>
+                    </p>""",
                     unsafe_allow_html=True,
                 )
             st.markdown("</div>", unsafe_allow_html=True)
@@ -1584,8 +1599,13 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
                 unsafe_allow_html=True,
             )
         with b2:
+            cor_saldo = "#34d399" if saldo_caixa >= 0 else "#ef4444"
             st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💵 SALDO ATUAL (ENTRADA - SAÍDA)</span><h3 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_caixa:,.2f}</h3></div>""",
+                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                    <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💵 SALDO DISPONÍVEL (ENTRADAS - GASTOS)</span>
+                    <h3 style="color: {cor_saldo}; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_caixa:,.2f}</h3>
+                    <span style="font-size: 10px; color: #94a3b8;">Baseado nas entradas e gastos do mês</span>
+                </div>""",
                 unsafe_allow_html=True,
             )
         with b3:
@@ -3615,8 +3635,9 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                 st.markdown("### 🚨 Alertas de Vencimento (Pagar)")
                 if not vencidas.empty:
                     for _, r_venc in vencidas.iterrows():
+                        dias_atraso = (hoje_atual - r_venc["venc_dt"]).days
                         st.error(
-                            f"⚠️ **Conta Vencida:** '{r_venc['descricao']}' vencia em"
+                            f"⚠️ **Conta Vencida há {dias_atraso} dia(s):** '{r_venc['descricao']}' vencia em"
                             f" **{formatar_data_ptbr(r_venc['vencimento'])}** no valor de"
                             f" **R$ {r_venc['valor']:,.2f}**!"
                         )
