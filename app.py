@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.6.1"
+VERSAO_SISTEMA = "v2.6.2"
 DATA_ATUALIZACAO = "16/08/2026"
 
 # ==========================================
@@ -603,7 +603,6 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
                     "#ef4444" if cp_prox["tipo"] == "Conta a Pagar" else "#22c55e"
                 )
                 
-                # Cálculo de dias mais visível e atrativo
                 if cp_prox["dias"] == 0:
                     texto_dias = '<span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 11px;">VENCE HOJE!</span>'
                 elif cp_prox["dias"] == 1:
@@ -1568,6 +1567,7 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
             df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
             receitas = df[df["tipo"] == "Receita"]["valor"].sum()
             despesas = df[df["tipo"] == "Despesa"]["valor"].sum()
+            # CÁLCULO EXATO SOLICITADO: Saldo Disponível = Entradas - Gastos do Mês
             saldo_caixa = receitas - despesas
         else:
             receitas = 0.0
@@ -2896,7 +2896,7 @@ elif st.session_state.pagina_atual == "🎯 Desafios":
                         )
                     conn.commit()
                     st.success(
-                        f"Depósito(s) {', '.join(map(str, deps_sel))} atualizado(s) para"
+                        f"Depósito(s) {', '.join(map(str, deps_sel))} updated(s) para"
                         f" '{status_novo}' com sucesso!"
                     )
                     st.rerun()
