@@ -3183,29 +3183,29 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
 
     cats_padrao_meta = [
         "📑 01- Boletos Diversos (Necessidade)",
-    "🧸 02- Brinquedos & Lazer Infantil (Desejo)",
-    "⛽ 03- Combustíveis (Necessidade)",
-    "📱 04- Contas de Celular (Necessidade)",
-    "💧 05- Contas de Água (Necessidade)",
-    "⚡ 06- Contas de Energia (Necessidade)",
-    "🏠 07- Contas Fixas (Necessidade)",
-    "🩺 08- Consultas Médicas (Necessidade)",
-    "💄 09- Cosméticos & Beleza (Desejo)",
-    "📄 10- IPTU & Impostos Anuais (Necessidade)",
-    "📈 11- Investimentos / Poupança (20%)",
-    "🍔 12- Lazer & Alimentação Fora (Desejos)",
-    "🎉 13- Lazer & Entretenimento (Desejos)",
-    "🏠 14- Manutenção Residencial (Necessidade)",
-    "🛠️ 15- Manutenção Veicular (Necessidade)",
-    "🛍️ 16- Mercado (Desejo)",
-    "🛒 17- Supermercado (Necessidade)",
-    "🎉 18- Outros Desejos (Desejos)",
-    "💸 19- PIX & Transferências (Necessidade)",
-    "💊 20- Saúde & Farmácia (Necessidade)",
-    "🚗 21- Transporte (Necessidade)",
-    "🐾 22- Veterinário & Pet (Necessidade)",
-    "👔 23- Vestuário Básico / Essencial (Necessidade)",
-    "👗 24- Vestuário & Moda (Desejo)",
+        "🧸 02- Brinquedos & Lazer Infantil (Desejo)",
+        "⛽ 03- Combustíveis (Necessidade)",
+        "📱 04- Contas de Celular (Necessidade)",
+        "💧 05- Contas de Água (Necessidade)",
+        "⚡ 06- Contas de Energia (Necessidade)",
+        "🏠 07- Contas Fixas (Necessidade)",
+        "🩺 08- Consultas Médicas (Necessidade)",
+        "💄 09- Cosméticos & Beleza (Desejo)",
+        "📄 10- IPTU & Impostos Anuais (Necessidade)",
+        "📈 11- Investimentos / Poupança (20%)",
+        "🍔 12- Lazer & Alimentação Fora (Desejos)",
+        "🎉 13- Lazer & Entretenimento (Desejos)",
+        "🏠 14- Manutenção Residencial (Necessidade)",
+        "🛠️ 15- Manutenção Veicular (Necessidade)",
+        "🛍️ 16- Mercado (Desejo)",
+        "🛒 17- Supermercado (Necessidade)",
+        "🎉 18- Outros Desejos (Desejos)",
+        "💸 19- PIX & Transferências (Necessidade)",
+        "💊 20- Saúde & Farmácia (Necessidade)",
+        "🚗 21- Transporte (Necessidade)",
+        "🐾 22- Veterinário & Pet (Necessidade)",
+        "👔 23- Vestuário Básico / Essencial (Necessidade)",
+        "👗 24- Vestuário & Moda (Desejo)",
     ]
     df_cats_db = pd.read_sql("SELECT nome FROM categorias", conn)
     lista_todas_cats = (
@@ -3254,7 +3254,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
 
             st.markdown(
                 f"""
-                <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 5px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
                     <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">{cat_nome}</span>
                     <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Gasto Real: R$ {gasto_atual_meta:,.2f} / Meta Teto: R$ {v_meta:,.2f}</p>
                 </div>
@@ -3270,6 +3270,42 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
                     )
             else:
                 st.progress(0.0)
+
+            # --- BOTÕES DE EDITAR E EXCLUIR POR META ---
+            col_b1, col_b2, col_vazia = st.columns([1, 1, 4])
+            
+            with col_b1:
+                if st.button("✏️ Editar", key=f"edit_meta_{index}", use_container_width=True):
+                    st.session_state[f"editando_meta_{index}"] = True
+
+            with col_b2:
+                if st.button("🗑️ Excluir", key=f"del_meta_{index}", use_container_width=True):
+                    c.execute("DELETE FROM metas WHERE categoria = ?", (cat_nome,))
+                    conn.commit()
+                    st.success(f"Meta da categoria '{cat_nome}' excluída com sucesso!")
+                    st.rerun()
+
+            # --- FORMULÁRIO DE EDIÇÃO RÁPIDA (Ativado ao clicar em Editar) ---
+            if st.session_state.get(f"editando_meta_{index}", False):
+                with st.form(key=f"form_edit_meta_{index}"):
+                    st.write(f"**Editando Meta: {cat_nome}**")
+                    novo_valor_meta = st.number_input(
+                        "Novo Valor Teto (R$)", min_value=0.0, value=float(v_meta), step=1.0, format="%.2f"
+                    )
+                    c_col1, c_col2 = st.columns(2)
+                    with c_col1:
+                        if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
+                            c.execute("UPDATE metas SET valor_meta = ? WHERE categoria = ?", (novo_valor_meta, cat_nome))
+                            conn.commit()
+                            st.session_state[f"editando_meta_{index}"] = False
+                            st.success("Meta atualizada com sucesso!")
+                            st.rerun()
+                    with c_col2:
+                        if st.form_submit_button("❌ Cancelar", use_container_width=True):
+                            st.session_state[f"editando_meta_{index}"] = False
+                            st.rerun()
+
+            st.markdown("<hr style='margin: 10px 0; border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
     else:
         st.info("Nenhuma meta de gasto definida até o momento.")
 
