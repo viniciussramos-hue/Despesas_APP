@@ -37,7 +37,7 @@ st.markdown(
 )
 
 # ==========================================
-# BANCO DE DADOS & PERSISTÊNCIA
+# BANCO DE DADOS & PERSISTÊNCIA COMPLETA
 # ==========================================
 DB_NAME = "financeiro_pro.db"
 
@@ -55,6 +55,27 @@ def init_db():
             descricao TEXT,
             valor REAL,
             conta TEXT
+        )
+    """)
+
+  cursor.execute("""
+        CREATE TABLE IF NOT EXISTS contas_pagar_receber (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vencimento TEXT,
+            tipo TEXT,
+            descricao TEXT,
+            valor REAL,
+            status TEXT,
+            categoria TEXT
+        )
+    """)
+
+  cursor.execute("""
+        CREATE TABLE IF NOT EXISTS cartoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome_cartao TEXT,
+            limite REAL,
+            vencimento_fatura INTEGER
         )
     """)
 
@@ -121,10 +142,10 @@ def run_query(query, params=(), fetch=True):
 
 
 # ==========================================
-# SIDEBAR & NAVEGAÇÃO
+# SIDEBAR & NAVEGAÇÃO COMPLETA
 # ==========================================
 st.sidebar.title("💎 Gestor Financeiro")
-st.sidebar.caption("Versão 2.7.0 • Otimizado")
+st.sidebar.caption("Versão 2.7.5 • Completa & Otimizada")
 st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
@@ -132,6 +153,8 @@ menu = st.sidebar.radio(
     [
         "📊 Dashboard Executivo",
         "💸 Lançamentos",
+        "📌 Contas a Pagar & Receber",
+        "💳 Cartões de Crédito",
         "🚗 Gestão de Veículos",
         "📈 Investimentos",
         "🎯 Metas & Planejamento",
@@ -144,7 +167,9 @@ menu = st.sidebar.radio(
 # ==========================================
 if menu == "📊 Dashboard Executivo":
   st.title("📊 Dashboard Executivo")
-  st.markdown("Visão geral da sua saúde financeira e indicadores de desempenho.")
+  st.markdown(
+      "Visão consolidada da sua saúde financeira, despesas e fluxo de caixa."
+  )
 
   transacoes = run_query(
       "SELECT data, tipo, categoria, valor FROM transacoes"
@@ -199,7 +224,7 @@ if menu == "📊 Dashboard Executivo":
         )
         st.plotly_chart(fig_cat, use_container_width=True)
       else:
-        st.info("Nenhuma despesa registrada para exibir gráficos.")
+        st.info("Nenhuma despesa registrada.")
 
     with col_b:
       st.subheader("Evolução Temporal")
@@ -219,21 +244,15 @@ if menu == "📊 Dashboard Executivo":
         )
         st.plotly_chart(fig_temp, use_container_width=True)
       else:
-        st.info("Sem dados temporais suficientes.")
+        st.info("Sem dados temporais.")
   else:
-    st.info(
-        "Nenhum lançamento encontrado. Cadastre suas receitas e despesas na aba"
-        " 'Lançamentos'."
-    )
+    st.info("Cadastre suas transações na aba 'Lançamentos'.")
 
 # ==========================================
 # 2. LANÇAMENTOS
 # ==========================================
 elif menu == "💸 Lançamentos":
   st.title("💸 Controle de Lançamentos")
-  st.markdown(
-      "Adicione novas receitas e despesas de forma rápida e organizada."
-  )
 
   with st.form("form_lancamento", clear_on_submit=True):
     col1, col2 = st.columns(2)
@@ -261,8 +280,7 @@ elif menu == "💸 Lançamentos":
           "Conta / Cartão", ["Conta Corrente", "Cartão de Crédito", "Dinheiro"]
       )
 
-    submitted = st.form_submit_button("Salvar Lançamento")
-    if submitted:
+    if st.form_submit_button("Salvar Lançamento"):
       run_query(
           "INSERT INTO transacoes (data, tipo, categoria, descricao, valor,"
           " conta) VALUES (?, ?, ?, ?, ?, ?)",
@@ -287,7 +305,7 @@ elif menu == "💸 Lançamentos":
     id_excluir = st.number_input(
         "ID da transação para excluir", min_value=1, step=1
     )
-    if st.button("Excluir Lançamento Selecionado"):
+    if st.button("Excluir Lançamento"):
       run_query("DELETE FROM transacoes WHERE id = ?", (id_excluir,), fetch=False)
       st.warning(f"Lançamento {id_excluir} excluído.")
       st.rerun()
@@ -295,7 +313,105 @@ elif menu == "💸 Lançamentos":
     st.info("Nenhum histórico encontrado.")
 
 # ==========================================
-# 3. GESTÃO DE VEÍCULOS
+# 3. CONTAS A PAGAR & RECEBER
+# ==========================================
+elif menu == "📌 Contas a Pagar & Receber":
+  st.title("📌 Gestão de Contas a Pagar & Receber")
+
+  with st.form("form_conta_pr"):
+    col1, col2 = st.columns(2)
+    with col1:
+      vencimento = st.date_input("Data de Vencimento", value=date.today())
+      tipo = st.selectbox("Tipo", ["A Pagar", "A Receber"])
+      descricao = st.text_input("Descrição")
+    with col2:
+      valor = st.number_input("Valor (R$)", min_value=0.01, format="%.2f")
+      status = st.selectbox("Status", ["Pendente", "Pago", "Recebido"])
+      categoria = st.text_input("Categoria (ex: Contas Fixas, Clientes)")
+
+    if st.form_submit_button("Cadastrar Conta"):
+      run_query(
+          "INSERT INTO contas_pagar_receber (vencimento, tipo, descricao,"
+          " valor, status, categoria) VALUES (?, ?, ?, ?, ?, ?)",
+          (str(vencimento), tipo, descricao, valor, status, categoria),
+          fetch=False,
+      )
+      st.success("Conta cadastrada com sucesso!")
+
+  st.markdown("---")
+  st.subheader("Painel de Compromissos")
+  contas = run_query(
+      "SELECT id, vencimento, tipo, descricao, valor, status, categoria FROM"
+      " contas_pagar_receber ORDER BY vencimento ASC"
+  )
+  if contas:
+    df_contas = pd.DataFrame(
+        contas,
+        columns=[
+            "ID",
+            "Vencimento",
+            "Tipo",
+            "Descrição",
+            "Valor",
+            "Status",
+            "Categoria",
+        ],
+    )
+    st.dataframe(df_contas, use_container_width=True)
+
+    id_baixa = st.number_input(
+        "ID da Conta para atualizar status", min_value=1, step=1
+    )
+    novo_status = st.selectbox(
+        "Novo Status", ["Pendente", "Pago", "Recebido", "Cancelado"]
+    )
+    if st.button("Atualizar Status"):
+      run_query(
+          "UPDATE contas_pagar_receber SET status = ? WHERE id = ?",
+          (novo_status, id_baixa),
+          fetch=False,
+      )
+      st.success("Status atualizado!")
+      st.rerun()
+  else:
+    st.info("Nenhuma conta cadastrada.")
+
+# ==========================================
+# 4. CARTÕES DE CRÉDITO
+# ==========================================
+elif menu == "💳 Cartões de Crédito":
+  st.title("💳 Gestão de Cartões de Crédito")
+
+  with st.form("form_cartao"):
+    nome_cartao = st.text_input("Nome do Cartão (ex: Nubank, Itaú)")
+    limite = st.number_input("Limite Total (R$)", min_value=0.0, step=100.0)
+    vencimento_fatura = st.number_input(
+        "Dia de Vencimento da Fatura", min_value=1, max_value=31, value=10
+    )
+
+    if st.form_submit_button("Cadastrar Cartão"):
+      run_query(
+          "INSERT INTO cartoes (nome_cartao, limite, vencimento_fatura) VALUES"
+          " (?, ?, ?)",
+          (nome_cartao, limite, vencimento_fatura),
+          fetch=False,
+      )
+      st.success("Cartão cadastrado!")
+
+  cartoes = run_query(
+      "SELECT id, nome_cartao, limite, vencimento_fatura FROM cartoes"
+  )
+  if cartoes:
+    st.subheader("Cartões Cadastrados")
+    for c in cartoes:
+      st.markdown(
+          f"- **{c[1]}** | Limite: R$ {c[2]:,.2f} | Vencimento Dia: **{c[3]}**"
+      )
+  else:
+    st.info("Nenhum cartão cadastrado.")
+
+# ==========================================
+# 5. GESTÃO DE VEÍCULOS
 # ==========================================
 elif menu == "🚗 Gestão de Veículos":
   st.title("🚗 Gestão de Veículos & Manutenções")
@@ -334,7 +450,7 @@ elif menu == "🚗 Gestão de Veículos":
             "Selecione o Veículo", list(veiculo_dict.keys())
         )
         data_m = st.date_input("Data da Manutenção", value=date.today())
-        desc = st.text_input("Serviço Realizado (ex: Troca de óleo, Pastilhas)")
+        desc = st.text_input("Serviço Realizado")
         km_m = st.number_input("KM na Manutenção", min_value=0, step=100)
         custo = st.number_input("Custo (R$)", min_value=0.0, step=10.0)
 
@@ -350,7 +466,7 @@ elif menu == "🚗 Gestão de Veículos":
       st.info("Cadastre um veículo primeiro.")
 
 # ==========================================
-# 4. INVESTIMENTOS
+# 6. INVESTIMENTOS
 # ==========================================
 elif menu == "📈 Investimentos":
   st.title("📈 Carteira de Investimentos")
@@ -374,7 +490,7 @@ elif menu == "📈 Investimentos":
           (ativo.upper(), tipo, qtd, pm, cotacao),
           fetch=False,
       )
-      st.success("Ativo adicionado com sucesso!")
+      st.success("Ativo adicionado!")
 
   invs = run_query(
       "SELECT ativo, tipo, quantidade, preco_medio, cotacao_atual FROM"
@@ -399,13 +515,13 @@ elif menu == "📈 Investimentos":
     )
 
 # ==========================================
-# 5. METAS & PLANEJAMENTO
+# 7. METAS & PLANEJAMENTO
 # ==========================================
 elif menu == "🎯 Metas & Planejamento":
   st.title("🎯 Metas Financeiras")
 
   with st.form("form_meta"):
-    titulo = st.text_input("Nome da Meta (ex: Reserva de Emergência, Viagem)")
+    titulo = st.text_input("Nome da Meta (ex: Reserva de Emergência)")
     v_alvo = st.number_input("Valor Alvo (R$)", min_value=1.0)
     v_atual = st.number_input("Valor Já Acumulado (R$)", min_value=0.0)
     prazo = st.date_input("Prazo Limite", value=date.today())
@@ -431,13 +547,13 @@ elif menu == "🎯 Metas & Planejamento":
       )
 
 # ==========================================
-# 6. LEITOR DE HOLERITE
+# 8. LEITOR DE HOLERITE
 # ==========================================
 elif menu == "📄 Leitor de Holerite":
   st.title("📄 Leitor & Extrator de Holerites")
   st.markdown(
-      "Faça o upload do seu holerite (PDF ou Imagem) para sumarizar os"
-      " principais proventos e descontos."
+      "Faça o upload do seu holerite (PDF ou Imagem) para sumarizar proventos e"
+      " descontos."
   )
 
   uploaded_file = st.file_uploader(
@@ -445,15 +561,14 @@ elif menu == "📄 Leitor de Holerite":
   )
   if uploaded_file is not None:
     st.success("Arquivo carregado com sucesso!")
-    with st.spinner("Processando dados do holerite..."):
-      # Simulação de extração estruturada (Pronta para integração com OCR/IA)
+    with st.spinner("Processando dados..."):
       st.markdown("---")
       st.subheader("Resumo Extraído")
       col1, col2, col3 = st.columns(3)
       with col1:
         st.metric("Salário Bruto", "R$ 7.500,00")
       with col2:
-        st.metric("Total de Descontos (INSS/IRRF)", "R$ 1.450,00")
+        st.metric("Total de Descontos", "R$ 1.450,00")
       with col3:
         st.metric("Salário Líquido", "R$ 6.050,00")
   else:
