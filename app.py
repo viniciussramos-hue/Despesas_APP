@@ -869,15 +869,27 @@ elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
     )
 
     cats_padrao = [
-        "🏠 Contas Fixas (Necessidade)",
-        "🛒 Supermercado (Necessidade)",
-        "🐾 Pet (Necessidade)",
-        "🚗 Transporte (Necessidade)",
-        "💊 Saúde (Necessidade)",
-        "🍔 Lazer & Alimentação Fora (Desejos)",
-        "🎉 Lazer & Entretenimento (Desejos)",
-        "🎉 Outros Desejos (Desejos)",
-        "📈 Investimentos / Poupança (20%)",
+    "🏠 Contas Fixas (Necessidade)",
+    "🛒 Supermercado (Necessidade)",
+    "💧 Contas de Água (Necessidade)",
+    "⚡ Contas de Energia (Necessidade)",
+    "📱 Contas de Celular (Necessidade)",
+    "👔 Vestuário Básico / Essencial (Necessidade)",
+    "🛍️ Mercado (Desejo)",
+    "👗 Vestuário & Moda (Desejo)",
+    "💄 Cosméticos & Beleza (Desejo)",
+    "🧸 Brinquedos & Lazer Infantil (Desejo)",
+    "🩺 Consultas Médicas (Necessidade)",
+    "🐾 Veterinário & Pet (Necessidade)",
+    "🚗 Transporte (Necessidade)",
+    "⛽ Combustíveis (Necessidade)",
+    "🛠️ Manutenção Veicular (Necessidade)",
+    "🏠 Manutenção Residencial (Necessidade)",
+    "💊 Saúde & Farmácia (Necessidade)",
+    "🍔 Lazer & Alimentação Fora (Desejos)",
+    "🎉 Lazer & Entretenimento (Desejos)",
+    "🎉 Outros Desejos (Desejos)",
+    "📈 Investimentos / Poupança (20%)",
     ]
     df_cats_db = pd.read_sql("SELECT nome FROM categorias", conn)
     lista_categorias = (
