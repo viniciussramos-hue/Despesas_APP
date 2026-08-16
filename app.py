@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.6.2"
+VERSAO_SISTEMA = "v2.6.3"
 DATA_ATUALIZACAO = "16/08/2026"
 
 # ==========================================
@@ -1567,7 +1567,6 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
             df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
             receitas = df[df["tipo"] == "Receita"]["valor"].sum()
             despesas = df[df["tipo"] == "Despesa"]["valor"].sum()
-            # CÁLCULO EXATO SOLICITADO: Saldo Disponível = Entradas - Gastos do Mês
             saldo_caixa = receitas - despesas
         else:
             receitas = 0.0
@@ -1599,9 +1598,11 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
                 unsafe_allow_html=True,
             )
         with b2:
+            cor_card_bg = "rgba(34, 197, 94, 0.12)" if saldo_caixa >= 0 else "rgba(239, 68, 68, 0.12)"
+            cor_card_borda = "rgba(34, 197, 94, 0.4)" if saldo_caixa >= 0 else "rgba(239, 68, 68, 0.4)"
             cor_saldo = "#34d399" if saldo_caixa >= 0 else "#ef4444"
             st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                f"""<div style="background: {cor_card_bg}; border: 1px solid {cor_card_borda}; border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
                     <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💵 SALDO DISPONÍVEL (ENTRADAS - GASTOS)</span>
                     <h3 style="color: {cor_saldo}; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_caixa:,.2f}</h3>
                     <span style="font-size: 10px; color: #94a3b8;">Baseado nas entradas e gastos do mês</span>
@@ -1615,14 +1616,26 @@ elif st.session_state.pagina_atual == "📊 Dashboard Manual":
             )
         with b4:
             st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🟢 ENTRADAS MANUAIS</span><h3 style="color: #22c55e; margin: 8px 0 0 0; font-size: 18px;">R$ {receitas:,.2f}</h3></div>""",
+                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                    <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🟢 ENTRADAS MANUAIS</span>
+                    <h3 style="color: #22c55e; margin: 4px 0 8px 0; font-size: 18px;">R$ {receitas:,.2f}</h3>
+                </div>""",
                 unsafe_allow_html=True,
             )
+            if st.button("➕ Nova Entrada", key="btn_atalho_rec", use_container_width=True):
+                mudar_pagina("🟢 Entradas & Salários")
+                st.rerun()
         with b5:
             st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🔴 DESPESAS MANUAIS</span><h3 style="color: #ef4444; margin: 8px 0 0 0; font-size: 18px;">R$ {despesas:,.2f}</h3></div>""",
+                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                    <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🔴 DESPESAS MANUAIS</span>
+                    <h3 style="color: #ef4444; margin: 4px 0 8px 0; font-size: 18px;">R$ {despesas:,.2f}</h3>
+                </div>""",
                 unsafe_allow_html=True,
             )
+            if st.button("➕ Nova Despesa", key="btn_atalho_desp", use_container_width=True):
+                mudar_pagina("🔴 Lançar Despesa")
+                st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -3453,7 +3466,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
     st.markdown("---")
 
-    st.markdown("##### 🗓️ Seleção de Data no Calendário Interativo & Período")
+    st.markdown("##### 🗓️ Seleção de Date no Calendário Interativo & Período")
     data_calendario_topo = st.date_input(
         "Selecionar Data de Referência (DD/MM/AAAA):",
         value=st.session_state.data_calendario_ref,
