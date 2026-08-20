@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
 )
 
-VERSAO_SISTEMA = "v3.5.0"
+VERSAO_SISTEMA = "v3.6.0"
 DATA_ATUALIZACAO = "20/08/2026"
 
 if "sidebar_state" not in st.session_state:
@@ -2115,7 +2115,6 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
                         valor_aporte_restante -= d_val
                         depositos_baixados += 1
                     else:
-                        # Se o valor restante for menor que o valor do depósito, podemos atualizar ou parar
                         break
 
                 conn.commit()
@@ -2129,7 +2128,7 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
     st.markdown("---")
     
     # PAINEL DE PROGRESSO DA TABELA DE 200 DEPÓSITOS
-    df_depositos_all = pd.read_sql("SELECT * FROM tabela_depositos", conn)
+    df_depositos_all = pd.read_sql("SELECT * FROM tabela_depositos ORDER BY numero_deposito ASC", conn)
     if not df_depositos_all.empty:
         total_deps = len(df_depositos_all)
         deps_concluidos = len(df_depositos_all[df_depositos_all["status"] == "Concluído"])
@@ -2148,6 +2147,33 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
         )
         st.progress(prog_deps_pct / 100.0)
         st.markdown("</div>", unsafe_allow_html=True)
+
+        # VISUALIZAÇÃO INTERATIVA DA TABELA COM CHECKBOXES
+        with st.expander("📋 Ver Tabela de 200 Depósitos Interativa (Marcados Conforme Investimentos)", expanded=False):
+            st.write("Aqui você pode acompanhar cada depósito. Os itens aparecem marcados automaticamente conforme seus aportes ou você pode alterar manualmente.")
+            
+            # Criar colunas para exibir de forma limpa em grid ou lista compacta
+            for _, r_dep in df_depositos_all.iterrows():
+                d_id = r_dep["id"]
+                num_dep = r_dep["numero_deposito"]
+                val_dep = r_dep["valor"]
+                status_atual = True if r_dep["status"] == "Concluído" else False
+
+                col_chk, col_val = st.columns([4, 2])
+                with col_chk:
+                    novo_estado_chk = st.checkbox(
+                        f"Depósito #{num_dep}",
+                        value=status_atual,
+                        key=f"dep_chk_{d_id}"
+                    )
+                    novo_status_str = "Concluído" if novo_estado_chk else "Pendente"
+                    if novo_status_str != r_dep["status"]:
+                        c.execute("UPDATE tabela_depositos SET status = ? WHERE id = ?", (novo_status_str, d_id))
+                        conn.commit()
+                        st.rerun()
+                with col_val:
+                    cor_v = "#4ade80" if status_atual else "#94a3b8"
+                    st.markdown(f"<span style='color: {cor_v}; font-weight: 600;'>R$ {val_dep:,.2f} ({novo_status_str})</span>", unsafe_allow_html=True)
 
     df_carteira = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
     if not df_carteira.empty:
@@ -2320,7 +2346,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
             f"""
             <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 14px; padding: 18px; margin-bottom: 25px;">
                 <h4 style="color: #34d399; margin-top: 0;">💡 Projeção de Economia Anual</h4>
-                <p style="color: #f8fafc; font-size: 14px; margin: 0;">Caso você adote a redução de 10% em suas principais categorias sugeridas acima, você economizará aproximadamente <b style="color: #4ade80;">R$ {total_economia_mensal_potencial:,.2f} por mês</b>, totalizando um montante impressionante de <b style="color: #34d399;">R$ {total_economia_anual_potencial:,.2f} ao longo de 1 ano</b> para investir em suas Caixinhas!</p>
+                <p style="color: #f8fafc; font-size: 14px; margin: 0;">Caso você adote a redução de 10% em suas principales categorias sugeridas acima, você economizará aproximadamente <b style="color: #4ade80;">R$ {total_economia_mensal_potencial:,.2f} por mês</b>, totalizando um montante impressionante de <b style="color: #34d399;">R$ {total_economia_anual_potencial:,.2f} ao longo de 1 ano</b> para investir em suas Caixinhas!</p>
             </div>
             """,
             unsafe_allow_html=True,
