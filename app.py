@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
 )
 
-VERSAO_SISTEMA = "v3.4.0"
+VERSAO_SISTEMA = "v3.5.0"
 DATA_ATUALIZACAO = "20/08/2026"
 
 if "sidebar_state" not in st.session_state:
@@ -729,13 +729,11 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
     except Exception as e:
         pass
 
-    # AUTOMAÇÃO 2: Alerta automático de manutenção de veículos na home
     try:
         df_veic_home = pd.read_sql("SELECT id, modelo, placa, km_atual FROM veiculos", conn)
         if not df_veic_home.empty:
             for _, v_h in df_veic_home.iterrows():
                 km_atual_v = v_h["km_atual"]
-                # Padrão de fábrica: Troca de óleo a cada 10000km
                 km_proxima_oleo = ((km_atual_v // 10000) + 1) * 10000
                 km_faltantes = km_proxima_oleo - km_atual_v
                 if km_faltantes <= 500:
@@ -1336,7 +1334,6 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                             consumo_medio,
                         ),
                     )
-                    # AUTOMAÇÃO 2: Atualização automática do odômetro do veículo
                     c.execute("UPDATE veiculos SET km_atual = ? WHERE id = ?", (km_odometro, v_id_c))
                     conn.commit()
                     st.success(
@@ -1848,12 +1845,10 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     total_saidas_previstas = total_faturas + total_contas_pagar + saidas_banco
     saldo_projetado = total_entradas_previstas - total_saidas_previstas
 
-    # AUTOMAÇÃO 1: Projeção Preditiva de fim de mês baseada na média diária
     if not f_trans.empty and tipo_visao == "Mensal":
         dias_passados = max(1, datetime.now().day)
         gasto_ate_agora = saidas_banco
         media_diaria = gasto_ate_agora / dias_passados
-        # Estima total para o mês inteiro (ex: 30 dias)
         gasto_projetado_fim_mes = media_diaria * 30
         saldo_projetado_preditivo = total_entradas_previstas - (total_faturas + total_contas_pagar + gasto_projetado_fim_mes)
         
@@ -2047,19 +2042,19 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
         st.info("Nenhuma despesa de cartão de crédito registrada no momento. Faça o upload de um PDF de fatura acima.")
 
 # ==========================================
-# --- SEÇÃO 6: INVESTIMENTOS ---
+# --- SEÇÃO 6: INVESTIMENTOS & TABELA DE 200 DEPÓSITOS ---
 # ==========================================
 elif st.session_state.pagina_atual == "📈 Investimentos":
     botao_voltar()
-    st.subheader("📈 Painel Profissional de Investimentos, Caixinhas Nubank & Renda Fixa")
+    st.subheader("📈 Painel Profissional de Investimentos, Caixinhas & Tabela de 200 Depósitos")
     st.write(
-        "Monitore a alocação de patrimônio em Caixinhas Nubank, CDBs de outros bancos, Tesouro Direto, Ações e FIIs com rebalanceamento automático."
+        "Monitore sua alocação de patrimônio e acompanhe o progresso da sua **Tabela de 200 Depósitos** integrada automaticamente aos seus aportes."
     )
 
     with st.form("form_ativo_investimento_completo", clear_on_submit=True):
         col_iv1, col_iv2, col_iv3 = st.columns(3)
         with col_iv1:
-            ativo_nome = st.text_input("Nome da Caixinha ou Ativo (Ex: Caixinha Reserva de Emergência, CDB Itaú 100% CDI, Tesouro Selic)")
+            ativo_nome = st.text_input("Nome da Caixinha ou Ativo (Ex: Caixinha Reserva de Emergência, CDB Itaú 100% CDI)")
             classe_ativo = st.selectbox(
                 "Classe / Tipo de Aplicação",
                 ["Caixinha Nubank", "CDB / Renda Fixa Outros Bancos", "Tesouro Direto", "Ações BR", "FIIs", "Criptomoedas", "Exterior"],
@@ -2087,11 +2082,11 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
             st.write("")
             st.write("")
             btn_add_ativo = st.form_submit_button(
-                "Cadastrar Posição na Carteira", use_container_width=True
+                "Cadastrar Posição & Dar Baixa nos Depósitos", use_container_width=True
             )
 
         if btn_add_ativo:
-            if ativo_nome.strip():
+            if ativo_nome.strip() and preco_medio > 0:
                 c.execute(
                     "INSERT INTO carteira_investimentos (data, ativo, classe,"
                     " quantidade, preco_medio) VALUES (?,?,?,?,?)",
@@ -2103,15 +2098,57 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
                         preco_medio,
                     ),
                 )
+                
+                # INTEGRAÇÃO DA REGRA DOS 200 DEPÓSITOS: Dar baixa sequencial no valor investido
+                valor_aporte_restante = preco_medio * qtd_ativo
+                df_dep_pendentes = pd.read_sql("SELECT id, numero_deposito, valor FROM tabela_depositos WHERE status = 'Pendente' ORDER BY numero_deposito ASC", conn)
+                
+                depositos_baixados = 0
+                for _, r_dep in df_dep_pendentes.iterrows():
+                    if valor_aporte_restante <= 0:
+                        break
+                    d_id = r_dep["id"]
+                    d_val = r_dep["valor"]
+                    
+                    if valor_aporte_restante >= d_val:
+                        c.execute("UPDATE tabela_depositos SET status = 'Concluído' WHERE id = ?", (d_id,))
+                        valor_aporte_restante -= d_val
+                        depositos_baixados += 1
+                    else:
+                        # Se o valor restante for menor que o valor do depósito, podemos atualizar ou parar
+                        break
+
                 conn.commit()
                 st.success(
-                    f"Aplicação '{ativo_nome.upper()}' cadastrada com sucesso!"
+                    f"Aplicação '{ativo_nome.upper()}' cadastrada com sucesso! 🎯 {depositos_baixados} depósito(s) da Tabela de 200 Depósitos foram concluídos automaticamente."
                 )
                 st.rerun()
             else:
-                st.error("Informe o nome da caixinha ou ativo corretamente.")
+                st.error("Informe o nome e o valor da aplicação corretamente.")
 
     st.markdown("---")
+    
+    # PAINEL DE PROGRESSO DA TABELA DE 200 DEPÓSITOS
+    df_depositos_all = pd.read_sql("SELECT * FROM tabela_depositos", conn)
+    if not df_depositos_all.empty:
+        total_deps = len(df_depositos_all)
+        deps_concluidos = len(df_depositos_all[df_depositos_all["status"] == "Concluído"])
+        prog_deps_pct = (deps_concluidos / total_deps) * 100 if total_deps > 0 else 0
+        
+        valor_total_depositos = df_depositos_all["valor"].sum()
+        valor_acumulado_concluido = df_depositos_all[df_depositos_all["status"] == "Concluído"]["valor"].sum()
+
+        st.markdown(
+            f"""
+            <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(34, 197, 94, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 14px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                <h4 style="color: #60a5fa; margin-top: 0;">🎯 Progresso da Tabela de 200 Depósitos ({deps_concluidos}/{total_deps} Concluídos)</h4>
+                <p style="color: #f8fafc; font-size: 14px; margin-bottom: 10px;">Valor Acumulado Concluído: <b>R$ {valor_acumulado_concluido:,.2f}</b> de um total de R$ {valor_total_depositos:,.2f}</p>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.progress(prog_deps_pct / 100.0)
+        st.markdown("</div>", unsafe_allow_html=True)
+
     df_carteira = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
     if not df_carteira.empty:
         df_carteira["Valor Total"] = (
@@ -2151,10 +2188,8 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
                 unsafe_allow_html=True,
             )
 
-        # AUTOMAÇÃO 4: Rebalanceamento Automático de Investimentos
         st.markdown("---")
         st.markdown("### 🤖 Sugestão Automática de Rebalanceamento (Alocação Ideal Target)")
-        # Alvo ideal: 70% Caixinha/Renda Fixa, 20% Tesouro/CDB, 10% Renda Variável/Outros
         aloc_atual_caixinha = df_carteira[df_carteira["classe"].isin(["Caixinha Nubank", "CDB / Renda Fixa Outros Bancos"])]["Valor Total"].sum()
         pct_caixinha = (aloc_atual_caixinha / patrimonio_total) * 100 if patrimonio_total > 0 else 0
         
@@ -2178,7 +2213,7 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
         st.markdown("---")
         col_pos1, col_pos2 = st.columns(2)
         with col_pos1:
-            st.write("### 📊 Alocação por Classe de Renda Fixa / Ativos (Gráfico de Rosca)")
+            st.write("### 📊 Alocação por Classe de Ativos (Gráfico de Rosca)")
             df_classe = df_carteira.groupby("classe")["Valor Total"].sum().reset_index()
             fig_pie_inv = px.pie(
                 df_classe,
@@ -2671,7 +2706,6 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
         unsafe_allow_html=True,
     )
 
-    # AUTOMAÇÃO 3: Smart Advice com Ação de 1 Clique
     if proporcao_desejos_s > 0.30:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown(
@@ -3525,6 +3559,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
                 c.execute("DELETE FROM holerites")
                 c.execute("DELETE FROM metas")
                 c.execute("DELETE FROM saldo_banco_manual")
+                c.execute("UPDATE tabela_depositos SET status = 'Pendente'")
                 conn.commit()
                 st.success("Todos os dados do sistema foram apagados com sucesso!")
                 st.rerun()
