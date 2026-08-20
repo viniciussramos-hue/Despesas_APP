@@ -8,7 +8,9 @@ import pandas as pd
 import pdfplumber
 import plotly.express as px
 import streamlit as st
-
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # ==========================================
 # --- CONFIGURAÇÃO DA PÁGINA E TEMA ---
@@ -17,7 +19,7 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
 )
 
-VERSAO_SISTEMA = "v2.9.0"
+VERSAO_SISTEMA = "v3.0.0"
 DATA_ATUALIZACAO = "19/08/2026"
 
 if "sidebar_state" not in st.session_state:
@@ -60,7 +62,7 @@ st.markdown("""
         }
 
         .stApp {
-            background-color: var(--bg-color);
+            background-color: var--bg-color);
             background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
         }
 
@@ -231,6 +233,9 @@ c.execute("""CREATE TABLE IF NOT EXISTS metas
 c.execute("""CREATE TABLE IF NOT EXISTS regras_categorizacao 
             (id INTEGER PRIMARY KEY AUTOINCREMENT, termo_chave TEXT, categoria_destino TEXT)""")
 
+c.execute("""CREATE TABLE IF NOT EXISTS configuracoes_email 
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, smtp_servidor TEXT, smtp_porta INTEGER, email_remetente TEXT, senha_app TEXT, email_destinatario TEXT)""")
+
 c.execute("""CREATE TABLE IF NOT EXISTS carteira_investimentos 
             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)""")
 
@@ -310,6 +315,38 @@ def formatar_data_ptbr(data_obj):
         except:
             return data_obj
     return data_obj
+
+
+def enviar_email_alerta(assunto, corpo_mensagem):
+    try:
+        df_cfg = pd.read_sql("SELECT * FROM configuracoes_email LIMIT 1", conn)
+        if df_cfg.empty:
+            return False, "Nenhuma configuração de e-mail cadastrada."
+        
+        cfg = df_cfg.iloc[0]
+        servidor = cfg["smtp_servidor"] or "smtp.gmail.com"
+        porta = int(cfg["smtp_porta"] or 587)
+        remetente = cfg["email_remetente"]
+        senha = cfg["senha_app"]
+        destinatario = cfg["email_destinatario"]
+
+        if not remetente or not senha or not destinatario:
+            return False, "Preencha todas as credenciais de e-mail nas configurações."
+
+        msg = MIMEMultipart()
+        msg["From"] = remetente
+        msg["To"] = destinatario
+        msg["Subject"] = assunto
+        msg.attach(MIMEText(corpo_mensagem, "plain"))
+
+        server = smtplib.SMTP(servidor, porta)
+        server.starttls()
+        server.login(remetente, senha)
+        server.sendmail(remetente, destinatario, msg.as_string())
+        server.quit()
+        return True, "E-mail enviado com sucesso!"
+    except Exception as e:
+        return False, f"Erro ao enviar e-mail: {e}"
 
 
 def calcular_mes_fatura(data_compra, dia_fechamento):
@@ -413,7 +450,6 @@ def processar_texto_holerite(texto, nome_arquivo):
 def categorizar_automaticamente(descricao, tipo):
     desc_up = descricao.upper()
     
-    # 1. Verifica primeiro nas regras customizadas do banco (De/Para)
     try:
         df_regras_db = pd.read_sql("SELECT termo_chave, categoria_destino FROM regras_categorizacao", conn)
         if not df_regras_db.empty:
@@ -435,7 +471,6 @@ def categorizar_automaticamente(descricao, tipo):
         else:
             return "💸 05- Outras Receitas (Entrada)"
     
-    # Despesas e Categorias com ícones dinâmicos baseados no extrato
     if "SUPERMERCADO" in desc_up or "SHIBATA" in desc_up or "SUPER" in desc_up or "MERCADO" in desc_up or "PADARIA" in desc_up or "ACOUGUE" in desc_up:
         return "🛒 Supermercado (Necessidade)"
     elif "POSTO" in desc_up or "COMBUSTIVEL" in desc_up or "SHELL" in desc_up or "PETROBRAS" in desc_up or "IPIRANGA" in desc_up or "AUTO POSTO" in desc_up:
@@ -488,6 +523,41 @@ with st.sidebar:
     if st.button("🏠 Painel Principal / Início", use_container_width=True):
         mudar_pagina("🏠 Início / Painel")
         st.rerun()
+
+    st.markdown("---")
+    
+    with st.expander("⚙️ Configurações de E-mail & Alertas", expanded=False):
+        df_cfg_db = pd.read_sql("SELECT * FROM configuracoes_email LIMIT 1", conn)
+        srv_val = df_cfg_db.iloc[0]["smtp_servidor"] if not df_cfg_db.empty else "smtp.gmail.com"
+        prt_val = int(df_cfg_db.iloc[0]["smtp_porta"] if not df_cfg_db.empty and df_cfg_db.iloc[0]["smtp_porta"] else 587)
+        rem_val = df_cfg_db.iloc[0]["email_remetente"] if not df_cfg_db.empty else ""
+        sen_val = df_cfg_db.iloc[0]["senha_app"] if not df_cfg_db.empty else ""
+        des_val = df_cfg_db.iloc[0]["email_destinatario"] if not df_cfg_db.empty else ""
+
+        with st.form("form_cfg_email_sidebar"):
+            smtp_serv = st.text_input("Servidor SMTP:", value=srv_val)
+            smtp_port = st.number_input("Porta SMTP:", value=prt_val, step=1)
+            email_rem = st.text_input("E-mail Remetente:", value=rem_val)
+            senha_app = st.text_input("Senha de Aplicativo:", type="password", value=sen_val)
+            email_des = st.text_input("E-mail Destinatário:", value=des_val)
+
+            btn_salvar_cfg = st.form_submit_button("Salvar Credenciais", use_container_width=True)
+            if btn_salvar_cfg:
+                c.execute("DELETE FROM configuracoes_email")
+                c.execute(
+                    "INSERT INTO configuracoes_email (smtp_servidor, smtp_porta, email_remetente, senha_app, email_destinatario) VALUES (?,?,?,?,?)",
+                    (smtp_serv, int(smtp_port), email_rem, senha_app, email_des)
+                )
+                conn.commit()
+                st.success("Configurações de e-mail salvas com sucesso!")
+                st.rerun()
+
+        if st.button("📧 Testar Envio de E-mail", use_container_width=True):
+            sucesso, msg_ret = enviar_email_alerta("Teste de Alerta - Gestor Financeiro", "Este é um e-mail de teste enviado pelo seu Gestor Financeiro Profissional.")
+            if sucesso:
+                st.success(msg_ret)
+            else:
+                st.error(msg_ret)
 
     st.markdown("---")
     
@@ -2104,10 +2174,50 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
 # ==========================================
 elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
     botao_voltar()
-    st.subheader("🎯 Definir Teto de Meta Mensal (Fixo ou Percentual da Renda)")
+    st.subheader("🎯 Assistente Inteligente & Tetos de Metas Mensais")
     st.write(
-        "Estabeleça limites orçamentários fixos ou atrelados à sua renda líquida mensal."
+        "Gerencie seus limites orçamentários. O assistente analisa seus gastos reais e sugere metas automaticamente com base no seu padrão de consumo."
     )
+
+    # --- IA / ASSISTENTE DE SUGESTÃO DE METAS ---
+    df_trans_audit = pd.read_sql("SELECT * FROM transacoes WHERE tipo = 'Despesa' AND origem = 'Banco_PDF'", conn)
+    if not df_trans_audit.empty:
+        gastos_por_cat = df_trans_audit.groupby("categoria")["valor"].sum().reset_index()
+        
+        st.markdown(
+            """
+            <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(34, 197, 94, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 14px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                <h4 style="color: #60a5fa; margin-top: 0; display: flex; align-items: center; gap: 8px;">🤖 Assistente Financeiro Inteligente (Sugestões de Metas)</h4>
+                <p style="color: #f8fafc; font-size: 14px; margin-bottom: 12px;">Com base nas suas transações reais importadas, analisei seus gastos por categoria. Aqui estão algumas sugestões otimizadas de tetos para ajudar você a economizar:</p>
+            """,
+        unsafe_allow_html=True,
+        )
+
+        cols_sugestao = st.columns(min(3, len(gastos_por_cat)))
+        for idx, (_, r_gasto) in enumerate(gastos_por_cat.head(3).iterrows()):
+            cat_sug = r_gasto["categoria"]
+            val_gasto_real = r_gasto["valor"]
+            meta_sugestao_val = val_gasto_real * 0.90  # Sugere 10% a menos que o gasto atual para gerar economia
+
+            col_idx = idx % len(cols_sugestao)
+            with cols_sugestao[col_idx]:
+                st.markdown(
+                    f"""
+                    <div style="background: rgba(15, 18, 24, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 14px;">
+                        <span style="color: #94a3b8; font-size: 11px; font-weight: 600;">{cat_sug}</span>
+                        <p style="color: #f8fafc; font-size: 13px; margin: 4px 0;">Gasto Atual: <b>R$ {val_gasto_real:,.2f}</b></p>
+                        <p style="color: #34d399; font-size: 13px; margin: 0;"><b>Meta Sugerida: R$ {meta_sugestao_val:,.2f}</b></p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                if st.button(f"Aceitar Sugestão", key=f"btn_aceitar_sug_{idx}", use_container_width=True):
+                    c.execute("DELETE FROM metas WHERE categoria = ?", (cat_sug,))
+                    c.execute("INSERT INTO metas (categoria, valor_meta, percentual_renda) VALUES (?, ?, ?)", (cat_sug, meta_sugestao_val, 0.0))
+                    conn.commit()
+                    st.success(f"Meta sugerida para '{cat_sug}' aplicada com sucesso!")
+                    st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     cats_padrao_meta = [
         "🏠 Contas Fixas (Necessidade)",
@@ -2127,7 +2237,6 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
         else cats_padrao_meta
     )
 
-    # Descobrir última renda líquida dos holerites para cálculo percentual dinâmico
     df_hol_renda = pd.read_sql("SELECT liquido FROM holerites ORDER BY id DESC LIMIT 1", conn)
     renda_ref_calc = float(df_hol_renda.iloc[0]["liquido"]) if not df_hol_renda.empty else 5000.00
 
@@ -2154,7 +2263,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
             st.rerun()
 
     st.markdown("---")
-    st.subheader("📋 Acompanhamento Visual das Metas de Gastos")
+    st.subheader("📋 Acompanhamento Visual das Metas de Gastos & Exclusão")
     df_metas = pd.read_sql("SELECT * FROM metas", conn)
     df_trans_meta = pd.read_sql(
         "SELECT * FROM transacoes WHERE tipo = 'Despesa' AND origem = 'Banco_PDF'",
@@ -2163,11 +2272,11 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
 
     if not df_metas.empty:
         for index, row in df_metas.iterrows():
+            m_id = row["id"]
             cat_nome = row["categoria"]
             v_meta = row["valor_meta"]
             p_renda = row.get("percentual_renda", 0.0)
 
-            # Se for percentual, recalcula com base na renda atual
             if p_renda and p_renda > 0:
                 v_meta = renda_ref_calc * (p_renda / 100.0)
 
@@ -2179,24 +2288,36 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
 
             detalhe_meta_txt = f"Meta: R$ {v_meta:,.2f}" + (f" ({p_renda}% da Renda)" if p_renda else "")
 
-            st.markdown(
-                f"""
-                <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                    <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">{cat_nome}</span>
-                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Gasto Real (Extrato): R$ {gasto_atual_meta:,.2f} / {detalhe_meta_txt}</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            if v_meta > 0:
-                st.progress(min(gasto_atual_meta / v_meta, 1.0))
-                if gasto_atual_meta > v_meta:
-                    st.error(
-                        f"⚠️ Atenção! Você estourou a meta da categoria {cat_nome} em R$"
-                        f" {(gasto_atual_meta - v_meta):,.2f}!"
-                    )
-            else:
-                st.progress(0.0)
+            col_m_view, col_m_del = st.columns([5, 1])
+            with col_m_view:
+                st.markdown(
+                    f"""
+                    <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                        <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">{cat_nome}</span>
+                        <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Gasto Real (Extrato): R$ {gasto_atual_meta:,.2f} / {detalhe_meta_txt}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                if v_meta > 0:
+                    st.progress(min(gasto_atual_meta / v_meta, 1.0))
+                    if gasto_atual_meta > v_meta:
+                        st.error(
+                            f"⚠️ Atenção! Você estourou a meta da categoria {cat_nome} em R$"
+                            f" {(gasto_atual_meta - v_meta):,.2f}!"
+                        )
+                else:
+                    st.progress(0.0)
+            
+            with col_m_del:
+                st.write("")
+                st.write("")
+                if st.button("🗑️ Excluir", key=f"del_meta_{m_id}", use_container_width=True):
+                    c.execute("DELETE FROM metas WHERE id = ?", (m_id,))
+                    conn.commit()
+                    st.success("Meta removida com sucesso!")
+                    st.rerun()
+            st.markdown("<hr style='margin: 8px 0; border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
     else:
         st.info("Nenhuma meta de gasto definida até o momento.")
 
