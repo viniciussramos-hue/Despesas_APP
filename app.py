@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
 )
 
-VERSAO_SISTEMA = "v3.2.0"
+VERSAO_SISTEMA = "v3.3.0"
 DATA_ATUALIZACAO = "20/08/2026"
 
 if "sidebar_state" not in st.session_state:
@@ -333,7 +333,6 @@ def enviar_email_alerta(assunto, corpo_mensagem):
         servidor = "smtp.gmail.com"
         porta = 587
         remetente = "gestor.financeiro.automatico@gmail.com"
-        senha = "senha_app_placeholder_segura"
         destinatario = cfg["email_destinatario"]
 
         if not destinatario:
@@ -2174,7 +2173,6 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
         "Gerencie seus limites orçamentários. O assistente analisa seus gastos reais e sugere metas automaticamente com base no seu padrão de consumo."
     )
 
-    # --- IA / ASSISTENTE DE SUGESTÃO DE METAS ---
     df_trans_audit = pd.read_sql("SELECT * FROM transacoes WHERE tipo = 'Despesa' AND origem = 'Banco_PDF'", conn)
     if not df_trans_audit.empty:
         gastos_por_cat = df_trans_audit.groupby("categoria")["valor"].sum().reset_index()
@@ -2192,7 +2190,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
         for idx, (_, r_gasto) in enumerate(gastos_por_cat.head(3).iterrows()):
             cat_sug = r_gasto["categoria"]
             val_gasto_real = r_gasto["valor"]
-            meta_sugestao_val = val_gasto_real * 0.90  # Sugere 10% a menos que o gasto atual para gerar economia
+            meta_sugestao_val = val_gasto_real * 0.90
 
             col_idx = idx % len(cols_sugestao)
             with cols_sugestao[col_idx]:
@@ -2278,6 +2276,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
     )
 
     if not df_metas.empty:
+        total_metas_cadastradas = 0.0
         for index, row in df_metas.iterrows():
             m_id = row["id"]
             cat_nome = row["categoria"]
@@ -2287,6 +2286,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
             if p_renda and p_renda > 0:
                 v_meta = renda_ref_calc * (p_renda / 100.0)
 
+            total_metas_cadastradas += v_meta
             gasto_atual_meta = (
                 df_trans_meta[df_trans_meta["categoria"] == cat_nome]["valor"].sum()
                 if not df_trans_meta.empty
@@ -2325,6 +2325,9 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
                     st.success("Meta removida com sucesso!")
                     st.rerun()
             st.markdown("<hr style='margin: 8px 0; border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
+
+        if total_metas_cadastradas > renda_ref_calc:
+            st.warning(f"⚠️ **Alerta Orçamentário:** A soma dos tetos das suas metas (R$ {total_metas_cadastradas:,.2f}) ultrapassa a sua renda líquida estimada (R$ {renda_ref_calc:,.2f}). Ajuste os tetos para manter o orçamento equilibrado!")
     else:
         st.info("Nenhuma meta de gasto definida até o momento.")
 
