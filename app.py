@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
 )
 
-VERSAO_SISTEMA = "v3.3.0"
+VERSAO_SISTEMA = "v3.4.0"
 DATA_ATUALIZACAO = "20/08/2026"
 
 if "sidebar_state" not in st.session_state:
@@ -729,6 +729,28 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
     except Exception as e:
         pass
 
+    # AUTOMAÇÃO 2: Alerta automático de manutenção de veículos na home
+    try:
+        df_veic_home = pd.read_sql("SELECT id, modelo, placa, km_atual FROM veiculos", conn)
+        if not df_veic_home.empty:
+            for _, v_h in df_veic_home.iterrows():
+                km_atual_v = v_h["km_atual"]
+                # Padrão de fábrica: Troca de óleo a cada 10000km
+                km_proxima_oleo = ((km_atual_v // 10000) + 1) * 10000
+                km_faltantes = km_proxima_oleo - km_atual_v
+                if km_faltantes <= 500:
+                    st.markdown(
+                        f"""
+                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 14px; margin-bottom: 15px;">
+                            <h4 style="color: #ef4444; margin: 0 0 4px 0;">🚗 Alerta Automático de Manutenção: {v_h['modelo']} ({v_h['placa']})</h4>
+                            <p style="color: #f8fafc; font-size: 13px; margin: 0;">Faltam apenas <b>{km_faltantes:.0f} km</b> para atingir a marca de {km_proxima_oleo:,.0f} km (Troca de Óleo / Revisão Obrigatória).</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+    except:
+        pass
+
     st.markdown(
         '<div class="group-card"><div class="group-title">Painel de Gestão'
         " Baseada em Extrato</div>",
@@ -978,7 +1000,7 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
     )
     st.write(
         "Gerencie sua frota, registre quilometragem, agende manutenções e"
-        " monitore o consumo médio de combustível."
+        " monitore o consumo médio de combustível com alertas automáticos."
     )
 
     if "aba_veiculos_ativa" not in st.session_state:
@@ -1282,7 +1304,7 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                     )
 
                 if st.form_submit_button(
-                    "Registrar Abastecimento & Calcular Consumo",
+                    "Registrar Abastecimento & Atualizar Odômetro",
                     use_container_width=True,
                 ):
                     v_id_c = veiculos_map[veic_comb]
@@ -1314,9 +1336,11 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
                             consumo_medio,
                         ),
                     )
+                    # AUTOMAÇÃO 2: Atualização automática do odômetro do veículo
+                    c.execute("UPDATE veiculos SET km_atual = ? WHERE id = ?", (km_odometro, v_id_c))
                     conn.commit()
                     st.success(
-                        f"Abastecimento registrado com sucesso! Consumo médio estimado:"
+                        f"Abastecimento registrado com sucesso! Odômetro atualizado para {km_odometro:,.0f} km. Consumo médio estimado:"
                         f" {consumo_medio:.2f} Km/L"
                     )
                     st.rerun()
@@ -1824,6 +1848,25 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     total_saidas_previstas = total_faturas + total_contas_pagar + saidas_banco
     saldo_projetado = total_entradas_previstas - total_saidas_previstas
 
+    # AUTOMAÇÃO 1: Projeção Preditiva de fim de mês baseada na média diária
+    if not f_trans.empty and tipo_visao == "Mensal":
+        dias_passados = max(1, datetime.now().day)
+        gasto_ate_agora = saidas_banco
+        media_diaria = gasto_ate_agora / dias_passados
+        # Estima total para o mês inteiro (ex: 30 dias)
+        gasto_projetado_fim_mes = media_diaria * 30
+        saldo_projetado_preditivo = total_entradas_previstas - (total_faturas + total_contas_pagar + gasto_projetado_fim_mes)
+        
+        st.markdown(
+            f"""
+            <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+                <h4 style="color: #60a5fa; margin-top: 0;">🔮 Projeção Preditiva de Fim de Mês (Machine Learning Simples)</h4>
+                <p style="color: #f8fafc; font-size: 14px; margin: 0;">Com base na sua média diária atual de <b>R$ {media_diaria:,.2f}/dia</b>, o sistema projeta que seu saldo final ao término do mês será de <b style="color: {'#22c55e' if saldo_projetado_preditivo >= 0 else '#ef4444'};">R$ {saldo_projetado_preditivo:,.2f}</b>.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
     st.markdown("### 🧪 Simulador de Imprevistos & Ajustes Orçamentários")
     col_sim1, col_sim2 = st.columns(2)
     with col_sim1:
@@ -2010,7 +2053,7 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
     botao_voltar()
     st.subheader("📈 Painel Profissional de Investimentos, Caixinhas Nubank & Renda Fixa")
     st.write(
-        "Monitore a alocação de patrimônio em Caixinhas Nubank, CDBs de outros bancos, Tesouro Direto, Ações e FIIs."
+        "Monitore a alocação de patrimônio em Caixinhas Nubank, CDBs de outros bancos, Tesouro Direto, Ações e FIIs com rebalanceamento automático."
     )
 
     with st.form("form_ativo_investimento_completo", clear_on_submit=True):
@@ -2107,6 +2150,30 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
                 """,
                 unsafe_allow_html=True,
             )
+
+        # AUTOMAÇÃO 4: Rebalanceamento Automático de Investimentos
+        st.markdown("---")
+        st.markdown("### 🤖 Sugestão Automática de Rebalanceamento (Alocação Ideal Target)")
+        # Alvo ideal: 70% Caixinha/Renda Fixa, 20% Tesouro/CDB, 10% Renda Variável/Outros
+        aloc_atual_caixinha = df_carteira[df_carteira["classe"].isin(["Caixinha Nubank", "CDB / Renda Fixa Outros Bancos"])]["Valor Total"].sum()
+        pct_caixinha = (aloc_atual_caixinha / patrimonio_total) * 100 if patrimonio_total > 0 else 0
+        
+        if pct_caixinha < 70:
+            sugestao_aporte = "Direcionar seu próximo aporte integralmente para **Caixas / Reserva de Emergência** para atingir a meta de 70%."
+            cor_alerta_inv = "#f59e0b"
+        else:
+            sugestao_aporte = "Sua carteira está equilibrada! Você pode diversificar o próximo aporte em Renda Variável ou FIIs."
+            cor_alerta_inv = "#34d399"
+
+        st.markdown(
+            f"""
+            <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 18px;">
+                <h4 style="color: {cor_alerta_inv}; margin-top: 0;">🎯 Recomendações de Aporte Inteligente</h4>
+                <p style="color: #f8fafc; font-size: 14px; margin: 0;">Alocação atual em Renda Fixa/Caixinhas: <b>{pct_caixinha:.1f}%</b> (Alvo ideal: 70%).<br>👉 <b>Sugestão do Sistema:</b> {sugestao_aporte}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         st.markdown("---")
         col_pos1, col_pos2 = st.columns(2)
@@ -2270,8 +2337,6 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
     st.markdown("---")
     st.subheader("📋 Acompanhamento Visual das Metas de Gastos & Exclusão")
     df_metas = pd.read_sql("SELECT * FROM metas", conn)
-    
-    # CORREÇÃO: Filtrar apenas transações do mês vigente (ex: agosto de 2026) para o gasto real não acumular histórico antigo
     df_trans_meta = pd.read_sql(
         "SELECT * FROM transacoes WHERE tipo = 'Despesa' AND origem = 'Banco_PDF' AND data LIKE '2026-08%'",
         conn,
@@ -2289,8 +2354,6 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
                 v_meta = renda_ref_calc * (p_renda / 100.0)
 
             total_metas_cadastradas += v_meta
-            
-            # Soma exata por categoria comparando nomes limpos
             gasto_atual_meta = (
                 df_trans_meta[df_trans_meta["categoria"].str.strip() == cat_nome.strip()]["valor"].sum()
                 if not df_trans_meta.empty
@@ -2535,7 +2598,7 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
     st.subheader("❤️ Score de Saúde Financeira & Auditoria de Perfil (Base Extrato)")
     st.write(
         "Pontuação calculada de 0 a 1000 com base em endividamento, taxa de"
-        " poupança, disciplina e cumprimento de tetos extraídos do extrato."
+        " poupança, disciplina e cumprimento de tetos extraídos do extrato com Smart Advice automatizado."
     )
 
     df_saude = pd.read_sql(
@@ -2607,6 +2670,26 @@ elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
     """,
         unsafe_allow_html=True,
     )
+
+    # AUTOMAÇÃO 3: Smart Advice com Ação de 1 Clique
+    if proporcao_desejos_s > 0.30:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 18px;">
+                <h4 style="color: #ef4444; margin-top: 0;">⚡ Smart Advice: Alerta de Desejos Acima do Ideal (> 30%)</h4>
+                <p style="color: #f8fafc; font-size: 13px; margin-bottom: 12px;">Seus gastos com Lazer & Desejos ultrapassaram a proporção recomendada da sua renda. Clique no botão abaixo para que o assistente crie metas restritivas automáticas para conter esses gastos.</p>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("🚀 Executar Ação Automática: Aplicar Corta-Gastos em Lazer", use_container_width=True):
+            c.execute("DELETE FROM metas WHERE categoria LIKE '%Desejos%'")
+            c.execute("INSERT INTO metas (categoria, valor_meta, percentual_renda) VALUES (?, ?, ?)", ("🍔 Lazer & Alimentação Fora (Desejos)", 300.0, 0.0))
+            c.execute("INSERT INTO metas (categoria, valor_meta, percentual_renda) VALUES (?, ?, ?)", ("🎉 Lazer & Entretenimento (Desejos)", 200.0, 0.0))
+            conn.commit()
+            st.success("Metas restritivas de corte de gastos aplicadas com sucesso! Verifique na seção 'Metas de Gastos'.")
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.subheader("Detalhamento por Fator de Avaliação")
