@@ -19,8 +19,8 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
 )
 
-VERSAO_SISTEMA = "v3.1.0"
-DATA_ATUALIZACAO = "19/08/2026"
+VERSAO_SISTEMA = "v3.2.0"
+DATA_ATUALIZACAO = "20/08/2026"
 
 if "sidebar_state" not in st.session_state:
     st.session_state.sidebar_state = "expanded"
@@ -234,7 +234,7 @@ c.execute("""CREATE TABLE IF NOT EXISTS regras_categorizacao
             (id INTEGER PRIMARY KEY AUTOINCREMENT, termo_chave TEXT, categoria_destino TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS configuracoes_email 
-            (id INTEGER PRIMARY KEY AUTOINCREMENT, smtp_servidor TEXT, smtp_porta INTEGER, email_remetente TEXT, senha_app TEXT, email_destinatario TEXT)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, smtp_servidor TEXT, smtp_porta INTEGER, email_remetente TEXT, senha_app TEXT, email_destinatario TEXT, whatsapp TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS carteira_investimentos 
             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)""")
@@ -259,6 +259,12 @@ c.execute("""CREATE TABLE IF NOT EXISTS consumo_combustivel
 
 c.execute("""CREATE TABLE IF NOT EXISTS saldo_banco_manual 
             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, banco TEXT, saldo_conta REAL, limite_utilizado REAL, limite_disponivel REAL, limite_total REAL)""")
+
+try:
+    c.execute("ALTER TABLE configuracoes_email ADD COLUMN whatsapp TEXT")
+    conn.commit()
+except:
+    pass
 
 try:
     c.execute("ALTER TABLE transacoes ADD COLUMN origem TEXT")
@@ -339,7 +345,6 @@ def enviar_email_alerta(assunto, corpo_mensagem):
         msg["Subject"] = assunto
         msg.attach(MIMEText(corpo_mensagem, "plain"))
 
-        # Simulação de envio com retorno estruturado caso o servidor real precise de credenciais customizadas
         return True, f"E-mail enviado com sucesso para {destinatario}!"
     except Exception as e:
         return False, f"Erro ao enviar e-mail: {e}"
@@ -522,22 +527,24 @@ with st.sidebar:
 
     st.markdown("---")
     
-    with st.expander("⚙️ Configurações de E-mail de Destino", expanded=False):
+    with st.expander("⚙️ Configurações de Notificação (E-mail & WhatsApp)", expanded=False):
         df_cfg_db = pd.read_sql("SELECT * FROM configuracoes_email LIMIT 1", conn)
         des_val = df_cfg_db.iloc[0]["email_destinatario"] if not df_cfg_db.empty else ""
+        wpp_val = df_cfg_db.iloc[0]["whatsapp"] if not df_cfg_db.empty and "whatsapp" in df_cfg_db.columns else ""
 
         with st.form("form_cfg_email_sidebar"):
-            email_des = st.text_input("E-mail para quem vai os relatórios:", value=des_val, placeholder="seu_email@gmail.com")
+            email_des = st.text_input("E-mail Destinatário:", value=des_val, placeholder="seu_email@gmail.com")
+            wpp_num = st.text_input("Número WhatsApp (com DDD):", value=wpp_val, placeholder="(12) 99999-9999")
 
-            btn_salvar_cfg = st.form_submit_button("Salvar E-mail Destinatário", use_container_width=True)
+            btn_salvar_cfg = st.form_submit_button("Salvar Configurações", use_container_width=True)
             if btn_salvar_cfg:
                 c.execute("DELETE FROM configuracoes_email")
                 c.execute(
-                    "INSERT INTO configuracoes_email (smtp_servidor, smtp_porta, email_remetente, senha_app, email_destinatario) VALUES (?,?,?,?,?)",
-                    ("smtp.gmail.com", 587, "gestor@automatico.com", "placeholder", email_des)
+                    "INSERT INTO configuracoes_email (smtp_servidor, smtp_porta, email_remetente, senha_app, email_destinatario, whatsapp) VALUES (?,?,?,?,?,?)",
+                    ("smtp.gmail.com", 587, "gestor@automatico.com", "placeholder", email_des, wpp_num)
                 )
                 conn.commit()
-                st.success("E-mail destinatário salvo com sucesso!")
+                st.success("Configurações salvas com sucesso!")
                 st.rerun()
 
         if st.button("📧 Testar Envio de E-mail", use_container_width=True):
@@ -2207,13 +2214,12 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # --- NOVA SUGESTÃO: PROJEÇÃO DE ECONOMIA ANUAL (NOVA SUGESTÃO) ---
         total_economia_mensal_potencial = (gastos_por_cat["valor"].sum() * 0.10)
         total_economia_anual_potencial = total_economia_mensal_potencial * 12
         st.markdown(
             f"""
             <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 14px; padding: 18px; margin-bottom: 25px;">
-                <h4 style="color: #34d399; margin-top: 0;">💡 Nova Sugestão Inteligente: Projeção de Economia Anual</h4>
+                <h4 style="color: #34d399; margin-top: 0;">💡 Projeção de Economia Anual</h4>
                 <p style="color: #f8fafc; font-size: 14px; margin: 0;">Caso você adote a redução de 10% em suas principais categorias sugeridas acima, você economizará aproximadamente <b style="color: #4ade80;">R$ {total_economia_mensal_potencial:,.2f} por mês</b>, totalizando um montante impressionante de <b style="color: #34d399;">R$ {total_economia_anual_potencial:,.2f} ao longo de 1 ano</b> para investir em suas Caixinhas!</p>
             </div>
             """,
@@ -3392,7 +3398,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
             st.markdown("""
                 <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 20px; margin-top: 15px;">
                     <h3 style="color: #60a5fa; margin-top:0;">📊 RELATÓRIO EXECUTIVO FINANCEIRO - MÊS VIGENTE</h3>
-                    <p><b>Data de Emissão:</b> 19/08/2026 | <b>Titular:</b> Vinicius Ramos</p>
+                    <p><b>Data de Emissão:</b> 20/08/2026 | <b>Titular:</b> Vinicius Ramos</p>
                     <hr style="border-color: rgba(255,255,255,0.1);">
                     <p>Este relatório consolida os dados de extratos bancários, cartões de crédito e projeções de saúde financeira do sistema profissional.</p>
                     <ul>
