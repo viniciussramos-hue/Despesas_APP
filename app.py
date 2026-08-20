@@ -17,13 +17,9 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
 )
 
-# Versão atual e data da última alteração do sistema
-VERSAO_SISTEMA = "v2.6.4"
-DATA_ATUALIZACAO = "16/08/2026"
+VERSAO_SISTEMA = "v2.7.0"
+DATA_ATUALIZACAO = "19/08/2026"
 
-# ==========================================
-# --- CONTROLE DE ESTADO DA BARRA LATERAL ---
-# ==========================================
 if "sidebar_state" not in st.session_state:
     st.session_state.sidebar_state = "expanded"
 
@@ -269,7 +265,7 @@ except:
     pass
 
 c.execute(
-    "UPDATE transacoes SET origem = 'Manual' WHERE origem IS NULL OR origem = ''"
+    "UPDATE transacoes SET origem = 'Banco_PDF' WHERE origem IS NULL OR origem = ''"
 )
 conn.commit()
 
@@ -411,6 +407,27 @@ def processar_texto_holerite(texto, nome_arquivo):
     return mes_ano, bruto, descontos, liquido, inss, irrf, vale
 
 
+def categorizar_automaticamente(descricao, tipo):
+    desc_up = descricao.upper()
+    if tipo == "Receita":
+        return "💰 01- Pagamento / Salário (Entrada)"
+    
+    if "SUPERMERCADO" in desc_up or "SHIBATA" in desc_up or "SUPER" in desc_up or "MERCADO" in desc_up or "PADARIA" in desc_up:
+        return "🛒 Supermercado (Necessidade)"
+    elif "POSTO" in desc_up or "COMBUSTIVEL" in desc_up or "SHELL" in desc_up or "PETROBRAS" in desc_up or "IPIRANGA" in desc_up:
+        return "⛽ 03- Combustíveis (Necessidade)"
+    elif "FARMACIA" in desc_up or "DROGARIA" in desc_up or "MEDICAMENTO" in desc_up:
+        return "💊 Saúde & Farmácia (Necessidade)"
+    elif "UBER" in desc_up or "99APP" in desc_up or "ESTACIONAMENTO" in desc_up:
+        return "🚗 Transporte (Necessidade)"
+    elif "FARM" in desc_up or "PET" in desc_up or "VET" in desc_up:
+        return "🐾 Veterinário & Pet (Necessidade)"
+    elif "LUZ" in desc_up or "ENERGIA" in desc_up or "CPFL" in desc_up or "AGUA" in desc_up or "SABESP" in desc_up:
+        return "🏠 Contas Fixas (Necessidade)"
+    else:
+        return "📑 01- Boletos Diversos (Necessidade)"
+
+
 # ==========================================
 # --- GERENCIAMENTO DE ESTADO DE NAVEGAÇÃO ---
 # ==========================================
@@ -430,7 +447,7 @@ with col_tit:
     st.title("💸 Gestor Financeiro Profissional")
     st.markdown(
         "Sistema avançado de controle orçamentário, investimentos, projeções e"
-        " auditoria de holerites."
+        " auditoria de extratos."
     )
 
 if hasattr(st, "set_sidebar_state"):
@@ -622,35 +639,31 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
 
     st.markdown(
         '<div class="group-card"><div class="group-title">Painel de Gestão'
-        " Diária</div>",
+        " Baseada em Extrato</div>",
         unsafe_allow_html=True,
     )
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
-        if st.button("🔴 Lançar Despesa", use_container_width=True):
-            mudar_pagina("🔴 Lançar Despesa")
-            st.rerun()
-    with c2:
-        if st.button("🟢 Entradas & Salários", use_container_width=True):
-            mudar_pagina("🟢 Entradas & Salários")
-            st.rerun()
-    with c3:
         if st.button("📅 Contas a Pagar & Receber", use_container_width=True):
             mudar_pagina("📅 Contas a Pagar")
             st.rerun()
-    with c4:
-        if st.button("💳 Cartão de Crédito", use_container_width=True):
+    with c2:
+        if st.button("💳 Cartões & Faturas (Upload)", use_container_width=True):
             mudar_pagina("💳 Cartão de Crédito")
             st.rerun()
-    with c5:
+    with c3:
         if st.button("🚗 Veículos & Manutenção", use_container_width=True):
             mudar_pagina("🚗 Veículos & Manutenção")
+            st.rerun()
+    with c4:
+        if st.button("📥 Upload de Extrato & Banco", use_container_width=True):
+            mudar_pagina("📥 Dashboard Banco")
             st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown(
         '<div class="group-card"><div class="group-title">Análise &'
-        " Planejamento</div>",
+        " Planejamento (Base Extrato)</div>",
         unsafe_allow_html=True,
     )
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -663,16 +676,16 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
             mudar_pagina("🔮 Previsão Financeira")
             st.rerun()
     with c3:
-        if st.button("📊 Dash. Manual (Real)", use_container_width=True):
-            mudar_pagina("📊 Dashboard Manual")
-            st.rerun()
-    with c4:
-        if st.button("📥 Dash. Extrato Banco", use_container_width=True):
+        if st.button("📊 Dashboard Extrato", use_container_width=True):
             mudar_pagina("📥 Dashboard Banco")
             st.rerun()
-    with c5:
+    with c4:
         if st.button("🎯 Metas de Gastos", use_container_width=True):
             mudar_pagina("🎯 Metas de Gastos")
+            st.rerun()
+    with c5:
+        if st.button("❤️ Saúde Financeira", use_container_width=True):
+            mudar_pagina("❤️ Saúde Financeira")
             st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -682,7 +695,7 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
             '<div class="group-card"><div class="group-title">Inovação, Tarefas & Notas Fiscais</div>',
             unsafe_allow_html=True,
         )
-        sub1, sub2, sub3 = st.columns(3)
+        sub1, sub2 = st.columns(2)
         with sub1:
             if st.button("📝 Tarefas", use_container_width=True):
                 mudar_pagina("📝 Tarefas & Compras")
@@ -690,10 +703,6 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
         with sub2:
             if st.button("🧾 Notas", use_container_width=True):
                 mudar_pagina("🧾 Leitor de Notas Fiscais")
-                st.rerun()
-        with sub3:
-            if st.button("❤️ Saúde", use_container_width=True):
-                mudar_pagina("❤️ Saúde Financeira")
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -716,206 +725,6 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
                 mudar_pagina("📋 Extrato & Backup")
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
-
-# ==========================================
-# --- SEÇÃO 1: LANÇAR DESPESA ---
-# ==========================================
-elif st.session_state.pagina_atual == "🔴 Lançar Despesa":
-    botao_voltar()
-    st.subheader("Registrar Saída / Despesa Operacional")
-    st.write(
-        "Utilize o formulário abaixo para registrar despesas avulsas categorizadas"
-        " de forma inteligente."
-    )
-
-    cats_padrao = [
-    "💰 01- Pagamento / Salário (Entrada)",
-    "🎫 02- Vale / Adiantamento (Entrada)",
-    "🌴 03- Férias (Entrada)",
-    "💵 04- 13º Salário - 1ª Parcela (Entrada)",
-    "💵 05- 13º Salário - 2ª Parcela / Final (Entrada)",
-    "📑 01- Boletos Diversos (Necessidade)",
-    "🧸 02- Brinquedos & Lazer Infantil (Desejo)",
-    "⛽ 03- Combustíveis (Necessidade)",
-    "📱 04- Contas de Celular (Necessidade)",
-    "💧 05- Contas de Água (Necessidade)",
-    "⚡ 06- Contas de Energia (Necessidade)",
-    "🏠 07- Contas Fixas (Necessidade)",
-    "🩺 08- Consultas Médicas (Necessidade)",
-    "💄 09- Cosméticos & Beleza (Desejo)",
-    "📄 10- IPTU & Impostos Anuais (Necessidade)",
-    "📈 11- Investimentos / Poupança (20%)",
-    "🍔 12- Lazer & Alimentação Fora (Desejos)",
-    "🎉 13- Lazer & Entretenimento (Desejos)",
-    "🏠 14- Manutenção Residencial (Necessidade)",
-    "🛠️ 15- Manutenção Veicular (Necessidade)",
-    "🛍️ 16- Mercado (Desejo)",
-    "🛒 17- Supermercado (Necessidade)",
-    "🎉 18- Outros Desejos (Desejos)",
-    "💸 19- PIX & Transferências (Necessidade)",
-    "💊 20- Saúde & Farmácia (Necessidade)",
-    "🚗 21- Transporte (Necessidade)",
-    "🐾 22- Veterinário & Pet (Necessidade)",
-    "👔 23- Vestuário Básico / Essencial (Necessidade)",
-    "👗 24- Vestuário & Moda (Desejo)",
-    ]
-    df_cats_db = pd.read_sql("SELECT nome FROM categorias", conn)
-    lista_categorias = (
-        cats_padrao + df_cats_db["nome"].tolist()
-        if not df_cats_db.empty
-        else cats_padrao
-    )
-
-    with st.form("form_lancar_despesa_completo", clear_on_submit=True):
-        col_d1, col_d2 = st.columns(2)
-        with col_d1:
-            desc = st.text_input(
-                "Descrição do Gasto (Ex: Supermercado Shibata, Petshop, Aluguel)"
-            )
-            valor = st.number_input(
-                "Valor da Despesa (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f"
-            )
-        with col_d2:
-            cat = st.selectbox("Categoria Orçamentária", lista_categorias)
-            data_desp = st.date_input(
-                "Data do Ocorrido do Gasto (DD/MM/AAAA)",
-                value=date.today(),
-                format="DD/MM/YYYY",
-            )
-
-        btn_salvar_desp = st.form_submit_button(
-            "Salvar Despesa no Banco de Dados", use_container_width=True
-        )
-        if btn_salvar_desp:
-            if desc.strip() and valor > 0:
-                c.execute(
-                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor,"
-                    " origem) VALUES (?,?,?,?,?,?)",
-                    (
-                        data_desp.strftime("%Y-%m-%d"),
-                        "Despesa",
-                        desc.strip(),
-                        cat,
-                        valor,
-                        "Manual",
-                    ),
-                )
-                conn.commit()
-                st.success(
-                    "Despesa registrada e consolidada com sucesso como lançamento manual!"
-                )
-            else:
-                st.error(
-                    "Preencha uma descrição válida e um valor superior a zero."
-                )
-
-    st.markdown("---")
-    st.subheader("📋 Últimas Despesas (Lançamentos Manuais)")
-    df_ultimas_desp = pd.read_sql(
-        "SELECT id, data, descricao, categoria, valor FROM transacoes WHERE tipo = 'Despesa' AND origem = 'Manual' ORDER BY id DESC LIMIT 5",
-        conn
-    )
-    if not df_ultimas_desp.empty:
-        st.dataframe(
-            df_ultimas_desp.rename(
-                columns={
-                    "id": "ID",
-                    "data": "Data",
-                    "descricao": "Descrição",
-                    "categoria": "Categoria",
-                    "valor": "Valor (R$)",
-                }
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
-    else:
-        st.info("Nenhuma despesa manual registrada recentemente.")
-
-# ==========================================
-# --- SEÇÃO 2: ENTRADAS & SALÁRIOS ---
-# ==========================================
-elif st.session_state.pagina_atual == "🟢 Entradas & Salários":
-    botao_voltar()
-    st.subheader("Registrar Entrada / Receita Financeira")
-    st.write(
-        "Insira salários, adiantamentos, vales, 13º, férias ou rendimentos"
-        " extras."
-    )
-
-    with st.form("form_lancar_entrada_completo", clear_on_submit=True):
-        col_e1, col_e2 = st.columns(2)
-        with col_e1:
-            desc_rec = st.text_input(
-                "Descrição da Receita (Ex: Salário Mensal, Vale Refeição)"
-            )
-            valor_rec = st.number_input(
-                "Valor da Receita (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f"
-            )
-        with col_e2:
-            cat_rec = st.selectbox(
-                "Tipo de Receita",
-                [
-                    "Salário",
-                    "Vale",
-                    "13º Salário",
-                    "Férias",
-                    "Freelance / Extra",
-                    "Outras Receitas",
-                ],
-            )
-            data_rec = st.date_input(
-                "Data de Recebimento Efetivo (DD/MM/AAAA)",
-                value=date.today(),
-                format="DD/MM/YYYY",
-            )
-
-        btn_salvar_rec = st.form_submit_button(
-            "Salvar Entrada Financeira", use_container_width=True
-        )
-        if btn_salvar_rec:
-            if desc_rec.strip() and valor_rec > 0:
-                c.execute(
-                    "INSERT INTO transacoes (data, tipo, descricao, categoria, valor,"
-                    " origem) VALUES (?,?,?,?,?,?)",
-                    (
-                        data_rec.strftime("%Y-%m-%d"),
-                        "Receita",
-                        desc_rec.strip(),
-                        cat_rec,
-                        valor_rec,
-                        "Manual",
-                    ),
-                )
-                conn.commit()
-                st.success(
-                    "Entrada financeira registrada com sucesso como lançamento manual!"
-                )
-            else:
-                st.error("Informe uma descrição e um valor de receita válido.")
-
-    st.markdown("---")
-    st.subheader("📋 Últimas Entradas (Lançamentos Manuais)")
-    df_ultimas_rec = pd.read_sql(
-        "SELECT id, data, descricao, categoria, valor FROM transacoes WHERE tipo = 'Receita' AND origem = 'Manual' ORDER BY id DESC LIMIT 5",
-        conn
-    )
-    if not df_ultimas_rec.empty:
-        st.dataframe(
-            df_ultimas_rec.rename(
-                columns={
-                    "id": "ID",
-                    "data": "Data",
-                    "descricao": "Descrição",
-                    "categoria": "Tipo de Receita",
-                    "valor": "Valor (R$)",
-                }
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
-    else:
-        st.info("Nenhuma entrada manual registrada recentemente.")
 
 # ==========================================
 # --- SEÇÃO: TAREFAS & COMPRAS ---
@@ -1475,439 +1284,12 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
             )
 
 # ==========================================
-# --- SEÇÃO 3A: DASHBOARD MANUAL (LANÇAMENTOS REAIS) ---
+# --- SEÇÃO 3A: DASHBOARD EXTRATO BANCÁRIO ---
 # ==========================================
 elif st.session_state.pagina_atual == "📊 Dashboard Manual":
-    botao_voltar()
-    st.subheader("📊 Executive Dashboard — Lançamentos Reais Manuais")
-    st.write(
-        "Painel gerencial focado exclusivamente nos registros feitos de forma"
-        " manual no sistema."
-    )
+    st.session_state.pagina_atual = "📥 Dashboard Banco"
+    st.rerun()
 
-    df_all = pd.read_sql(
-        (
-            "SELECT * FROM transacoes WHERE origem = 'Manual' OR origem ="
-            " 'Nota_Fiscal' OR origem = 'Chat_IA'"
-        ),
-        conn,
-    )
-    df_banco_dash = pd.read_sql(
-        "SELECT * FROM transacoes WHERE origem = 'Banco_PDF'", conn
-    )
-    df_inv_dash = pd.read_sql("SELECT * FROM carteira_investimentos", conn)
-    df_cartao_dash = pd.read_sql("SELECT * FROM cartao_credito", conn)
-    df_contas_dash = pd.read_sql("SELECT * FROM contas", conn)
-    df_metas_dash = pd.read_sql("SELECT * FROM metas", conn)
-    df_saldo_banco_manual = pd.read_sql("SELECT * FROM saldo_banco_manual ORDER BY id DESC LIMIT 1", conn)
-
-    if "dash_manual_mes_ref" not in st.session_state:
-        st.session_state.dash_manual_mes_ref = date.today().month
-    if "dash_manual_ano_ref" not in st.session_state:
-        st.session_state.dash_manual_ano_ref = date.today().year
-
-    st.write("**Filtrar por Mês (Seleção Rápida em Botões Pequenos):**")
-    meses_nomes_map = {
-        1: "Jan",
-        2: "Fev",
-        3: "Mar",
-        4: "Abr",
-        5: "Mai",
-        6: "Jun",
-        7: "Jul",
-        8: "Ago",
-        9: "Set",
-        10: "Out",
-        11: "Nov",
-        12: "Dez",
-    }
-
-    cols_meses_btns = st.columns(12)
-    for m_idx in range(1, 13):
-        with cols_meses_btns[m_idx - 1]:
-            is_active_m = st.session_state.dash_manual_mes_ref == m_idx
-            btn_type_m = "primary" if is_active_m else "secondary"
-            if st.button(
-                meses_nomes_map[m_idx],
-                key=f"btn_mes_dash_m_{m_idx}",
-                use_container_width=True,
-                type=btn_type_m,
-            ):
-                st.session_state.dash_manual_mes_ref = m_idx
-                st.rerun()
-
-    mes_selecionado_num = st.session_state.dash_manual_mes_ref
-    ano_selecionado_num = st.session_state.dash_manual_ano_ref
-    mes_selecionado_str = f"{ano_selecionado_num}-{mes_selecionado_num:02d}"
-
-    if not df_all.empty:
-        df_all["data"] = pd.to_datetime(df_all["data"])
-        df_all["ano_mes"] = df_all["data"].dt.strftime("%Y-%m")
-        df = df_all[df_all["ano_mes"] == mes_selecionado_str].copy()
-    else:
-        df = df_all.copy()
-
-    saldo_real_banco_pdf = 0.0
-    if not df_saldo_banco_manual.empty:
-        saldo_real_banco_pdf = float(df_saldo_banco_manual.iloc[0]["saldo_conta"])
-    elif not df_banco_dash.empty:
-        df_banco_dash["valor"] = pd.to_numeric(
-            df_banco_dash["valor"], errors="coerce"
-        ).fillna(0)
-        rec_banco_tot = df_banco_dash[df_banco_dash["tipo"] == "Receita"][
-            "valor"
-        ].sum()
-        desp_banco_tot = df_banco_dash[df_banco_dash["tipo"] == "Despesa"][
-            "valor"
-        ].sum()
-        saldo_real_banco_pdf = rec_banco_tot - desp_banco_tot
-
-    if not df_all.empty or not df_saldo_banco_manual.empty:
-        if not df_all.empty:
-            df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
-            receitas = df[df["tipo"] == "Receita"]["valor"].sum()
-            despesas = df[df["tipo"] == "Despesa"]["valor"].sum()
-            saldo_caixa = receitas - despesas
-        else:
-            receitas = 0.0
-            despesas = 0.0
-            saldo_caixa = 0.0
-
-        patrimonio_investido = (
-            (df_inv_dash["quantidade"] * df_inv_dash["preco_medio"]).sum()
-            if not df_inv_dash.empty
-            else 0.0
-        )
-        total_faturas_cartao = (
-            df_cartao_dash["valor"].sum() if not df_cartao_dash.empty else 0.0
-        )
-        total_contas_pendentes = (
-            df_contas_dash[df_contas_dash["pago"] == 0]["valor"].sum()
-            if not df_contas_dash.empty
-            else 0.0
-        )
-        patrimonio_liquido_global = patrimonio_investido + max(0, saldo_caixa)
-
-        burn_rate_diario = despesas / 30.0
-
-        st.markdown("### 💼 Visão Geral & Indicadores Manuais")
-        b1, b2, b3, b4, b5 = st.columns(5)
-        with b1:
-            st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">⚡ BURN RATE DIÁRIO</span><h3 style="color: #f8fafc; margin: 8px 0 0 0; font-size: 18px;">R$ {burn_rate_diario:,.2f} / dia</h3></div>""",
-                unsafe_allow_html=True,
-            )
-        with b2:
-            st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🏦 SALDO REAL NO BANCO</span><h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_real_banco_pdf:,.2f}</h3></div>""",
-                unsafe_allow_html=True,
-            )
-        with b3:
-            st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                    <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🟢 ENTRADAS MANUAIS</span>
-                    <h3 style="color: #22c55e; margin: 4px 0 8px 0; font-size: 18px;">R$ {receitas:,.2f}</h3>
-                </div>""",
-                unsafe_allow_html=True,
-            )
-            if st.button("➕ Nova Entrada", key="btn_atalho_rec", use_container_width=True):
-                mudar_pagina("🟢 Entradas & Salários")
-                st.rerun()
-        with b4:
-            st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                    <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🔴 DESPESAS MANUAIS</span>
-                    <h3 style="color: #ef4444; margin: 4px 0 8px 0; font-size: 18px;">R$ {despesas:,.2f}</h3>
-                </div>""",
-                unsafe_allow_html=True,
-            )
-            if st.button("➕ Nova Despesa", key="btn_atalho_desp", use_container_width=True):
-                mudar_pagina("🔴 Lançar Despesa")
-                st.rerun()
-        with b5:
-            cor_card_bg = "rgba(34, 197, 94, 0.12)" if saldo_caixa >= 0 else "rgba(239, 68, 68, 0.12)"
-            cor_card_borda = "rgba(34, 197, 94, 0.4)" if saldo_caixa >= 0 else "rgba(239, 68, 68, 0.4)"
-            cor_saldo = "#34d399" if saldo_caixa >= 0 else "#ef4444"
-            st.markdown(
-                f"""<div style="background: {cor_card_bg}; border: 1px solid {cor_card_borda}; border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                    <span style="color: #94a3b8; font-size: 11px; font-weight: 600;">💵 SALDO DISPONÍVEL (ENTRADAS - GASTOS)</span>
-                    <h3 style="color: {cor_saldo}; margin: 8px 0 0 0; font-size: 18px;">R$ {saldo_caixa:,.2f}</h3>
-                    <span style="font-size: 10px; color: #94a3b8;">Baseado nas entradas e gastos do mês</span>
-                </div>""",
-                unsafe_allow_html=True,
-            )
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown("### 🏦 Acompanhamento de Saldo do Banco & Limites (Itaú)")
-        with st.form("form_atualizar_saldo_banco_dash"):
-            col_sb1, col_sb2, col_sb3, col_sb4 = st.columns(4)
-            with col_sb1:
-                val_sb_conta = st.number_input("Saldo em Conta (R$)", value=-157.15, step=1.0, format="%.2f")
-            with col_sb2:
-                val_sb_util = st.number_input("Limite Utilizado (R$)", value=157.15, step=1.0, format="%.2f")
-            with col_sb3:
-                val_sb_disp = st.number_input("Limite Disponível (R$)", value=2.85, step=1.0, format="%.2f")
-            with col_sb4:
-                val_sb_tot = st.number_input("Limite Total (R$)", value=160.00, step=1.0, format="%.2f")
-
-            if st.form_submit_button("Salvar / Atualizar Saldo e Limites do Banco", use_container_width=True):
-                c.execute("INSERT INTO saldo_banco_manual (data, banco, saldo_conta, limite_utilizado, limite_disponivel, limite_total) VALUES (?,?,?,?,?,?)",
-                          (date.today().strftime("%Y-%m-%d"), "Itaú", val_sb_conta, val_sb_util, val_sb_disp, val_sb_tot))
-                conn.commit()
-                st.success("Saldo e limites do banco atualizados com sucesso!")
-                st.rerun()
-
-        st.markdown("---")
-        st.markdown("### 🏛️ Indicadores Patrimoniais & Passivos")
-        p1, p2, p3, p4 = st.columns(4)
-        with p1:
-            st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px;"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💎 PATRIMÔNIO LÍQUIDO GLOBAL</span><h3 style="color: #60a5fa; margin: 8px 0 0 0; font-size: 18px;">R$ {patrimonio_liquido_global:,.2f}</h3></div>""",
-                unsafe_allow_html=True,
-            )
-        with p2:
-            st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px;"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">📈 TOTAL INVESTIDO / CAIXINHAS</span><h3 style="color: #34d399; margin: 8px 0 0 0; font-size: 18px;">R$ {patrimonio_investido:,.2f}</h3></div>""",
-                unsafe_allow_html=True,
-            )
-        with p3:
-            st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px;"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💳 FATURAS DE CARTÃO</span><h3 style="color: #f59e0b; margin: 8px 0 0 0; font-size: 18px;">R$ {total_faturas_cartao:,.2f}</h3></div>""",
-                unsafe_allow_html=True,
-            )
-        with p4:
-            st.markdown(
-                f"""<div style="background: rgba(25,29,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px;"><span style="color: #94a3b8; font-size: 12px; font-weight: 600;">📅 CONTAS A PAGAR</span><h3 style="color: #ef4444; margin: 8px 0 0 0; font-size: 18px;">R$ {total_contas_pendentes:,.2f}</h3></div>""",
-                unsafe_allow_html=True,
-            )
-
-        st.markdown("---")
-        media_despesa_mensal = (
-            df_all[df_all["tipo"] == "Despesa"]["valor"].mean()
-            if not df_all.empty
-            else 0.0
-        )
-        if len(df_all["ano_mes"].unique()) > 0:
-            desp_por_mes = df_all[df_all["tipo"] == "Despesa"].groupby("ano_mes")[
-                "valor"
-            ].sum()
-            media_despesa_mensal = (
-                desp_por_mes.mean() if not desp_por_mes.empty else 3000.0
-            )
-
-        meses_runway = (
-            (patrimonio_liquido_global / media_despesa_mensal)
-            if media_despesa_mensal > 0
-            else 0.0
-        )
-
-        st.markdown(
-            f"""
-            <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 14px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                <h4 style="color: #60a5fa; margin-top: 0; display: flex; align-items: center; gap: 8px;">🛡️ Índice de Autonomia Financeira (Runway)</h4>
-                <p style="color: #f8fafc; font-size: 15px; margin-bottom: 5px;">
-                    O seu patrimônio atual garante <b>{meses_runway:.1f} meses</b> de autonomia completa com base na despesa média manual (<b>R$ {media_despesa_mensal:,.2f}</b>).
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown("---")
-        st.subheader("🚨 Top 3 Maiores Vilões Manuais do Mês")
-        df_desp_mes = df[df["tipo"] == "Despesa"].copy()
-        if not df_desp_mes.empty:
-            top_viloes = df_desp_mes.sort_values(by="valor", ascending=False).head(3)
-            v1, v2, v3 = st.columns(3)
-            cols_v = [v1, v2, v3]
-
-            for idx, (_, row_v) in enumerate(top_viloes.iterrows()):
-                if idx < len(cols_v):
-                    with cols_v[idx]:
-                        st.markdown(
-                            f"""
-                            <div style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 12px; padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                                <span style="font-size: 11px; color: #f87171; font-weight: 700; letter-spacing: 0.5px;"># {idx+1} MAIOR GASTO</span>
-                                <h4 style="color: #f8fafc; margin: 6px 0 2px 0; font-size: 16px;">{row_v['descricao']}</h4>
-                                <p style="color: #94a3b8; font-size: 13px; margin: 0 0 10px 0;">{row_v['categoria']}</p>
-                                <h3 style="color: #ef4444; margin: 0; font-size: 18px;">R$ {row_v['valor']:,.2f}</h3>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-
-        st.markdown("---")
-        st.subheader(
-            "🎯 Acompanhamento Rigoroso da Regra 50 / 30 / 20 (Manual)"
-        )
-        if receitas > 0:
-            nec = df[
-                (df["tipo"] == "Despesa")
-                & (df["categoria"].str.contains("Necessidade", na=False))
-            ]["valor"].sum()
-            des = df[
-                (df["tipo"] == "Despesa")
-                & (df["categoria"].str.contains("Desejos", na=False))
-            ]["valor"].sum()
-            inv = df[
-                (df["tipo"] == "Despesa")
-                & (df["categoria"].str.contains("Investimentos", na=False))
-            ]["valor"].sum()
-
-            meta_nec, meta_des, meta_inv = (
-                receitas * 0.50,
-                receitas * 0.30,
-                receitas * 0.20,
-            )
-
-            c_50, c_30, c_20 = st.columns(3)
-            with c_50:
-                st.markdown(
-                    f"""
-                    <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                        <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">50% NECESSIDADES (TETO)</span>
-                        <p style="color: #f8fafc; font-size: 14px; margin: 6px 0;">Gasto: R$ {nec:,.2f} / Meta: R$ {meta_nec:,.2f}</p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                st.progress(min(nec / meta_nec if meta_nec > 0 else 0, 1.0))
-            with c_30:
-                st.markdown(
-                    f"""
-                    <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                        <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">30% DESEJOS (TETO)</span>
-                        <p style="color: #f8fafc; font-size: 14px; margin: 6px 0;">Gasto: R$ {des:,.2f} / Meta: R$ {meta_des:,.2f}</p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                st.progress(min(des / meta_des if meta_des > 0 else 0, 1.0))
-            with c_20:
-                st.markdown(
-                    f"""
-                    <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                        <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">20% INVESTIMENTOS (MÍNIMO)</span>
-                        <p style="color: #f8fafc; font-size: 14px; margin: 6px 0;">Guardado: R$ {inv:,.2f} / Meta: R$ {meta_inv:,.2f}</p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                st.progress(min(inv / meta_inv if meta_inv > 0 else 0, 1.0))
-
-        st.markdown("---")
-        st.subheader("🎯 Termômetro de Metas por Categoria")
-        if not df_metas_dash.empty:
-            for _, meta_row in df_metas_dash.iterrows():
-                c_nome = meta_row["categoria"]
-                teto_meta = meta_row["valor_meta"]
-                gasto_cat_real = df[
-                    (df["categoria"] == c_nome) & (df["tipo"] == "Despesa")
-                ]["valor"].sum()
-                pct_atingido = (
-                    (gasto_cat_real / teto_meta) if teto_meta > 0 else 0.0
-                )
-                st.markdown(
-                    f"""
-                    <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                        <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">{c_nome}</span>
-                        <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Real: R$ {gasto_cat_real:,.2f} / Teto: R$ {teto_meta:,.2f} ({(pct_atingido*100):.1f}%)</p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                st.progress(min(pct_atingido, 1.0))
-
-        st.markdown("---")
-        st.subheader("📈 Distribuição de Despesas Manuais por Categoria (Gráfico de Rosca Interativo)")
-        df_desp = df[df["tipo"] == "Despesa"]
-        if not df_desp.empty:
-            gasto_cat = df_desp.groupby("categoria")["valor"].sum().reset_index()
-            col_g1, col_g2 = st.columns(2)
-            with col_g1:
-                fig_pie = px.pie(
-                    gasto_cat,
-                    names="categoria",
-                    values="valor",
-                    hole=0.4,
-                    color_discrete_sequence=px.colors.sequential.RdBu,
-                )
-                fig_pie.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    font_color="#f8fafc",
-                    margin=dict(t=10, b=10, l=10, r=10),
-                )
-                st.plotly_chart(fig_pie, use_container_width=True)
-            with col_g2:
-                df_resumo = gasto_cat.rename(columns={"categoria": "Categoria", "valor": "Total Gasto (R$)"})
-                df_resumo["Total Gasto (R$)"] = df_resumo["Total Gasto (R$)"].apply(
-                    lambda x: f"R$ {x:,.2f}"
-                )
-                st.dataframe(df_resumo, use_container_width=True, hide_index=True)
-
-        st.markdown("---")
-        st.subheader("🏷️ Distribuição de Despesas Manuais por Descrição Específica")
-        if not df_desp.empty:
-            gasto_desc = df_desp.groupby("descricao")["valor"].sum().reset_index().sort_values(by="valor", ascending=False)
-            col_gd1, col_gd2 = st.columns(2)
-            with col_gd1:
-                fig_pie_desc = px.pie(
-                    gasto_desc.head(8),
-                    names="descricao",
-                    values="valor",
-                    hole=0.4,
-                    color_discrete_sequence=px.colors.sequential.Viridis,
-                )
-                fig_pie_desc.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    font_color="#f8fafc",
-                    margin=dict(t=10, b=10, l=10, r=10),
-                )
-                st.plotly_chart(fig_pie_desc, use_container_width=True)
-            with col_gd2:
-                df_resumo_desc = gasto_desc.rename(columns={"descricao": "Descrição", "valor": "Total Gasto (R$)"})
-                df_resumo_desc["Total Gasto (R$)"] = df_resumo_desc["Total Gasto (R$)"].apply(
-                    lambda x: f"R$ {x:,.2f}"
-                )
-                st.dataframe(df_resumo_desc, use_container_width=True, hide_index=True)
-
-        st.markdown("---")
-        st.subheader("📊 Gráfico de Área Empilhada: Dinâmica 50/30/20 (Manual)")
-        df_empilhado = df_all[df_all["tipo"] == "Despesa"].copy()
-        if not df_empilhado.empty:
-
-            def mapear_pilar(cat):
-                if (
-                    "Necessidade" in str(cat)
-                    or "Supermercado" in str(cat)
-                    or "Contas Fixas" in str(cat)
-                    or "Transporte" in str(cat)
-                    or "Saúde" in str(cat)
-                    or "Pet" in str(cat)
-                ):
-                    return "Necessidades (50%)"
-                elif "Desejos" in str(cat) or "Lazer" in str(cat):
-                    return "Desejos (30%)"
-                else:
-                    return "Investimentos (20%)"
-
-            df_empilhado["Pilar"] = df_empilhado["categoria"].apply(mapear_pilar)
-            df_area_pivot = df_empilhado.pivot_table(
-                index="ano_mes", columns="Pilar", values="valor", aggfunc="sum"
-            ).fillna(0)
-            st.area_chart(df_area_pivot)
-    else:
-        st.info(
-            "Nenhum lançamento manual registrado para exibir no dashboard. Utilize"
-            " as abas de lançamento para adicionar dados."
-        )
-
-# ==========================================
-# --- SEÇÃO 3B: DASHBOARD EXTRATO BANCO (PDF) ---
-# ==========================================
 elif st.session_state.pagina_atual == "📥 Dashboard Banco":
     botao_voltar()
     st.subheader(
@@ -2131,8 +1513,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     st.subheader("📅 Previsão Financeira & Simulador de Imprevistos")
     st.write(
         "Visualize suas finanças detalhadamente por mês ou acumulado anual,"
-        " separando lançamentos manuais e extratos do banco, incluindo entradas"
-        " previstas, contas a pagar, contas a receber e simulações."
+        " com base em extratos bancários importados, contas a pagar e contas a receber."
     )
 
     if "prev_data_atual" not in st.session_state or not isinstance(
@@ -2287,7 +1668,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
     df_receber_prev = pd.read_sql(
         "SELECT * FROM contas_receber WHERE recebido = 0", conn
     )
-    df_trans_prev = pd.read_sql("SELECT * FROM transacoes", conn)
+    df_trans_prev = pd.read_sql("SELECT * FROM transacoes WHERE origem = 'Banco_PDF'", conn)
 
     if not df_cartao_prev.empty:
         df_cartao_prev["data_dt"] = pd.to_datetime(
@@ -2367,31 +1748,25 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
             else pd.DataFrame()
         )
 
-    f_trans_manuais = (
-        f_trans[f_trans["origem"] != "Banco_PDF"]
-        if not f_trans.empty
-        else pd.DataFrame()
-    )
-
     total_faturas = f_cartao["valor"].sum() if not f_cartao.empty else 0.0
     total_contas_pagar = f_contas["valor"].sum() if not f_contas.empty else 0.0
     total_contas_receber = (
         f_receber["valor"].sum() if not f_receber.empty else 0.0
     )
 
-    entradas_manuais = (
-        f_trans_manuais[f_trans_manuais["tipo"] == "Receita"]["valor"].sum()
-        if not f_trans_manuais.empty
+    entradas_banco = (
+        f_trans[f_trans["tipo"] == "Receita"]["valor"].sum()
+        if not f_trans.empty
         else 0.0
     )
-    saidas_manuais = (
-        f_trans_manuais[f_trans_manuais["tipo"] == "Despesa"]["valor"].sum()
-        if not f_trans_manuais.empty
+    saidas_banco = (
+        f_trans[f_trans["tipo"] == "Despesa"]["valor"].sum()
+        if not f_trans.empty
         else 0.0
     )
 
-    total_entradas_previstas = entradas_manuais + total_contas_receber
-    total_saidas_previstas = total_faturas + total_contas_pagar + saidas_manuais
+    total_entradas_previstas = entradas_banco + total_contas_receber
+    total_saidas_previstas = total_faturas + total_contas_pagar + saidas_banco
     saldo_projetado = total_entradas_previstas - total_saidas_previstas
 
     st.markdown("### 🧪 Simulador de Imprevistos & Ajustes Orçamentários")
@@ -2427,30 +1802,12 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
     st.markdown("---")
 
-    st.markdown("### 📊 Previsão Exclusiva de Lançamentos Manuais")
-    st.markdown(
-        f"""
-        <div class="group-card">
-            <h4 style="color: #60a5fa; margin-top: 0;">💼 Lançamentos Manuais & Previstos</h4>
-            <p><b>🟢 Entradas Manuais:</b> R$ {entradas_manuais:,.2f}</p>
-            <p><b>📈 Contas a Receber:</b> R$ {total_contas_receber:,.2f}</p>
-            <p><b>🔴 Saídas Manuais:</b> R$ {saidas_manuais:,.2f}</p>
-            <p><b>📅 Contas a Pagar:</b> R$ {total_contas_pagar:,.2f}</p>
-            <p><b>💳 Faturas de Cartão:</b> R$ {total_faturas:,.2f}</p>
-            <hr style="border-color: var(--border-color);">
-            <h4 style="color: #f8fafc;">Saldo Líquido Manual: R$ {saldo_projetado:,.2f}</h4>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("---")
     m1, m2, m3 = st.columns(3)
     with m1:
         st.markdown(
             f"""
             <div style="background: rgba(34, 197, 94, 0.06); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                <span style="color: #4ade80; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🟢 TOTAL ENTRADAS MANUAIS</span>
+                <span style="color: #4ade80; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🟢 TOTAL ENTRADAS (EXTRATO + RECEBER)</span>
                 <h2 style="color: #22c55e; margin: 8px 0 0 0; font-size: 22px;">R$ {total_entradas_previstas:,.2f}</h2>
             </div>
             """,
@@ -2460,7 +1817,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
         st.markdown(
             f"""
             <div style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                <span style="color: #f87171; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🔴 TOTAL SAÍDAS MANUAIS</span>
+                <span style="color: #f87171; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🔴 TOTAL SAÍDAS (EXTRATO + PAGAR)</span>
                 <h2 style="color: #ef4444; margin: 8px 0 0 0; font-size: 22px;">R$ {total_saidas_previstas:,.2f}</h2>
             </div>
             """,
@@ -2470,7 +1827,7 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
         st.markdown(
             f"""
             <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                <span style="color: #60a5fa; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">⚖️ SALDO PROJETADO MANUAL</span>
+                <span style="color: #60a5fa; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">⚖️ SALDO PROJETADO GLOBAL</span>
                 <h2 style="color: #3b82f6; margin: 8px 0 0 0; font-size: 22px;">R$ {saldo_projetado:,.2f}</h2>
             </div>
             """,
@@ -2479,149 +1836,61 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.subheader(
-        f"📋 Tabela Detalhada dos Movimentos Previstos ({nome_mes_exib} de"
-        f" {ano_ativo})"
-    )
-
-    lista_gastos_previstos_detalhe = []
-    
-    if not f_receber.empty:
-        for _, rcr in f_receber.iterrows():
-            lista_gastos_previstos_detalhe.append({
-                "Origem / Tipo": "📈 Conta a Receber",
-                "Descrição": rcr["descricao"],
-                "Categoria": "Freelance / Extra / Recebível",
-                "Vencimento / Data": formatar_data_ptbr(rcr["vencimento"]),
-                "Valor (R$)": rcr["valor"],
-            })
-
-    if not f_cartao.empty:
-        for _, rc in f_cartao.iterrows():
-            lista_gastos_previstos_detalhe.append({
-                "Origem / Tipo": "💳 Fatura de Cartão",
-                "Descrição": rc["descricao"],
-                "Categoria": rc.get("categoria", "Cartão de Crédito"),
-                "Vencimento / Data": formatar_data_ptbr(rc["data"]),
-                "Valor (R$)": rc["valor"],
-            })
-    if not f_contas.empty:
-        for _, rcp in f_contas.iterrows():
-            lista_gastos_previstos_detalhe.append({
-                "Origem / Tipo": "📉 Conta a Pagar",
-                "Descrição": rcp["descricao"],
-                "Categoria": "Contas Fixas / Boletos",
-                "Vencimento / Data": formatar_data_ptbr(rcp["vencimento"]),
-                "Valor (R$)": rcp["valor"],
-            })
-    if not f_trans.empty:
-        df_trans_desp_mes = f_trans[
-            (f_trans["tipo"] == "Despesa") & (f_trans["origem"] != "Banco_PDF")
-        ]
-        for _, rtd in df_trans_desp_mes.iterrows():
-            lista_gastos_previstos_detalhe.append({
-                "Origem / Tipo": f"🔴 Despesa ({rtd['origem']})",
-                "Descrição": rtd["descricao"],
-                "Categoria": rtd["categoria"],
-                "Vencimento / Data": formatar_data_ptbr(rtd["data"]),
-                "Valor (R$)": rtd["valor"],
-            })
-
-    if lista_gastos_previstos_detalhe:
-        df_detalhe_gastos_mes = pd.DataFrame(lista_gastos_previstos_detalhe)
-        st.dataframe(
-            df_detalhe_gastos_mes.style.format({"Valor (R$)": "R$ {:,.2f}"}),
-            use_container_width=True,
-            hide_index=True,
-        )
-    else:
-        st.info(
-            f"Nenhum movimento previsto registrado para {nome_mes_exib} de {ano_ativo}."
-        )
-
 # ==========================================
 # --- SEÇÃO 5: CARTÃO DE CRÉDITO ---
 # ==========================================
 elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
     botao_voltar()
-    st.subheader("💳 Gestão Avançada de Faturas de Cartão de Crédito (Fechamento & Vencimento)")
+    st.subheader("💳 Gestão Avançada de Faturas de Cartão de Crédito (Upload / Extrato)")
     st.write(
-        "Acompanhe gastos detalhados por bandeira e controle o impacto das"
-        " compras alocadas na fatura correta conforme o dia de fechamento."
+        "Faça upload de extratos ou faturas em PDF de cartão de crédito para alocação automática nas faturas."
     )
 
-    with st.form("form_cartao_credito_completo", clear_on_submit=True):
-        col_cc1, col_cc2 = st.columns(2)
-        with col_cc1:
-            nome_cartao = st.selectbox(
-                "Bandeira / Cartão",
-                [
-                    "Caixa",
-                    "Banco do Brasil",
-                    "Santander",
-                    "Inter",
-                    "Itaúcard",
-                    "Samsung Itaú",
-                    "Nubank",
-                    "Outro",
-                ],
-            )
-            desc_cc = st.text_input("Descrição da Compra Específica")
-            val_cc = st.number_input(
-                "Valor da Compra (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f"
-            )
-        with col_cc2:
-            data_cc = st.date_input(
-                "Data da Compra no Cartão (DD/MM/AAAA)",
-                value=date.today(),
-                format="DD/MM/YYYY",
-            )
-            dia_fechamento_cc = st.number_input(
-                "Dia de Fechamento da Fatura", min_value=1, max_value=31, value=10, step=1
-            )
-            dia_vencimento_cc = st.number_input(
-                "Dia de Vencimento da Fatura", min_value=1, max_value=31, value=17, step=1
-            )
+    arquivo_cartao_pdf = st.file_uploader(
+        "Selecione o arquivo PDF da Fatura do Cartão",
+        type=["pdf"],
+        key="upload_fatura_cartao_pdf",
+    )
 
-        cat_cc = st.selectbox(
-            "Categoria da Compra",
-            [
-                "🛒 Supermercado (Necessidade)",
-                "🏠 Contas Fixas (Necessidade)",
-                "🐾 Pet (Necessidade)",
-                "🚗 Transporte (Necessidade)",
-                "💊 Saúde (Necessidade)",
-                "🍔 Lazer & Alimentação Fora (Desejos)",
-                "🎉 Lazer & Entretenimento (Desejos)",
-                "🎉 Outros Desejos (Desejos)",
-            ],
-        )
+    if arquivo_cartao_pdf is not None:
+        try:
+            texto_fatura = ""
+            with pdfplumber.open(arquivo_cartao_pdf) as pdf:
+                for pagina in pdf.pages:
+                    ext = pagina.extract_text()
+                    if ext:
+                        texto_fatura += ext + "\n"
 
-        if st.form_submit_button(
-            "Lançar Gasto na Fatura do Cartão", use_container_width=True
-        ):
-            if desc_cc.strip() and val_cc > 0:
-                mes_fatura_calc = calcular_mes_fatura(data_cc, dia_fechamento_cc)
-                c.execute(
-                    "INSERT INTO cartao_credito (data, cartao, descricao, categoria,"
-                    " valor, dia_fechamento, dia_vencimento, mes_fatura) VALUES (?,?,?,?,?,?,?,?)",
-                    (
-                        data_cc.strftime("%Y-%m-%d"),
-                        nome_cartao,
-                        desc_cc.strip(),
-                        cat_cc,
-                        val_cc,
-                        dia_fechamento_cc,
-                        dia_vencimento_cc,
-                        mes_fatura_calc,
-                    ),
-                )
+            if st.button("Processar e Importar Fatura do Cartão", use_container_width=True):
+                importados_cc = 0
+                for linha in texto_fatura.split("\n"):
+                    partes = linha.split()
+                    if len(partes) >= 2 and "/" in partes[0]:
+                        try:
+                            d = partes[0].split("/")
+                            data_str = f"2026-{d[1]}-{d[0]}"
+                            val_float = float(
+                                linha.replace("R$", "")
+                                .replace(".", "")
+                                .replace(",", ".")
+                                .split()[-1]
+                            )
+                            desc_str = " ".join(partes[1:-1])
+                            mes_fat = calcular_mes_fatura(data_str, 10)
+                            cat_cc = categorizar_automaticamente(desc_str, "Despesa")
+                            
+                            c.execute(
+                                "INSERT INTO cartao_credito (data, cartao, descricao, categoria, valor, dia_fechamento, dia_vencimento, mes_fatura) VALUES (?,?,?,?,?,?,?,?)",
+                                (data_str, "Itaúcard / Nubank", desc_str, cat_cc, abs(val_float), 10, 17, mes_fat)
+                            )
+                            importados_cc += 1
+                        except:
+                            continue
                 conn.commit()
-                st.success(f"Compra adicionada com sucesso! Alocada para a fatura do mês: **{mes_fatura_calc}**")
+                st.success(f"{importados_cc} lançamentos importados para a fatura do cartão com sucesso!")
                 st.rerun()
-            else:
-                st.error("Informe a descrição e o valor da compra.")
+        except Exception as e:
+            st.error(f"Erro ao processar fatura de cartão: {e}")
 
     st.markdown("---")
     df_cartao = pd.read_sql("SELECT * FROM cartao_credito", conn)
@@ -2677,7 +1946,7 @@ elif st.session_state.pagina_atual == "💳 Cartão de Crédito":
             st.success("Compra removida do cartão com sucesso!")
             st.rerun()
     else:
-        st.info("Nenhuma despesa de cartão de crédito registrada no momento.")
+        st.info("Nenhuma despesa de cartão de crédito registrada no momento. Faça o upload de um PDF de fatura acima.")
 
 # ==========================================
 # --- SEÇÃO 6: INVESTIMENTOS ---
@@ -2840,89 +2109,6 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
         st.info("Nenhuma caixinha ou investimento cadastrado até o momento.")
 
 # ==========================================
-# --- SEÇÃO 7: DESAFIOS ---
-# ==========================================
-elif st.session_state.pagina_atual == "🎯 Desafios":
-    botao_voltar()
-    st.subheader(
-        "🎯 Desafio de Poupança Progressiva (R$ 20.100,00 em 200 Depósitos)"
-    )
-    st.write(
-        "Acompanhe o preenchimento sistemático do seu desafio de disciplina"
-        " financeira."
-    )
-
-    df_deps = pd.read_sql("SELECT * FROM tabela_depositos", conn)
-    total_concluido = df_deps[df_deps["status"] == "Concluído"]["valor"].sum()
-    meta_total_desafio = df_deps["valor"].sum()
-
-    st.markdown(
-        f"""
-        <div style="background: rgba(34, 197, 94, 0.06); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-            <span style="color: #94a3b8; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">🎯 PROGRESSO ATUAL DO DESAFIO</span>
-            <h2 style="color: #22c55e; margin: 8px 0 0 0; font-size: 24px;">R$ {total_concluido:,.2f} / R$ {meta_total_desafio:,.2f}</h2>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.progress(
-        min(
-            total_concluido / meta_total_desafio
-            if meta_total_desafio > 0
-            else 0,
-            1.0,
-        )
-    )
-
-    col_esq, col_dir = st.columns([2, 1])
-    with col_esq:
-        st.write("### Tabela Geral do Desafio")
-        df_exibicao = pd.DataFrame()
-        df_exibicao["Nº do Depósito"] = df_deps["numero_deposito"]
-        df_exibicao["Valor a Guardar"] = df_deps["valor"].apply(
-            lambda x: f"R$ {x:,.2f}"
-        )
-        df_exibicao["Status"] = df_deps["status"]
-        st.dataframe(
-            df_exibicao, use_container_width=True, hide_index=True, height=380
-        )
-
-    with col_dir:
-        st.write("### ⚙️ Atualizar Status do Depósito")
-        with st.form("form_atualizar_deposito_completo"):
-            deps_sel = st.multiselect(
-                "Selecione os Números dos Depósitos:", df_deps["numero_deposito"].tolist()
-            )
-            status_novo = st.selectbox(
-                "Novo Status:", ["Pendente", "Concluído"], index=1
-            )
-
-            if st.form_submit_button(
-                "Salvar Status dos Depósitos", use_container_width=True
-            ):
-                if deps_sel:
-                    for d_num in deps_sel:
-                        c.execute(
-                            "UPDATE tabela_depositos SET status = ? WHERE numero_deposito"
-                            " = ?",
-                            (status_novo, d_num),
-                        )
-                    conn.commit()
-                    st.success(
-                        f"Depósito(s) {', '.join(map(str, deps_sel))} updated(s) para"
-                        f" '{status_novo}' com sucesso!"
-                    )
-                    st.rerun()
-                else:
-                    st.warning("Selecione ao menos um depósito.")
-
-        if st.button("🔄 Resetar Todos para Pendentes", use_container_width=True):
-            c.execute("UPDATE tabela_depositos SET status = 'Pendente'")
-            conn.commit()
-            st.success("Todos os depósitos foram resetados para Pendente.")
-            st.rerun()
-
-# ==========================================
 # --- SEÇÃO 8A: METAS DE GASTOS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
@@ -2930,7 +2116,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
     st.subheader("🎯 Definir Teto de Meta Mensal por Categoria")
     st.write(
         "Estabeleça limites orçamentários para manter o controle rigoroso dos seus"
-        " gastos mensais."
+        " gastos mensais com base no extrato."
     )
 
     cats_padrao_meta = [
@@ -2971,11 +2157,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
     st.subheader("📋 Acompanhamento Visual das Metas de Gastos")
     df_metas = pd.read_sql("SELECT * FROM metas", conn)
     df_trans_meta = pd.read_sql(
-        (
-            "SELECT * FROM transacoes WHERE tipo = 'Despesa' AND (origem ="
-            " 'Manual' OR origem = 'Nota_Fiscal' OR origem ="
-            " 'Chat_IA')"
-        ),
+        "SELECT * FROM transacoes WHERE tipo = 'Despesa' AND origem = 'Banco_PDF'",
         conn,
     )
 
@@ -2993,7 +2175,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
                 f"""
                 <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
                     <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">{cat_nome}</span>
-                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Gasto Real: R$ {gasto_atual_meta:,.2f} / Meta Teto: R$ {v_meta:,.2f}</p>
+                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Gasto Real (Extrato): R$ {gasto_atual_meta:,.2f} / Meta Teto: R$ {v_meta:,.2f}</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -3111,7 +2293,7 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
                     st.success(f"Categoria '{categoria_final}' criada com sucesso!")
                     st.rerun()
                 else:
-                    st.error("Digite um nome válido para la categoria.")
+                    st.error("Digite um nome válido para a categoria.")
 
     with col_m2:
         st.write("### ✏️ Editar ou 🗑️ Excluir Categoria")
@@ -3287,17 +2469,14 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
 # ==========================================
 elif st.session_state.pagina_atual == "❤️ Saúde Financeira":
     botao_voltar()
-    st.subheader("❤️ Score de Saúde Financeira & Auditoria de Perfil")
+    st.subheader("❤️ Score de Saúde Financeira & Auditoria de Perfil (Base Extrato)")
     st.write(
         "Pontuação calculada de 0 a 1000 com base em endividamento, taxa de"
-        " poupança, disciplina e cumprimento de tetos."
+        " poupança, disciplina e cumprimento de tetos extraídos do extrato."
     )
 
     df_saude = pd.read_sql(
-        (
-            "SELECT * FROM transacoes WHERE origem = 'Manual' OR origem ="
-            " 'Nota_Fiscal' OR origem = 'Chat_IA'"
-        ),
+        "SELECT * FROM transacoes WHERE origem = 'Banco_PDF'",
         conn,
     )
     receitas_s = (
@@ -3429,7 +2608,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
     ):
         st.session_state.data_calendario_ref = hoje_atual
 
-    st.subheader("📅 Contas a Pagar & Receber / Gestão de Pagamentos")
+    st.subheader("📅 Contas a Pagar & Receber / Gestão de Pagamentos (Manual)")
     st.write(
         "Organize boletos, contas a pagar, contas a receber e compromissos com"
         " vencimento programado."
@@ -3466,7 +2645,7 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
 
     st.markdown("---")
 
-    st.markdown("##### 🗓️ Seleção de Date no Calendário Interativo & Período")
+    st.markdown("##### 🗓️ Seleção de Data no Calendário Interativo & Período")
     data_calendario_topo = st.date_input(
         "Selecionar Data de Referência (DD/MM/AAAA):",
         value=st.session_state.data_calendario_ref,
@@ -3740,18 +2919,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                             "Pagar 💳", key=f"btn_pagar_{c_id}", use_container_width=True
                         ):
                             c.execute("UPDATE contas SET pago = 1 WHERE id = ?", (c_id,))
-                            c.execute(
-                                "INSERT INTO transacoes (data, tipo, descricao, categoria,"
-                                " valor, origem) VALUES (?,?,?,?,?,?)",
-                                (
-                                    hoje_atual.strftime("%Y-%m-%d"),
-                                    "Despesa",
-                                    f"Pgto: {c_desc}",
-                                    "🏠 Contas Fixas (Necessidade)",
-                                    c_val,
-                                    "Manual",
-                                ),
-                            )
                             conn.commit()
                             st.success(f"Conta '{c_desc}' paga com sucesso!")
                             st.rerun()
@@ -4033,18 +3200,6 @@ elif st.session_state.pagina_atual == "📅 Contas a Pagar":
                                 "UPDATE contas_receber SET recebido = 1 WHERE id = ?",
                                 (cr_id,),
                             )
-                            c.execute(
-                                "INSERT INTO transacoes (data, tipo, descricao, categoria,"
-                                " valor, origem) VALUES (?,?,?,?,?,?)",
-                                (
-                                    hoje_atual.strftime("%Y-%m-%d"),
-                                    "Receita",
-                                    f"Recebimento: {cr_desc}",
-                                    "Freelance / Extra",
-                                    cr_val,
-                                    "Manual",
-                                ),
-                            )
                             conn.commit()
                             st.success(f"Recebimento '{cr_desc}' confirmado com sucesso!")
                             st.rerun()
@@ -4284,90 +3439,6 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
             st.error(f"Erro ao processar extrato bancário em PDF: {e}")
 
     st.markdown("---")
-    st.subheader("📑 Módulo de Reconciliação Bancária Automatizada")
-    st.write(
-        "Verifique divergências entre os lançamentos manuais do sistema e o"
-        " extrato importado mais recentemente."
-    )
-
-    if arquivo_importado is not None and arquivo_importado.name.endswith(".pdf"):
-        transacoes_pdf_temp = []
-        for linha in texto_pdf_extrato.split("\n"):
-            if "SALDO" in linha.upper():
-                continue
-            partes = linha.split()
-            if len(partes) >= 3 and "/" in partes[0] and len(partes[0]) == 10:
-                try:
-                    d = partes[0].split("/")
-                    data_str = f"{d[2]}-{d[1]}-{d[0]}"
-                    val_float = float(
-                        linha.replace("R$", "")
-                        .replace(".", "")
-                        .replace(",", ".")
-                        .split()[-1]
-                    )
-                    desc_str = " ".join(partes[1:-1])
-                    transacoes_pdf_temp.append({
-                        "data": data_str,
-                        "descricao": desc_str,
-                        "valor": abs(val_float),
-                        "tipo": "Receita" if val_float > 0 else "Despesa",
-                    })
-                except:
-                    continue
-
-        if transacoes_pdf_temp:
-            df_pdf_temp = pd.DataFrame(transacoes_pdf_temp)
-            df_banco_atual = pd.read_sql(
-                (
-                    "SELECT data, descricao, valor, tipo FROM transacoes WHERE origem"
-                    " = 'Manual'"
-                ),
-                conn,
-            )
-
-            if not df_banco_atual.empty:
-                merged_rec = pd.merge(
-                    df_pdf_temp,
-                    df_banco_atual,
-                    on=["data", "valor", tipo_trans := "tipo"],
-                    how="left",
-                    indicator=True,
-                )
-                divergentes = merged_rec[merged_rec["_merge"] == "left_only"]
-
-                if not divergentes.empty:
-                    divergentes["data"] = divergentes["data"].apply(formatar_data_ptbr)
-                    st.warning(
-                        f"⚠️ Atenção: Encontramos **{len(divergentes)}** transação(ões) no"
-                        " PDF do extrato que constam como divergentes ou ausentes nos"
-                        " lançamentos manuais do sistema:"
-                    )
-                    st.dataframe(
-                        divergentes[["data", "descricao_x", "valor", "tipo"]].rename(
-                            columns={"descricao_x": "Descrição no Extrato PDF"}
-                        ),
-                        use_container_width=True,
-                    )
-                else:
-                    st.success(
-                        "✅ **Reconciliação Perfeita:** Todos os lançamentos do extrato"
-                        " PDF conferem com os registros manuais salvos no sistema!"
-                    )
-            else:
-                st.info(
-                    "Cadastre transações manuais no sistema para ativar o cruzamento"
-                    " da reconciliação com o PDF."
-                )
-        else:
-            st.info("Nenhuma transação válida lida no PDF atual para reconciliação.")
-    else:
-        st.info(
-            "Faça o upload de um extrato bancário em PDF acima para habilitar o"
-            " painel de Reconciliação Automatizada."
-        )
-
-    st.markdown("---")
     st.subheader("🔍 Pesquisa Avançada & Filtros Inteligentes no Extrato")
 
     col_s1, col_s2, col_s3 = st.columns([2, 1, 1])
@@ -4442,80 +3513,6 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
             st.dataframe(
                 df_extrato_filtrado_exib, use_container_width=True, hide_index=True
             )
-
-            st.markdown(
-                "### ⚙️ Gerenciar / Editar / Excluir Lançamentos do Extrato"
-            )
-            id_trans_sel = st.selectbox(
-                "Selecione o ID da transação para editar ou excluir:",
-                df_extrato_filtrado["id"].tolist(),
-                key="sel_transacao_gerenciar",
-            )
-
-            if id_trans_sel:
-                row_trans_atual = df_extrato_filtrado[
-                    df_extrato_filtrado["id"] == id_trans_sel
-                ].iloc[0]
-
-                col_ed_op1, col_ed_op2 = st.columns(2)
-                with col_ed_op1:
-                    st.markdown(f"**Editando Lançamento ID {id_trans_sel}:**")
-                    with st.form(f"form_editar_transacao_{id_trans_sel}"):
-                        novo_tipo_t = st.selectbox(
-                            "Tipo:",
-                            ["Despesa", "Receita"],
-                            index=0 if row_trans_atual["tipo"] == "Despesa" else 1,
-                        )
-                        nova_desc_t = st.text_input(
-                            "Descrição:", value=row_trans_atual["descricao"]
-                        )
-                        novo_val_t = st.number_input(
-                            "Valor (R$):",
-                            min_value=0.0,
-                            value=float(row_trans_atual["valor"]),
-                            step=1.0,
-                            format="%.2f",
-                        )
-                        nova_data_t = st.date_input(
-                            "Data (DD/MM/AAAA):",
-                            value=datetime.strptime(
-                                str(row_trans_atual["data"])[:10], "%Y-%m-%d"
-                            ).date(),
-                            format="DD/MM/YYYY",
-                        )
-
-                        if st.form_submit_button(
-                            "Salvar Alterações da Transação", use_container_width=True
-                        ):
-                            c.execute(
-                                "UPDATE transacoes SET tipo = ?, descricao = ?, valor = ?,"
-                                " data = ? WHERE id = ?",
-                                (
-                                    novo_tipo_t,
-                                    nova_desc_t.strip(),
-                                    novo_val_t,
-                                    nova_data_t.strftime("%Y-%m-%d"),
-                                    id_trans_sel,
-                                ),
-                            )
-                            conn.commit()
-                            st.success(f"Transação ID {id_trans_sel} atualizada com sucesso!")
-                            st.rerun()
-
-                with col_ed_op2:
-                    st.markdown(f"**Excluir Lançamento ID {id_trans_sel}:**")
-                    st.write(
-                        f"Deseja remover permanentemente o registro"
-                        f" *{row_trans_atual['descricao']}* (R$"
-                        f" {row_trans_atual['valor']:,.2f})?"
-                    )
-                    if st.button(
-                        "🗑️ Excluir Transação Selecionada", use_container_width=True
-                    ):
-                        c.execute("DELETE FROM transacoes WHERE id = ?", (id_trans_sel,))
-                        conn.commit()
-                        st.success(f"Transação ID {id_trans_sel} excluída com sucesso!")
-                        st.rerun()
         else:
             st.info(
                 "Nenhuma transação encontrada com os filtros e termos pesquisados."
