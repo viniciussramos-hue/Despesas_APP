@@ -2270,8 +2270,10 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
     st.markdown("---")
     st.subheader("📋 Acompanhamento Visual das Metas de Gastos & Exclusão")
     df_metas = pd.read_sql("SELECT * FROM metas", conn)
+    
+    # CORREÇÃO: Filtrar apenas transações do mês vigente (ex: agosto de 2026) para o gasto real não acumular histórico antigo
     df_trans_meta = pd.read_sql(
-        "SELECT * FROM transacoes WHERE tipo = 'Despesa' AND origem = 'Banco_PDF'",
+        "SELECT * FROM transacoes WHERE tipo = 'Despesa' AND origem = 'Banco_PDF' AND data LIKE '2026-08%'",
         conn,
     )
 
@@ -2287,8 +2289,10 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
                 v_meta = renda_ref_calc * (p_renda / 100.0)
 
             total_metas_cadastradas += v_meta
+            
+            # Soma exata por categoria comparando nomes limpos
             gasto_atual_meta = (
-                df_trans_meta[df_trans_meta["categoria"] == cat_nome]["valor"].sum()
+                df_trans_meta[df_trans_meta["categoria"].str.strip() == cat_nome.strip()]["valor"].sum()
                 if not df_trans_meta.empty
                 else 0.0
             )
@@ -2301,7 +2305,7 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
                     f"""
                     <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
                         <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">{cat_nome}</span>
-                        <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Gasto Real (Extrato): R$ {gasto_atual_meta:,.2f} / {detalhe_meta_txt}</p>
+                        <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Gasto Real (Mês Atual): R$ {gasto_atual_meta:,.2f} / {detalhe_meta_txt}</p>
                     </div>
                     """,
                     unsafe_allow_html=True,
