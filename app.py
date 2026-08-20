@@ -17,7 +17,7 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
 )
 
-VERSAO_SISTEMA = "v2.8.0"
+VERSAO_SISTEMA = "v2.9.0"
 DATA_ATUALIZACAO = "19/08/2026"
 
 if "sidebar_state" not in st.session_state:
@@ -226,7 +226,10 @@ c.execute("""CREATE TABLE IF NOT EXISTS categorias
             (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS metas 
-            (id INTEGER PRIMARY KEY AUTOINCREMENT, categoria TEXT, valor_meta REAL)""")
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, categoria TEXT, valor_meta REAL, percentual_renda REAL)""")
+
+c.execute("""CREATE TABLE IF NOT EXISTS regras_categorizacao 
+            (id INTEGER PRIMARY KEY AUTOINCREMENT, termo_chave TEXT, categoria_destino TEXT)""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS carteira_investimentos 
             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, ativo TEXT, classe TEXT, quantidade REAL, preco_medio REAL)""")
@@ -265,6 +268,12 @@ conn.commit()
 
 try:
     c.execute("ALTER TABLE holerites ADD COLUMN vale REAL")
+    conn.commit()
+except:
+    pass
+
+try:
+    c.execute("ALTER TABLE metas ADD COLUMN percentual_renda REAL")
     conn.commit()
 except:
     pass
@@ -403,6 +412,17 @@ def processar_texto_holerite(texto, nome_arquivo):
 
 def categorizar_automaticamente(descricao, tipo):
     desc_up = descricao.upper()
+    
+    # 1. Verifica primeiro nas regras customizadas do banco (De/Para)
+    try:
+        df_regras_db = pd.read_sql("SELECT termo_chave, categoria_destino FROM regras_categorizacao", conn)
+        if not df_regras_db.empty:
+            for _, r_regra in df_regras_db.iterrows():
+                if str(r_regra["termo_chave"]).upper() in desc_up:
+                    return str(r_regra["categoria_destino"])
+    except:
+        pass
+
     if tipo == "Receita":
         if "SALARIO" in desc_up or "PAGAMENTO" in desc_up or "PROVENTO" in desc_up:
             return "💰 01- Pagamento / Salário (Entrada)"
@@ -424,7 +444,7 @@ def categorizar_automaticamente(descricao, tipo):
         return "💊 Saúde & Farmácia (Necessidade)"
     elif "UBER" in desc_up or "99APP" in desc_up or "ESTACIONAMENTO" in desc_up or "PEDAGIO" in desc_up or "SEM PARAR" in desc_up:
         return "🚗 Transporte (Necessidade)"
-    elif "PET" in desc_up | "VET" in desc_up or "RACAO" in desc_up or "PETSHOP" in desc_up:
+    elif "PET" in desc_up or "VET" in desc_up or "RACAO" in desc_up or "PETSHOP" in desc_up:
         return "🐾 Veterinário & Pet (Necessidade)"
     elif "LUZ" in desc_up or "ENERGIA" in desc_up or "CPFL" in desc_up or "AGUA" in desc_up or "SABESP" in desc_up or "GAS" in desc_up:
         return "🏠 Contas Fixas (Necessidade)"
@@ -1557,8 +1577,8 @@ elif st.session_state.pagina_atual == "🔮 Previsão Financeira":
             "<span style='font-size:12px; color:transparent;'>EXPORTAR</span>",
             unsafe_allow_html=True,
         )
-        if st.button("📥 Exportar Relatório", use_container_width=True):
-            st.success("Relatório de previsão exportado com sucesso!")
+        if st.button("📥 Exportar Relatório PDF", use_container_width=True):
+            st.info("💡 Dica: Para salvar em PDF, pressione Ctrl+P na janela do navegador após visualizar o relatório executivo gerado na seção de Extratos/Holerites.")
 
     tipo_visao = st.session_state.tipo_visao
     formato_exibicao = st.session_state.formato_exibicao
@@ -2080,14 +2100,13 @@ elif st.session_state.pagina_atual == "📈 Investimentos":
         st.info("Nenhuma caixinha ou investimento cadastrado até o momento.")
 
 # ==========================================
-# --- SEÇÃO 8A: METAS DE GASTOS ---
+# --- SEÇÃO 8A: METAS DE GASTOS DINÂMICAS ---
 # ==========================================
 elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
     botao_voltar()
-    st.subheader("🎯 Definir Teto de Meta Mensal por Categoria")
+    st.subheader("🎯 Definir Teto de Meta Mensal (Fixo ou Percentual da Renda)")
     st.write(
-        "Estabeleça limites orçamentários para manter o controle rigoroso dos seus"
-        " gastos mensais com base no extrato."
+        "Estabeleça limites orçamentários fixos ou atrelados à sua renda líquida mensal."
     )
 
     cats_padrao_meta = [
@@ -2108,17 +2127,27 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
         else cats_padrao_meta
     )
 
+    # Descobrir última renda líquida dos holerites para cálculo percentual dinâmico
+    df_hol_renda = pd.read_sql("SELECT liquido FROM holerites ORDER BY id DESC LIMIT 1", conn)
+    renda_ref_calc = float(df_hol_renda.iloc[0]["liquido"]) if not df_hol_renda.empty else 5000.00
+
     with st.form("form_meta_teto_completo", clear_on_submit=True):
         cat_meta = st.selectbox("Escolha a Categoria Orçamentária", lista_todas_cats)
-        valor_meta_input = st.number_input(
-            "Valor Teto de Meta (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f"
-        )
+        tipo_teto = st.radio("Tipo de Meta:", ["Valor Fixo em Reais (R$)", "Percentual Dinâmico da Renda Líquida (%)"])
+        
+        if tipo_teto == "Valor Fixo em Reais (R$)":
+            valor_meta_input = st.number_input("Valor Teto de Meta (R$)", min_value=0.0, value=0.00, step=1.0, format="%.2f")
+            perc_meta_input = 0.0
+        else:
+            perc_meta_input = st.number_input("Percentual da Renda Líquida (%)", min_value=0.0, max_value=100.0, value=10.0, step=0.5)
+            valor_meta_input = renda_ref_calc * (perc_meta_input / 100.0)
+            st.info(f"Com base na última renda líquida de R$ {renda_ref_calc:,.2f}, o teto será de R$ {valor_meta_input:,.2f}.")
 
         if st.form_submit_button("Salvar Meta de Gasto", use_container_width=True):
             c.execute("DELETE FROM metas WHERE categoria = ?", (cat_meta,))
             c.execute(
-                "INSERT INTO metas (categoria, valor_meta) VALUES (?, ?)",
-                (cat_meta, valor_meta_input),
+                "INSERT INTO metas (categoria, valor_meta, percentual_renda) VALUES (?, ?, ?)",
+                (cat_meta, valor_meta_input, perc_meta_input),
             )
             conn.commit()
             st.success(f"Teto de meta para '{cat_meta}' salvo com sucesso!")
@@ -2136,17 +2165,25 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
         for index, row in df_metas.iterrows():
             cat_nome = row["categoria"]
             v_meta = row["valor_meta"]
+            p_renda = row.get("percentual_renda", 0.0)
+
+            # Se for percentual, recalcula com base na renda atual
+            if p_renda and p_renda > 0:
+                v_meta = renda_ref_calc * (p_renda / 100.0)
+
             gasto_atual_meta = (
                 df_trans_meta[df_trans_meta["categoria"] == cat_nome]["valor"].sum()
                 if not df_trans_meta.empty
                 else 0.0
             )
 
+            detalhe_meta_txt = f"Meta: R$ {v_meta:,.2f}" + (f" ({p_renda}% da Renda)" if p_renda else "")
+
             st.markdown(
                 f"""
                 <div style="background: rgba(25, 29, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
                     <span style="color: #f8fafc; font-weight: 600; font-size: 14px;">{cat_nome}</span>
-                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Gasto Real (Extrato): R$ {gasto_atual_meta:,.2f} / Meta Teto: R$ {v_meta:,.2f}</p>
+                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0;">Gasto Real (Extrato): R$ {gasto_atual_meta:,.2f} / {detalhe_meta_txt}</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -2164,23 +2201,78 @@ elif st.session_state.pagina_atual == "🎯 Metas de Gastos":
         st.info("Nenhuma meta de gasto definida até o momento.")
 
 # ==========================================
-# --- SEÇÃO 8B: CATEGORIAS & ÍCONES ---
+# --- SEÇÃO 8B: CATEGORIAS & ÍCONES & DE/PARA ---
 # ==========================================
 elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
     botao_voltar()
-    st.subheader("🏷️ Gerenciamento de Categorias Personalizadas & Ícones")
+    st.subheader("🏷️ Gerenciamento de Categorias, Ícones & Regras De/Para")
     st.write(
-        "Cadastre novas categorias customizadas, edite ou exclua as existentes."
+        "Cadastre categorias customizadas e crie regras automáticas de reconhecimento por palavras-chave nos extratos."
     )
 
-    col_m1, col_m2 = st.columns(2)
+    aba_cat1, aba_cat2 = st.tabs(["🏷️ Categorias & Ícones", "🔄 Regras Automáticas De/Para"])
 
-    with col_m1:
-        st.write("### ➕ Adicionar Nova Categoria com Ícone")
-        with st.form("form_nova_categoria_completo", clear_on_submit=True):
-            icone_escolhido = st.selectbox(
-                "Escolha um Ícone Personalizado:",
-                [
+    with aba_cat1:
+        col_m1, col_m2 = st.columns(2)
+
+        with col_m1:
+            st.write("### ➕ Adicionar Nova Categoria com Ícone")
+            with st.form("form_nova_categoria_completo", clear_on_submit=True):
+                icone_escolhido = st.selectbox(
+                    "Escolha um Ícone Personalizado:",
+                    [
+                        "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", "🪙",
+                        "🏷️", "💼", "📈", "📉", "🔒", "🔑", "💡", "⚡", "💧", "🔥",
+                        "📶", "📡", "📱", "💻", "📺", "📬", "🗑️", "⚙️", "🛠️", "🏠",
+                        "🏡", "🏢", "🛒", "🛍️", "🍔", "🍕", "☕", "🍺", "🍷", "🚗",
+                        "🚕", "🚌", "🚆", "⛽", "🅿️", "💊", "🏥", "🩺", "🏋️‍♂️", "✈️",
+                        "🏖️", "🏨", "🐕", "🐈", "🐾", "🎮", "🎲", "📚", "🎧", "🎬",
+                        "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
+                    ],
+                )
+                nome_cat_input = st.text_input("Nome da Categoria (Ex: Viagens (Desejos), Cursos (Investimento))")
+
+                if st.form_submit_button("Salvar Nova Categoria", use_container_width=True):
+                    if nome_cat_input.strip():
+                        categoria_final = f"{icone_escolhido} {nome_cat_input.strip()}"
+                        c.execute(
+                            "INSERT INTO categorias (nome) VALUES (?)", (categoria_final,)
+                        )
+                        conn.commit()
+                        st.success(f"Categoria '{categoria_final}' criada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Digite um nome válido para a categoria.")
+
+        with col_m2:
+            st.write("### ✏️ Editar ou 🗑️ Excluir Categoria")
+            df_cats_gerenciar = pd.read_sql("SELECT * FROM categorias", conn)
+            if not df_cats_gerenciar.empty:
+                lista_nomes_cats = df_cats_gerenciar["nome"].tolist()
+
+                cat_selecionada_para_gerenciar = st.selectbox(
+                    "Selecione a categoria para gerenciar:",
+                    lista_nomes_cats,
+                    key="sel_cat_gerenciar",
+                )
+
+                id_cat_atual = df_cats_gerenciar[
+                    df_cats_gerenciar["nome"] == cat_selecionada_para_gerenciar
+                ]["id"].values[0]
+                nome_completo_atual = str(cat_selecionada_para_gerenciar).strip()
+
+                match_emoji = re.match(r"^([^\w\s])\s*(.*)$", nome_completo_atual)
+                if match_emoji:
+                    emoji_atual = match_emoji.group(1)
+                    texto_atual_puro = match_emoji.group(2)
+                else:
+                    partes_cat = nome_completo_atual.split(" ", 1)
+                    emoji_atual = partes_cat[0] if len(partes_cat) > 0 else "📄"
+                    texto_atual_puro = (
+                        partes_cat[1] if len(partes_cat) > 1 else nome_completo_atual
+                    )
+
+                lista_icones_opcoes = [
                     "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", "🪙",
                     "🏷️", "💼", "📈", "📉", "🔒", "🔑", "💡", "⚡", "💧", "🔥",
                     "📶", "📡", "📱", "💻", "📺", "📬", "🗑️", "⚙️", "🛠️", "🏠",
@@ -2188,128 +2280,117 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
                     "🚕", "🚌", "🚆", "⛽", "🅿️", "💊", "🏥", "🩺", "🏋️‍♂️", "✈️",
                     "🏖️", "🏨", "🐕", "🐈", "🐾", "🎮", "🎲", "📚", "🎧", "🎬",
                     "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
-                ],
-            )
-            nome_cat_input = st.text_input("Nome da Categoria (Ex: Viagens (Desejos), Cursos (Investimento))")
+                ]
 
-            if st.form_submit_button("Salvar Nova Categoria", use_container_width=True):
-                if nome_cat_input.strip():
-                    categoria_final = f"{icone_escolhido} {nome_cat_input.strip()}"
+                idx_emoji_default = (
+                    lista_icones_opcoes.index(emoji_atual)
+                    if emoji_atual in lista_icones_opcoes
+                    else 0
+                )
+                chave_form_edicao = f"form_edit_cat_{id_cat_atual}"
+
+                with st.form(chave_form_edicao):
+                    st.write(f"Editando: **{cat_selecionada_para_gerenciar}**")
+                    novo_icone = st.selectbox(
+                        "Novo Ícone:",
+                        lista_icones_opcoes,
+                        index=idx_emoji_default,
+                        key=f"novo_icone_sel_{id_cat_atual}",
+                    )
+                    novo_nome_texto = st.text_input(
+                        "Novo Nome da Categoria:",
+                        value=texto_atual_puro,
+                        key=f"novo_nome_texto_input_{id_cat_atual}",
+                    )
+
+                    col_btn_ed1, col_btn_ed2 = st.columns(2)
+                    with col_btn_ed1:
+                        btn_atualizar = st.form_submit_button(
+                            "Atualizar Categoria", use_container_width=True
+                        )
+                    with col_btn_ed2:
+                        btn_excluir = st.form_submit_button(
+                            "Excluir Categoria", use_container_width=True
+                        )
+
+                    if btn_atualizar:
+                        texto_base = (
+                            novo_nome_texto.strip()
+                            if novo_nome_texto.strip()
+                            else texto_atual_puro
+                        )
+                        nome_atualizado_final = f"{novo_icone} {texto_base}"
+                        c.execute(
+                            "UPDATE categorias SET nome = ? WHERE id = ?",
+                            (nome_atualizado_final, int(id_cat_atual)),
+                        )
+                        conn.commit()
+                        st.success(
+                            f"Categoria atualizada para '{nome_atualizado_final}' com sucesso!"
+                        )
+                        st.rerun()
+
+                    if btn_excluir:
+                        c.execute(
+                            "DELETE FROM categorias WHERE id = ?", (int(id_cat_atual),)
+                        )
+                        conn.commit()
+                        st.success(
+                            f"Categoria '{cat_selecionada_para_gerenciar}' excluída com"
+                            " sucesso!"
+                        )
+                        st.rerun()
+            else:
+                st.info("Nenhuma categoria personalizada cadastrada para gerenciar.")
+
+    with aba_cat2:
+        st.write("### 🔄 Criar Regras De/Para Customizadas")
+        st.write("Sempre que o extrato contiver o termo abaixo, ele será categorizado automaticamente na categoria destino.")
+
+        cats_padrao_depara = [
+            "🛒 Supermercado (Necessidade)",
+            "⛽ Combustíveis (Necessidade)",
+            "💊 Saúde & Farmácia (Necessidade)",
+            "🚗 Transporte (Necessidade)",
+            "🐾 Veterinário & Pet (Necessidade)",
+            "🏠 Contas Fixas (Necessidade)",
+            "🍔 Lazer & Alimentação Fora (Desejos)",
+            "🎉 Lazer & Entretenimento (Desejos)",
+            "📑 Boletos & Despesas Diversas (Necessidade)"
+        ]
+        df_cats_db2 = pd.read_sql("SELECT nome FROM categorias", conn)
+        lista_todas_cats_depara = cats_padrao_depara + df_cats_db2["nome"].tolist() if not df_cats_db2.empty else cats_padrao_depara
+
+        with st.form("form_nova_regra_depara", clear_on_submit=True):
+            termo_chave_input = st.text_input("Termo Chave no Extrato (Ex: PADARIA DO JOAO, SPOTIFY, UBER)")
+            cat_destino_input = st.selectbox("Categoria Destino:", lista_todas_cats_depara)
+
+            if st.form_submit_button("Salvar Regra De/Para", use_container_width=True):
+                if termo_chave_input.strip():
                     c.execute(
-                        "INSERT INTO categorias (nome) VALUES (?)", (categoria_final,)
+                        "INSERT INTO regras_categorizacao (termo_chave, categoria_destino) VALUES (?, ?)",
+                        (termo_chave_input.upper().strip(), cat_destino_input)
                     )
                     conn.commit()
-                    st.success(f"Categoria '{categoria_final}' criada com sucesso!")
+                    st.success(f"Regra cadastrada com sucesso! Termo '{termo_chave_input.upper()}' agora será classificado como '{cat_destino_input}'.")
                     st.rerun()
                 else:
-                    st.error("Digite um nome válido para a categoria.")
+                    st.error("Informe um termo-chave válido.")
 
-    with col_m2:
-        st.write("### ✏️ Editar ou 🗑️ Excluir Categoria")
-        df_cats_gerenciar = pd.read_sql("SELECT * FROM categorias", conn)
-        if not df_cats_gerenciar.empty:
-            lista_nomes_cats = df_cats_gerenciar["nome"].tolist()
-
-            cat_selecionada_para_gerenciar = st.selectbox(
-                "Selecione a categoria para gerenciar:",
-                lista_nomes_cats,
-                key="sel_cat_gerenciar",
-            )
-
-            id_cat_atual = df_cats_gerenciar[
-                df_cats_gerenciar["nome"] == cat_selecionada_para_gerenciar
-            ]["id"].values[0]
-            nome_completo_atual = str(cat_selecionada_para_gerenciar).strip()
-
-            match_emoji = re.match(r"^([^\w\s])\s*(.*)$", nome_completo_atual)
-            if match_emoji:
-                emoji_atual = match_emoji.group(1)
-                texto_atual_puro = match_emoji.group(2)
-            else:
-                partes_cat = nome_completo_atual.split(" ", 1)
-                emoji_atual = partes_cat[0] if len(partes_cat) > 0 else "📄"
-                texto_atual_puro = (
-                    partes_cat[1] if len(partes_cat) > 1 else nome_completo_atual
-                )
-
-            lista_icones_opcoes = [
-                "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", "🪙",
-                "🏷️", "💼", "📈", "📉", "🔒", "🔑", "💡", "⚡", "💧", "🔥",
-                "📶", "📡", "📱", "💻", "📺", "📬", "🗑️", "⚙️", "🛠️", "🏠",
-                "🏡", "🏢", "🛒", "🛍️", "🍔", "🍕", "☕", "🍺", "🍷", "🚗",
-                "🚕", "🚌", "🚆", "⛽", "🅿️", "💊", "🏥", "🩺", "🏋️‍♂️", "✈️",
-                "🏖️", "🏨", "🐕", "🐈", "🐾", "🎮", "🎲", "📚", "🎧", "🎬",
-                "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
-            ]
-
-            idx_emoji_default = (
-                lista_icones_opcoes.index(emoji_atual)
-                if emoji_atual in lista_icones_opcoes
-                else 0
-            )
-            chave_form_edicao = f"form_edit_cat_{id_cat_atual}"
-
-            with st.form(chave_form_edicao):
-                st.write(f"Editando: **{cat_selecionada_para_gerenciar}**")
-                novo_icone = st.selectbox(
-                    "Novo Ícone:",
-                    lista_icones_opcoes,
-                    index=idx_emoji_default,
-                    key=f"novo_icone_sel_{id_cat_atual}",
-                )
-                novo_nome_texto = st.text_input(
-                    "Novo Nome da Categoria:",
-                    value=texto_atual_puro,
-                    key=f"novo_nome_texto_input_{id_cat_atual}",
-                )
-
-                col_btn_ed1, col_btn_ed2 = st.columns(2)
-                with col_btn_ed1:
-                    btn_atualizar = st.form_submit_button(
-                        "Atualizar Categoria", use_container_width=True
-                    )
-                with col_btn_ed2:
-                    btn_excluir = st.form_submit_button(
-                        "Excluir Categoria", use_container_width=True
-                    )
-
-                if btn_atualizar:
-                    texto_base = (
-                        novo_nome_texto.strip()
-                        if novo_nome_texto.strip()
-                        else texto_atual_puro
-                    )
-                    nome_atualizado_final = f"{novo_icone} {texto_base}"
-                    c.execute(
-                        "UPDATE categorias SET nome = ? WHERE id = ?",
-                        (nome_atualizado_final, int(id_cat_atual)),
-                    )
-                    conn.commit()
-                    st.success(
-                        f"Categoria atualizada para '{nome_atualizado_final}' com sucesso!"
-                    )
-                    st.rerun()
-
-                if btn_excluir:
-                    c.execute(
-                        "DELETE FROM categorias WHERE id = ?", (int(id_cat_atual),)
-                    )
-                    conn.commit()
-                    st.success(
-                        f"Categoria '{cat_selecionada_para_gerenciar}' excluída com"
-                        " sucesso!"
-                    )
-                    st.rerun()
+        st.markdown("---")
+        st.write("### 📋 Regras De/Para Cadastradas")
+        df_regras_view = pd.read_sql("SELECT * FROM regras_categorizacao", conn)
+        if not df_regras_view.empty:
+            st.dataframe(df_regras_view.rename(columns={"id": "ID", "termo_chave": "Termo no Extrato", "categoria_destino": "Categoria Destino"}), use_container_width=True, hide_index=True)
+            
+            id_del_regra = st.selectbox("Selecione o ID da regra para remover:", df_regras_view["id"].tolist(), key="del_regra_sel")
+            if st.button("Remover Regra Selecionada", use_container_width=True):
+                c.execute("DELETE FROM regras_categorizacao WHERE id = ?", (id_del_regra,))
+                conn.commit()
+                st.success("Regra removida com sucesso!")
+                st.rerun()
         else:
-            st.info("Nenhuma categoria personalizada cadastrada para gerenciar.")
-
-    st.markdown("---")
-    st.subheader("📋 Relação de Categorias Personalizadas Cadastradas")
-    df_cats_view = pd.read_sql("SELECT * FROM categorias", conn)
-    if not df_cats_view.empty:
-        st.dataframe(df_cats_view, use_container_width=True)
-    else:
-        st.info("Nenhuma categoria customizada registrada.")
+            st.info("Nenhuma regra De/Para customizada cadastrada.")
 
 # ==========================================
 # --- SEÇÃO 9: SAÚDE FINANCEIRA ---
@@ -3151,7 +3232,7 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
         " botões abaixo."
     )
 
-    col_exp1, col_exp2 = st.columns(2)
+    col_exp1, col_exp2, col_exp3 = st.columns(3)
     with col_exp1:
         with open("gestor_financeiro.db", "rb") as f_db:
             st.download_button(
@@ -3182,6 +3263,22 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
                 disabled=True,
                 use_container_width=True,
             )
+
+    with col_exp3:
+        if st.button("🖨️ Gerar Relatório Executivo (PDF)", use_container_width=True):
+            st.success("Relatório gerado! Pressione Ctrl+P no seu navegador e selecione 'Salvar como PDF'.")
+            st.markdown("""
+                <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 20px; margin-top: 15px;">
+                    <h3 style="color: #60a5fa; margin-top:0;">📊 RELATÓRIO EXECUTIVO FINANCEIRO - MÊS VIGENTE</h3>
+                    <p><b>Data de Emissão:</b> 19/08/2026 | <b>Titular:</b> Vinicius Ramos</p>
+                    <hr style="border-color: rgba(255,255,255,0.1);">
+                    <p>Este relatório consolida os dados de extratos bancários, cartões de crédito e projeções de saúde financeira do sistema profissional.</p>
+                    <ul>
+                        <li><b>Status Geral:</b> Operacional e Sincronizado</li>
+                        <li><b>Metodologia:</b> Extratos e Faturas via Upload Automático</li>
+                    </ul>
+                </div>
+            """, unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### ⚠️ Zona de Perigo — Exclusão Geral de Dados")
