@@ -17,7 +17,7 @@ st.set_page_config(
     page_title="Gestor Financeiro Profissional", page_icon="💸", layout="wide", initial_sidebar_state="expanded"
 )
 
-VERSAO_SISTEMA = "v2.7.0"
+VERSAO_SISTEMA = "v2.8.0"
 DATA_ATUALIZACAO = "19/08/2026"
 
 if "sidebar_state" not in st.session_state:
@@ -249,12 +249,6 @@ c.execute("""CREATE TABLE IF NOT EXISTS manutencoes_veiculo
 c.execute("""CREATE TABLE IF NOT EXISTS consumo_combustivel 
             (id INTEGER PRIMARY KEY AUTOINCREMENT, veiculo_id INTEGER, data TEXT, litros REAL, valor_total REAL, km_odometro REAL, consumo_medio REAL)""")
 
-c.execute("""CREATE TABLE IF NOT EXISTS notas_fiscais 
-            (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, estabelecimento TEXT, valor_total REAL, origem_arquivo TEXT)""")
-
-c.execute("""CREATE TABLE IF NOT EXISTS itens_nota_fiscal 
-            (id INTEGER PRIMARY KEY AUTOINCREMENT, nota_id INTEGER, produto TEXT, quantidade REAL, valor_unitario REAL, valor_total REAL, categoria TEXT)""")
-
 c.execute("""CREATE TABLE IF NOT EXISTS saldo_banco_manual 
             (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, banco TEXT, saldo_conta REAL, limite_utilizado REAL, limite_disponivel REAL, limite_total REAL)""")
 
@@ -410,22 +404,36 @@ def processar_texto_holerite(texto, nome_arquivo):
 def categorizar_automaticamente(descricao, tipo):
     desc_up = descricao.upper()
     if tipo == "Receita":
-        return "💰 01- Pagamento / Salário (Entrada)"
+        if "SALARIO" in desc_up or "PAGAMENTO" in desc_up or "PROVENTO" in desc_up:
+            return "💰 01- Pagamento / Salário (Entrada)"
+        elif "VALE" in desc_up or "ADIANTAMENTO" in desc_up:
+            return "🎫 02- Vale / Adiantamento (Entrada)"
+        elif "FERIAS" in desc_up:
+            return "🌴 03- Férias (Entrada)"
+        elif "13" in desc_up or "DECIMO" in desc_up:
+            return "💵 04- 13º Salário (Entrada)"
+        else:
+            return "💸 05- Outras Receitas (Entrada)"
     
-    if "SUPERMERCADO" in desc_up or "SHIBATA" in desc_up or "SUPER" in desc_up or "MERCADO" in desc_up or "PADARIA" in desc_up:
+    # Despesas e Categorias com ícones dinâmicos baseados no extrato
+    if "SUPERMERCADO" in desc_up or "SHIBATA" in desc_up or "SUPER" in desc_up or "MERCADO" in desc_up or "PADARIA" in desc_up or "ACOUGUE" in desc_up:
         return "🛒 Supermercado (Necessidade)"
-    elif "POSTO" in desc_up or "COMBUSTIVEL" in desc_up or "SHELL" in desc_up or "PETROBRAS" in desc_up or "IPIRANGA" in desc_up:
-        return "⛽ 03- Combustíveis (Necessidade)"
-    elif "FARMACIA" in desc_up or "DROGARIA" in desc_up or "MEDICAMENTO" in desc_up:
+    elif "POSTO" in desc_up or "COMBUSTIVEL" in desc_up or "SHELL" in desc_up or "PETROBRAS" in desc_up or "IPIRANGA" in desc_up or "AUTO POSTO" in desc_up:
+        return "⛽ Combustíveis (Necessidade)"
+    elif "FARMACIA" in desc_up or "DROGARIA" in desc_up or "MEDICAMENTO" in desc_up or "PAGUE MENOS" in desc_up or "RAIA" in desc_up:
         return "💊 Saúde & Farmácia (Necessidade)"
-    elif "UBER" in desc_up or "99APP" in desc_up or "ESTACIONAMENTO" in desc_up:
+    elif "UBER" in desc_up or "99APP" in desc_up or "ESTACIONAMENTO" in desc_up or "PEDAGIO" in desc_up or "SEM PARAR" in desc_up:
         return "🚗 Transporte (Necessidade)"
-    elif "FARM" in desc_up or "PET" in desc_up or "VET" in desc_up:
+    elif "PET" in desc_up | "VET" in desc_up or "RACAO" in desc_up or "PETSHOP" in desc_up:
         return "🐾 Veterinário & Pet (Necessidade)"
-    elif "LUZ" in desc_up or "ENERGIA" in desc_up or "CPFL" in desc_up or "AGUA" in desc_up or "SABESP" in desc_up:
+    elif "LUZ" in desc_up or "ENERGIA" in desc_up or "CPFL" in desc_up or "AGUA" in desc_up or "SABESP" in desc_up or "GAS" in desc_up:
         return "🏠 Contas Fixas (Necessidade)"
+    elif "RESTAURANTE" in desc_up or "LANCHONETE" in desc_up or "IFOOD" in desc_up or "PIZZA" in desc_up or "BAR" in desc_up:
+        return "🍔 Lazer & Alimentação Fora (Desejos)"
+    elif "NETFLIX" in desc_up or "SPOTIFY" in desc_up or "AMAZON" in desc_up or "DISNEY" in desc_up or "CINEMA" in desc_up:
+        return "🎉 Lazer & Entretenimento (Desejos)"
     else:
-        return "📑 01- Boletos Diversos (Necessidade)"
+        return "📑 Boletos & Despesas Diversas (Necessidade)"
 
 
 # ==========================================
@@ -692,18 +700,12 @@ if st.session_state.pagina_atual == "🏠 Início / Painel":
     col_a, col_b = st.columns(2)
     with col_a:
         st.markdown(
-            '<div class="group-card"><div class="group-title">Inovação, Tarefas & Notas Fiscais</div>',
+            '<div class="group-card"><div class="group-title">Tarefas & Produtividade</div>',
             unsafe_allow_html=True,
         )
-        sub1, sub2 = st.columns(2)
-        with sub1:
-            if st.button("📝 Tarefas", use_container_width=True):
-                mudar_pagina("📝 Tarefas & Compras")
-                st.rerun()
-        with sub2:
-            if st.button("🧾 Notas", use_container_width=True):
-                mudar_pagina("🧾 Leitor de Notas Fiscais")
-                st.rerun()
+        if st.button("📝 Tarefas & Compras", use_container_width=True):
+            mudar_pagina("📝 Tarefas & Compras")
+            st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col_b:
@@ -1286,10 +1288,6 @@ elif st.session_state.pagina_atual == "🚗 Veículos & Manutenção":
 # ==========================================
 # --- SEÇÃO 3A: DASHBOARD EXTRATO BANCÁRIO ---
 # ==========================================
-elif st.session_state.pagina_atual == "📊 Dashboard Manual":
-    st.session_state.pagina_atual = "📥 Dashboard Banco"
-    st.rerun()
-
 elif st.session_state.pagina_atual == "📥 Dashboard Banco":
     botao_voltar()
     st.subheader(
@@ -1462,33 +1460,6 @@ elif st.session_state.pagina_atual == "📥 Dashboard Banco":
                     lambda x: f"R$ {x:,.2f}"
                 )
                 st.dataframe(df_res_b, use_container_width=True, hide_index=True)
-
-        st.markdown("---")
-        st.subheader("🏷️ Distribuição de Gastos do Extrato por Descrição Específica")
-        if not df_desp_banco.empty:
-            gasto_desc_b = df_desp_banco.groupby("descricao")["valor"].sum().reset_index().sort_values(by="valor", ascending=False)
-            col_gdb1, col_gdb2 = st.columns(2)
-            with col_gdb1:
-                fig_pie_db = px.pie(
-                    gasto_desc_b.head(8),
-                    names="descricao",
-                    values="valor",
-                    hole=0.4,
-                    color_discrete_sequence=px.colors.sequential.Plasma,
-                )
-                fig_pie_db.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    font_color="#f8fafc",
-                    margin=dict(t=10, b=10, l=10, r=10),
-                )
-                st.plotly_chart(fig_pie_db, use_container_width=True)
-            with col_gdb2:
-                df_res_desc_b = gasto_desc_b.rename(columns={"descricao": "Descrição", "valor": "Total (R$)"})
-                df_res_desc_b["Total (R$)"] = df_res_desc_b["Total (R$)"].apply(
-                    lambda x: f"R$ {x:,.2f}"
-                )
-                st.dataframe(df_res_desc_b, use_container_width=True, hide_index=True)
 
         if not df_b.empty:
             st.markdown("---")
@@ -2210,75 +2181,13 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
             icone_escolhido = st.selectbox(
                 "Escolha um Ícone Personalizado:",
                 [
-                    "📄",
-                    "🧾",
-                    "💳",
-                    "💰",
-                    "💵",
-                    "💸",
-                    "🏦",
-                    "🏧",
-                    "📊",
-                    "🪙",
-                    "🏷️",
-                    "💼",
-                    "📈",
-                    "📉",
-                    "🔒",
-                    "🔑",
-                    "💡",
-                    "⚡",
-                    "💧",
-                    "🔥",
-                    "📶",
-                    "📡",
-                    "📱",
-                    "💻",
-                    "📺",
-                    "📬",
-                    "🗑️",
-                    "⚙️",
-                    "🛠️",
-                    "🏠",
-                    "🏡",
-                    "🏢",
-                    "🛒",
-                    "🛍️",
-                    "🍔",
-                    "🍕",
-                    "☕",
-                    "🍺",
-                    "🍷",
-                    "🚗",
-                    "🚕",
-                    "🚌",
-                    "🚆",
-                    "⛽",
-                    "🅿️",
-                    "💊",
-                    "🏥",
-                    "🩺",
-                    "🏋️‍♂️",
-                    "✈️",
-                    "🏖️",
-                    "🏨",
-                    "🐕",
-                    "🐈",
-                    "🐾",
-                    "🎮",
-                    "🎲",
-                    "📚",
-                    "🎧",
-                    "🎬",
-                    "🎨",
-                    "🎁",
-                    "💄",
-                    "👕",
-                    "👟",
-                    "🎓",
-                    "👶",
-                    "🎉",
-                    "⭐",
+                    "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", "🪙",
+                    "🏷️", "💼", "📈", "📉", "🔒", "🔑", "💡", "⚡", "💧", "🔥",
+                    "📶", "📡", "📱", "💻", "📺", "📬", "🗑️", "⚙️", "🛠️", "🏠",
+                    "🏡", "🏢", "🛒", "🛍️", "🍔", "🍕", "☕", "🍺", "🍷", "🚗",
+                    "🚕", "🚌", "🚆", "⛽", "🅿️", "💊", "🏥", "🩺", "🏋️‍♂️", "✈️",
+                    "🏖️", "🏨", "🐕", "🐈", "🐾", "🎮", "🎲", "📚", "🎧", "🎬",
+                    "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
                 ],
             )
             nome_cat_input = st.text_input("Nome da Categoria (Ex: Viagens (Desejos), Cursos (Investimento))")
@@ -2324,75 +2233,13 @@ elif st.session_state.pagina_atual == "🏷️ Categorias & Ícones":
                 )
 
             lista_icones_opcoes = [
-                "📄",
-                "🧾",
-                "💳",
-                "💰",
-                "💵",
-                "💸",
-                "🏦",
-                "🏧",
-                "📊",
-                "🪙",
-                "🏷️",
-                "💼",
-                "📈",
-                "📉",
-                "🔒",
-                "🔑",
-                "💡",
-                "⚡",
-                "💧",
-                "🔥",
-                "📶",
-                "📡",
-                "📱",
-                "💻",
-                "📺",
-                "📬",
-                "🗑️",
-                "⚙️",
-                "🛠️",
-                "🏠",
-                "🏡",
-                "🏢",
-                "🛒",
-                "🛍️",
-                "🍔",
-                "🍕",
-                "☕",
-                "🍺",
-                "🍷",
-                "🚗",
-                "🚕",
-                "🚌",
-                "🚆",
-                "⛽",
-                "🅿️",
-                "💊",
-                "🏥",
-                "🩺",
-                "🏋️‍♂️",
-                "✈️",
-                "🏖️",
-                "🏨",
-                "🐕",
-                "🐈",
-                "🐾",
-                "🎮",
-                "🎲",
-                "📚",
-                "🎧",
-                "🎬",
-                "🎨",
-                "🎁",
-                "💄",
-                "👕",
-                "👟",
-                "🎓",
-                "👶",
-                "🎉",
-                "⭐",
+                "📄", "🧾", "💳", "💰", "💵", "💸", "🏦", "🏧", "📊", "🪙",
+                "🏷️", "💼", "📈", "📉", "🔒", "🔑", "💡", "⚡", "💧", "🔥",
+                "📶", "📡", "📱", "💻", "📺", "📬", "🗑️", "⚙️", "🛠️", "🏠",
+                "🏡", "🏢", "🛒", "🛍️", "🍔", "🍕", "☕", "🍺", "🍷", "🚗",
+                "🚕", "🚌", "🚆", "⛽", "🅿️", "💊", "🏥", "🩺", "🏋️‍♂️", "✈️",
+                "🏖️", "🏨", "🐕", "🐈", "🐾", "🎮", "🎲", "📚", "🎧", "🎬",
+                "🎨", "🎁", "💄", "👕", "👟", "🎓", "👶", "🎉", "⭐"
             ]
 
             idx_emoji_default = (
@@ -3361,8 +3208,6 @@ elif st.session_state.pagina_atual == "📋 Extrato & Backup":
                 c.execute("DELETE FROM manutencoes_veiculo")
                 c.execute("DELETE FROM consumo_combustivel")
                 c.execute("DELETE FROM holerites")
-                c.execute("DELETE FROM notas_fiscais")
-                c.execute("DELETE FROM itens_nota_fiscal")
                 c.execute("DELETE FROM metas")
                 c.execute("DELETE FROM saldo_banco_manual")
                 conn.commit()
@@ -3837,74 +3682,3 @@ elif st.session_state.pagina_atual == "📄 Holerites":
                 st.rerun()
         else:
             st.info("Nenhum holerite cadastrado ou importado até o momento.")
-
-# ==========================================
-# --- SEÇÃO: LEITOR DE NOTAS FISCAIS ---
-# ==========================================
-elif st.session_state.pagina_atual == "🧾 Leitor de Notas Fiscais":
-    if st.button("⬅️ Voltar"):
-        st.session_state.pagina_atual = "🏠 Início / Painel"
-        st.rerun()
-
-    st.subheader("🧾 Lançamento Manual de Nota Fiscal (Via Câmera)")
-    
-    foto_nota = st.camera_input("Clique no ícone abaixo para tirar a foto da nota")
-
-    if foto_nota:
-        st.success("Nota capturada!")
-        
-        with st.form("form_lancar_nota_manual", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                estab = st.text_input("Estabelecimento")
-                data_nota = st.date_input("Data da Emissão")
-            with col2:
-                valor_nota = st.number_input("Valor Total (R$)", format="%.2f")
-                
-            st.write("---")
-            st.write("### Adicionar Itens (Opcional)")
-            num_itens = st.number_input("Quantos itens?", min_value=1, max_value=20, value=1)
-            
-            itens = []
-            for i in range(num_itens):
-                c1, c2, c3 = st.columns(3)
-                with c1: prod = st.text_input(f"Produto {i+1}", key=f"p{i}")
-                with c2: qtd = st.number_input(f"Qtd {i+1}", value=1.0, key=f"q{i}")
-                with c3: val_u = st.number_input(f"Vlr Unit {i+1}", value=0.0, format="%.2f", key=f"v{i}")
-                itens.append((prod, qtd, val_u, qtd * val_u))
-
-            if st.form_submit_button("Salvar Nota Fiscal"):
-                c.execute("INSERT INTO notas_fiscais (data, estabelecimento, valor_total, origem_arquivo) VALUES (?,?,?,?)",
-                          (data_nota.strftime("%Y-%m-%d"), estab, valor_nota, "Captura Câmera"))
-                nota_id = c.lastrowid
-                
-                for item in itens:
-                    c.execute("INSERT INTO itens_nota_fiscal (nota_id, produto, quantidade, valor_unitario, valor_total) VALUES (?,?,?,?,?)",
-                              (nota_id, item[0], item[1], item[2], item[3]))
-                
-                conn.commit()
-                st.toast("Nota salva com sucesso!", icon="✅")
-                st.rerun()
-
-    st.divider()
-    st.subheader("🕒 Lançamentos Recentes")
-    
-    query_check = """
-        SELECT data, estabelecimento, valor_total 
-        FROM notas_fiscais 
-        ORDER BY id DESC 
-        LIMIT 5
-    """
-    
-    try:
-        df_check = pd.read_sql_query(query_check, conn)
-        if not df_check.empty:
-            st.dataframe(df_check.rename(columns={
-                'data': 'Data', 
-                'estabelecimento': 'Local', 
-                'valor_total': 'Total'
-            }), use_container_width=True, hide_index=True)
-        else:
-            st.caption("Nenhum lançamento registrado ainda.")
-    except Exception as e:
-        st.error("Erro ao carregar histórico.")
