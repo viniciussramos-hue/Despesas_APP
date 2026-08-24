@@ -1,6 +1,7 @@
 from datetime import datetime, date
 import io
 import os
+import re
 import sqlite3
 import pandas as pd
 import pdfplumber
@@ -163,7 +164,9 @@ def categorizar_automaticamente(descricao, valor):
       return "Transporte"
     if any(k in desc for k in ["FARMACIA", "DROGARIA", "HOSPITAL", "CLINICA"]):
       return "Saúde / Farmácia"
-    if any(k in desc for k in ["LUZ", "AGUA", "TELEFONE", "INTERNET", "NETFLIX"]):
+    if any(
+        k in desc for k in ["LUZ", "AGUA", "TELEFONE", "INTERNET", "NETFLIX"]
+    ):
       return "Contas e Boletos"
     return "Outras Despesas"
 
@@ -314,10 +317,6 @@ if menu == "Dashboard":
             </div>
             <div class="gm-card-value" style="color: #10b981;">R$ {saldo_caixa:,.2f}</div>
             <div class="gm-card-footer">Patrimônio inicial<br>Saldo (receitas – despesas): R$ {saldo_caixa:,.2f}</div>
-            <div style="margin-top: 15px; font-size: 13px; color: #e5e7eb; display: flex; justify-content: space-between; border-top: 1px solid #1f2937; padding-top: 10px;">
-                <span>✨ Previsão fim do mês</span>
-                <b style="color: #3b82f6;">R$ {saldo_caixa:,.2f} ▾</b>
-            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -345,7 +344,7 @@ if menu == "Dashboard":
                 </div>
             </div>
             <div style="margin-top: 15px; font-size: 13px; color: #e5e7eb; display: flex; justify-content: space-between; border-top: 1px solid #1f2937; padding-top: 10px;">
-                <span>Patrimônio Total<br><span style="color: #6b7280; font-size: 11px;">Caixa + investimentos</span></span>
+                <span>Patrimônio Total</span>
                 <b style="font-size: 18px; color: #10b981;">R$ {patrimonio_total:,.2f}</b>
             </div>
         </div>
@@ -360,7 +359,6 @@ if menu == "Dashboard":
         <div class="gm-card">
             <div class="gm-card-title">📉 Dívida Total ℹ️</div>
             <div class="gm-card-value" style="color: #ef4444;">R$ 0,00</div>
-            <div class="gm-card-footer">Cartões + contas + financiamentos</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -369,9 +367,8 @@ if menu == "Dashboard":
     st.markdown(
         f"""
         <div class="gm-card">
-            <div class="gm-card-title">↗️ Contas a Receber Este Mês ℹ️</div>
+            <div class="gm-card-title">↗️ Receitas Mês ℹ️</div>
             <div class="gm-card-value" style="color: #10b981;">R$ {total_receitas:,.2f}</div>
-            <div class="gm-card-footer">Vencimentos do mês</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -380,9 +377,8 @@ if menu == "Dashboard":
     st.markdown(
         f"""
         <div class="gm-card">
-            <div class="gm-card-title">📅 Contas a Pagar Este Mês ℹ️</div>
+            <div class="gm-card-title">📅 Despesas Mês ℹ️</div>
             <div class="gm-card-value" style="color: #f59e0b;">R$ {total_despesas:,.2f}</div>
-            <div class="gm-card-footer">Cartões + contas + dívidas</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -391,16 +387,14 @@ if menu == "Dashboard":
     st.markdown(
         """
         <div class="gm-card">
-            <div class="gm-card-title">💳 Limite Disponível Cartões ℹ️</div>
+            <div class="gm-card-title">💳 Limite Cartões ℹ️</div>
             <div class="gm-card-value" style="color: #3b82f6;">R$ 0,00</div>
-            <div class="gm-card-footer">Limite total: R$ 0,00</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
   st.divider()
-
   gc1, gc2 = st.columns(2)
   with gc1:
     st.subheader("Fluxo de Caixa Pessoal")
@@ -408,7 +402,6 @@ if menu == "Dashboard":
       st.bar_chart(df_trans.groupby("tipo")["valor"].sum())
     else:
       st.info("Sem dados.")
-
   with gc2:
     st.subheader("Comparativo por Categoria")
     if not df_trans.empty:
@@ -417,49 +410,6 @@ if menu == "Dashboard":
       st.info("Sem dados.")
 
   st.divider()
-
-  pc1, pc2, pc3, pc4 = st.columns(4)
-  with pc1:
-    st.markdown(
-        f"""
-        <div class="gm-card">
-            <div class="gm-card-title">Saldo do Período ℹ️</div>
-            <div class="gm-card-value" style="color: #10b981;">R$ {saldo_caixa:,.2f}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with pc2:
-    st.markdown(
-        f"""
-        <div class="gm-card">
-            <div class="gm-card-title">Receitas ℹ️</div>
-            <div class="gm-card-value" style="color: #10b981;">R$ {total_receitas:,.2f}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with pc3:
-    st.markdown(
-        f"""
-        <div class="gm-card">
-            <div class="gm-card-title">Despesas ℹ️</div>
-            <div class="gm-card-value" style="color: #ef4444;">R$ {total_despesas:,.2f}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with pc4:
-    st.markdown(
-        """
-        <div class="gm-card">
-            <div class="gm-card-title">Saúde Financeira ℹ️</div>
-            <div class="gm-card-value" style="color: #10b981;">100%</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
   st.markdown("<br>", unsafe_allow_html=True)
   st.markdown(
       """
@@ -494,14 +444,13 @@ if menu == "Dashboard":
 
 
 # ==========================================
-# MÓDULO: IMPORTAR EXTRATO (COM AUTO-CATEGORIZAÇÃO)
+# MÓDULO: IMPORTAR EXTRATO (ROTO-REGEX ROBUSTO PARA PDF)
 # ==========================================
 elif menu == "Importar Extrato":
   st.markdown("<h1>📂 Importar Extrato Bancário</h1>", unsafe_allow_html=True)
   st.markdown(
-      "<p style='color: #9ca3af;'>Faça upload do extrato (CSV ou PDF). As"
-      " categorias serão reconhecidas <b>automaticamente</b> pela"
-      " descrição.</p>",
+      "<p style='color: #9ca3af;'>Faça upload do extrato (CSV ou PDF). O"
+      " sistema fará a leitura e a categorização <b>automática</b>.</p>",
       unsafe_allow_html=True,
   )
 
@@ -526,7 +475,7 @@ elif menu == "Importar Extrato":
           col_valor = st.selectbox("Coluna de Valor", cols_disp)
 
         if st.button(
-            "📥 Processar e Categorizar Automaticamente",
+            "📥 Processar e Categorizar CSV",
             type="primary",
             use_container_width=True,
         ):
@@ -548,8 +497,6 @@ elif menu == "Importar Extrato":
 
             tipo_val = "Receita" if valor_val > 0 else "Despesa"
             valor_val = abs(valor_val)
-
-            # Auto-categoria baseada na descrição
             cat_auto = categorizar_automaticamente(desc_val, valor_val)
 
             cursor.execute(
@@ -568,9 +515,7 @@ elif menu == "Importar Extrato":
             )
             count += 1
           conn.commit()
-          st.success(
-              f"🎉 {count} transações importadas e categorizadas automaticamente!"
-          )
+          st.success(f"🎉 {count} transações importadas com sucesso!")
       except Exception as e:
         st.error(f"Erro: {e}")
 
@@ -584,57 +529,66 @@ elif menu == "Importar Extrato":
               texto_extraido += t + "\n"
 
         st.success("📄 PDF lido com sucesso!")
+        st.text_area(
+            "Conteúdo Extraído do Extrato:", texto_extraido[:1000], height=150
+        )
 
         if st.button(
-            "📥 Processar e Categorizar Automaticamente o PDF",
+            "📥 Processar e Extrair Transações do PDF",
             type="primary",
             use_container_width=True,
         ):
           cursor = conn.cursor()
           linhas = texto_extraido.split("\n")
           count = 0
+
+          # Expressão regular para capturar datas no início (ex: 03/08/2026 ou 30/07) seguidas de texto e valor monetário com sinal opcional
+          # Exemplo de linha do Itaú: "30/07/2026 REMUNERACAO/SALARIO 1.162,53" ou "03/08/2026 SALDO DO DIA -19,68"
+          padrao_transacao = re.compile(
+              r"^(\d{2}/\d{2}(?:/\d{4})?)\s+(.*?)\s+(-?[\d\.]+,\d{2})$"
+          )
+
           for linha in linhas:
-            if "R$" in linha or any(char.isdigit() for char in linha):
-              partes = linha.split()
-              if len(partes) >= 2:
-                descricao = " ".join(partes[:-1])
-                try:
-                  val_str = (
-                      partes[-1]
-                      .replace("R$", "")
-                      .replace(".", "")
-                      .replace(",", ".")
-                  )
-                  valor = float(val_str)
-                  tipo = "Receita" if valor > 0 else "Despesa"
-                  valor = abs(valor)
-                  data_hoje = datetime.today().strftime("%Y-%m-%d")
+            linha_limpa = linha.strip()
+            match = padrao_transacao.match(linha_limpa)
+            if match:
+              data_val = match.group(1)
+              descricao = match.group(2).strip()
+              valor_str = match.group(3)
 
-                  # Auto-categoria baseada na descrição
-                  cat_auto = categorizar_automaticamente(descricao, valor)
+              try:
+                # Tratamento do valor monetário brasileiro para float
+                valor_limpo = (
+                    valor_str.replace(".", "").replace(",", ".").strip()
+                )
+                valor = float(valor_limpo)
 
-                  cursor.execute(
-                      """
+                tipo = "Receita" if valor > 0 else "Despesa"
+                valor_abs = abs(valor)
+                cat_auto = categorizar_automaticamente(descricao, valor)
+
+                cursor.execute(
+                    """
                                     INSERT INTO transacoes (data, descricao, valor, tipo, categoria, observacoes)
                                     VALUES (?, ?, ?, ?, ?, ?)
                                 """,
-                      (
-                          data_hoje,
-                          descricao,
-                          valor,
-                          tipo,
-                          cat_auto,
-                          "Importado via PDF",
-                      ),
-                  )
-                  count += 1
-                except:
-                  continue
+                    (
+                        data_val,
+                        descricao,
+                        valor_abs,
+                        tipo,
+                        cat_auto,
+                        "Importado via PDF",
+                    ),
+                )
+                count += 1
+              except Exception as ex:
+                continue
 
           conn.commit()
           st.success(
-              f"🎉 {count} transações do PDF extraídas e categorizadas"
-              " automaticamente!"
+              f"🎉 {count} transações do PDF extraídas, categorizadas e"
+              " salvas com sucesso!"
           )
       except Exception as e:
         st.error(f"Erro ao ler PDF: {e}")
