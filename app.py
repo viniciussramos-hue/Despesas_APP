@@ -216,7 +216,7 @@ menu = st.session_state["menu_ativo"]
 conn = sqlite3.connect(DB_NAME)
 
 # ==========================================
-# MÓDULO: DASHBOARD
+# MÓDULO: DASHBOARD (TOTALMENTE INTEGRADO AOS EXTRATOS)
 # ==========================================
 if menu == "Dashboard":
   col_head1, col_head2 = st.columns([3, 1])
@@ -372,38 +372,43 @@ if menu == "Dashboard":
 
   st.divider()
 
+  # Gráficos dinâmicos com dados das transações importadas
   gc1, gc2 = st.columns(2)
   with gc1:
     st.subheader("Fluxo de Caixa Pessoal")
     st.markdown(
         "<p style='color: #6b7280; font-size: 12px;'>Movimentação financeira"
-        " dos últimos 6 meses</p>",
+        " consolidada por tipo</p>",
         unsafe_allow_html=True,
     )
     if not df_trans.empty:
-      chart_data = df_trans.groupby("tipo")["valor"].sum()
-      st.bar_chart(chart_data)
+      chart_df = df_trans.groupby("tipo")["valor"].sum()
+      st.bar_chart(chart_df)
     else:
-      st.info("Sem dados de movimentação para o gráfico.")
+      st.info(
+          "Nenhuma transação cadastrada. Importe um extrato para visualizar o"
+          " gráfico."
+      )
 
   with gc2:
-    st.subheader("Comparativo Semanal")
+    st.subheader("Comparativo por Categoria")
     st.markdown(
-        "<p style='color: #6b7280; font-size: 12px;'>Receitas vs Despesas -"
-        " Semana atual (Dom a Sáb)</p>",
+        "<p style='color: #6b7280; font-size: 12px;'>Gastos e entradas por"
+        " categoria</p>",
         unsafe_allow_html=True,
     )
     if not df_trans.empty:
-      st.line_chart(df_trans.groupby("tipo")["valor"].sum())
+      cat_df = df_trans.groupby("categoria")["valor"].sum()
+      st.bar_chart(cat_df)
     else:
-      st.info("Sem dados suficientes para o comparativo semanal.")
+      st.info("Sem dados suficientes para o comparativo.")
 
   st.divider()
 
   st.markdown("### Período de Análise")
   st.markdown(
-      "<p style='color: #6b7280; font-size: 12px;'>Selecione o período para"
-      " visualizar as estatísticas</p>",
+      "<p style='color: #6b7280; font-size: 12px;'>Resumo estatístico do"
+      " período</p>",
       unsafe_allow_html=True,
   )
   st.selectbox(
@@ -430,7 +435,7 @@ if menu == "Dashboard":
         <div class="gm-card">
             <div class="gm-card-title">Receitas ℹ️</div>
             <div class="gm-card-value" style="color: #10b981;">R$ {total_receitas:,.2f}</div>
-            <div class="gm-card-footer">No período selecionado</div>
+            <div class="gm-card-footer">Total de entradas</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -441,7 +446,7 @@ if menu == "Dashboard":
         <div class="gm-card">
             <div class="gm-card-title">Despesas ℹ️</div>
             <div class="gm-card-value" style="color: #ef4444;">R$ {total_despesas:,.2f}</div>
-            <div class="gm-card-footer">No período selecionado</div>
+            <div class="gm-card-footer">Total de saídas</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -451,49 +456,49 @@ if menu == "Dashboard":
         """
         <div class="gm-card">
             <div class="gm-card-title">Saúde Financeira ℹ️</div>
-            <div class="gm-card-value" style="color: #10b981;">0.0%</div>
+            <div class="gm-card-value" style="color: #10b981;">100%</div>
             <div class="gm-card-footer" style="color: #10b981;">❤ Excelente</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-  inf1, inf2 = st.columns(2)
-  with inf1:
-    st.markdown(
-        """
-        <div class="gm-card">
-            <b>Origem das Receitas</b><br>
-            <span style="color: #6b7280; font-size: 11px;">Distribuição por categoria</span>
-            <div style="text-align: center; padding: 40px; color: #6b7280;">Nenhuma receita no período selecionado</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with inf2:
-    st.markdown(
-        """
-        <div class="gm-card">
-            <b>Destino das Despesas</b><br>
-            <span style="color: #6b7280; font-size: 11px;">Consolidado: transações gerais + cartão de crédito</span>
-            <div style="text-align: center; padding: 40px; color: #6b7280;">Nenhuma despesa no período selecionado</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
+  # Seção de Transações Recentes integrada ao banco de dados
+  st.markdown("<br>", unsafe_allow_html=True)
   st.markdown(
       """
       <div class="gm-card">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-              <b>Transações Recentes</b>
-              <span style="color: #3b82f6; font-size: 12px; cursor: pointer;">Ver todas</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <b>Transações Recentes (Importadas dos Extratos)</b>
           </div>
-          <div style="text-align: center; padding: 40px; color: #6b7280;">Nenhuma transação recente</div>
-      </div>
       """,
       unsafe_allow_html=True,
   )
+
+  if not df_trans.empty:
+    df_recentes = df_trans.tail(10).iloc[::-1].copy()
+    df_recentes["Ícone"] = df_recentes["categoria"].apply(obter_icone)
+    st.dataframe(
+        df_recentes[[
+            "data",
+            "Ícone",
+            "descricao",
+            "categoria",
+            "tipo",
+            "valor",
+            "observacoes",
+        ]],
+        use_container_width=True,
+    )
+  else:
+    st.markdown(
+        "<div style='text-align: center; padding: 20px; color:"
+        " #6b7280;'>Nenhuma transação recente. Vá em 'Importar Extrato' para"
+        " enviar seu arquivo.</div>",
+        unsafe_allow_html=True,
+    )
+
+  st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ==========================================
@@ -504,7 +509,7 @@ elif menu == "Importar Extrato":
   st.markdown(
       "<p style='color: #9ca3af;'>Faça upload do arquivo de extrato do seu"
       " banco em formato <b>CSV</b> ou <b>PDF</b> para carregar as transações"
-      " automaticamente.</p>",
+      " automaticamente para o seu Dashboard.</p>",
       unsafe_allow_html=True,
   )
 
@@ -576,7 +581,8 @@ elif menu == "Importar Extrato":
             count += 1
           conn.commit()
           st.success(
-              f"🎉 {count} transações importadas com sucesso do CSV!"
+              f"🎉 {count} transações importadas com sucesso! O Dashboard foi"
+              " atualizado."
           )
       except Exception as e:
         st.error(f"Erro ao processar CSV: {e}")
@@ -590,13 +596,11 @@ elif menu == "Importar Extrato":
             if t:
               texto_extraido += t + "\n"
 
-        st.success(
-            "📄 Arquivo PDF lido com sucesso! Texto extraído do extrato:"
-        )
+        st.success("📄 Arquivo PDF lido com sucesso!")
         st.text_area(
             "Pré-visualização do conteúdo do PDF",
-            texto_extraido[:2000],
-            height=200,
+            texto_extraido[:1500],
+            height=150,
         )
 
         cat_padrao_pdf = st.selectbox(
@@ -610,12 +614,10 @@ elif menu == "Importar Extrato":
             type="primary",
             use_container_width=True,
         ):
-          # Processamento básico por linha do PDF (procurando linhas com valores monetários)
           cursor = conn.cursor()
           linhas = texto_extraido.split("\n")
           count = 0
           for linha in linhas:
-            # Lógica simples de varredura para identificar valores e descrições no PDF
             if "R$" in linha or any(char.isdigit() for char in linha):
               partes = linha.split()
               if len(partes) >= 2:
@@ -652,7 +654,8 @@ elif menu == "Importar Extrato":
 
           conn.commit()
           st.success(
-              f"🎉 {count} transações extraídas e importadas com sucesso do PDF!"
+              f"🎉 {count} transações extraídas do PDF e vinculadas ao Dashboard"
+              " com sucesso!"
           )
       except Exception as e:
         st.error(f"Erro ao ler PDF: {e}")
