@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 import os
 import sqlite3
 import pandas as pd
@@ -86,18 +86,6 @@ def init_db():
     """)
 
   cursor.execute("""
-        CREATE TABLE IF NOT EXISTS contas_futuras (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            vencimento TEXT,
-            descricao TEXT,
-            valor REAL,
-            tipo TEXT,
-            categoria TEXT,
-            status TEXT DEFAULT 'Pendente'
-        )
-    """)
-
-  cursor.execute("""
         CREATE TABLE IF NOT EXISTS investimentos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ativo TEXT,
@@ -137,7 +125,7 @@ CATEGORIAS_RECEITAS = [
 ]
 
 
-def obter_icone_despesa(categoria):
+def obter_icone(categoria):
   icones = {
       "Alimentação": "🍔",
       "Supermercado": "🛒",
@@ -147,19 +135,12 @@ def obter_icone_despesa(categoria):
       "Saúde": "💊",
       "Lazer": "🎮",
       "Serviços": "💡",
-      "Outros": "📦",
-  }
-  return icones.get(categoria, "📁")
-
-
-def obter_icone_receita(categoria):
-  icones = {
       "Salário": "💵",
       "Freelance": "💻",
       "Investimentos": "📈",
       "Vendas": "🏷️",
       "Reembolso": "🔄",
-      "Outros": "💰",
+      "Outros": "📦",
   }
   return icones.get(categoria, "📁")
 
@@ -274,7 +255,6 @@ if menu == "Dashboard":
   patrimonio_total = total_investido + saldo_caixa
 
   col_c1, col_c2 = st.columns(2)
-
   with col_c1:
     st.markdown(
         f"""
@@ -285,15 +265,10 @@ if menu == "Dashboard":
             </div>
             <div class="gm-card-value" style="color: #10b981;">R$ {saldo_caixa:,.2f}</div>
             <div class="gm-card-footer">Receitas: R$ {total_receitas:,.2f} | Despesas: R$ {total_despesas:,.2f}</div>
-            <div style="margin-top: 15px; font-size: 13px; color: #e5e7eb; display: flex; justify-content: space-between; border-top: 1px solid #1f2937; padding-top: 10px;">
-                <span>✨ Previsão fim do mês</span>
-                <b style="color: #3b82f6;">R$ {saldo_caixa:,.2f} ▾</b>
-            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
   with col_c2:
     st.markdown(
         f"""
@@ -317,7 +292,7 @@ if menu == "Dashboard":
                 </div>
             </div>
             <div style="margin-top: 15px; font-size: 13px; color: #e5e7eb; display: flex; justify-content: space-between; border-top: 1px solid #1f2937; padding-top: 10px;">
-                <span>Patrimônio Total<br><span style="color: #6b7280; font-size: 11px;">Caixa + investimentos</span></span>
+                <span>Patrimônio Total</span>
                 <b style="font-size: 18px; color: #10b981;">R$ {patrimonio_total:,.2f}</b>
             </div>
         </div>
@@ -326,7 +301,6 @@ if menu == "Dashboard":
     )
 
   dc1, dc2, dc3, dc4 = st.columns(4)
-
   with dc1:
     st.markdown(
         """
@@ -344,7 +318,7 @@ if menu == "Dashboard":
         <div class="gm-card">
             <div class="gm-card-title">↗️ Contas a Receber Este Mês</div>
             <div class="gm-card-value" style="color: #10b981;">R$ {total_receitas:,.2f}</div>
-            <div class="gm-card-footer">Total de receitas cadastradas</div>
+            <div class="gm-card-footer">Total cadastrado</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -355,7 +329,7 @@ if menu == "Dashboard":
         <div class="gm-card">
             <div class="gm-card-title">📅 Contas a Pagar Este Mês</div>
             <div class="gm-card-value" style="color: #f59e0b;">R$ {total_despesas:,.2f}</div>
-            <div class="gm-card-footer">Total de despesas cadastradas</div>
+            <div class="gm-card-footer">Total cadastrado</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -372,101 +346,62 @@ if menu == "Dashboard":
         unsafe_allow_html=True,
     )
 
-  st.divider()
-
-  gc1, gc2 = st.columns(2)
-  with gc1:
-    st.subheader("Fluxo de Caixa Pessoal")
-    st.markdown(
-        "<p style='color: #6b7280; font-size: 12px;'>Movimentação financeira"
-        " geral</p>",
-        unsafe_allow_html=True,
-    )
-    if not df_desp.empty or not df_rec.empty:
-      chart_data = pd.DataFrame(
-          {
-              "Receitas": df_rec["valor"].tolist()
-              if not df_rec.empty
-              else [0],
-              "Despesas": df_desp["valor"].tolist()
-              if not df_desp.empty
-              else [0],
-          }
-      )
-      st.bar_chart(chart_data)
-    else:
-      st.info("Sem dados de movimentação para o gráfico.")
-
-  with gc2:
-    st.subheader("Comparativo Semanal")
-    st.markdown(
-        "<p style='color: #6b7280; font-size: 12px;'>Receitas vs Despesas</p>",
-        unsafe_allow_html=True,
-    )
-    if not df_desp.empty or not df_rec.empty:
-      st.line_chart(chart_data)
-    else:
-      st.info("Sem dados suficientes para o comparativo.")
 
 # ==========================================
-# MÓDULO: RECEITAS
+# FUNÇÃO REUTILIZÁVEL PARA MÓDULOS (COM ABA AVANÇADA IDÊNTICA AO PRINT)
 # ==========================================
-elif menu == "Receitas":
+def renderizar_modulo_financeiro(
+    titulo, tabela, categorias, icone_func, cor_botao_novo
+):
   c_t1, c_t2, c_t3 = st.columns([2, 2, 1])
   with c_t1:
     st.markdown(
-        "<h1 style='margin-bottom: 0;'>Receitas</h1>", unsafe_allow_html=True
+        f"<h1 style='margin-bottom: 0;'>{titulo}</h1>", unsafe_allow_html=True
     )
 
-  df_receitas = pd.read_sql("SELECT * FROM receitas", conn)
-  total_geral_receitas = (
-      df_receitas["valor"].sum() if not df_receitas.empty else 0.0
-  )
-  qtd_receitas = len(df_receitas)
+  df_dados = pd.read_sql(f"SELECT * FROM {tabela}", conn)
+  total_geral = df_dados["valor"].sum() if not df_dados.empty else 0.0
+  qtd_registros = len(df_dados)
 
   with c_t2:
     st.markdown(
         f"<p style='color: #9ca3af; margin-top: 10px;'>Total: <b style='color:"
-        f" #f9fafb;'>R$ {total_geral_receitas:,.2f}</b></p>",
+        f" #f9fafb;'>R$ {total_geral:,.2f}</b></p>",
         unsafe_allow_html=True,
     )
 
   with c_t3:
-    nova_rec_btn = st.button(
-        "➕ Nova", use_container_width=True, type="primary"
+    nova_btn = st.button(
+        "＋ Nova",
+        use_container_width=True,
+        type="primary" if cor_botao_novo == "primary" else "secondary",
     )
 
-  # Barra de Filtros
-  st.markdown('<div class="gm-card" style="padding: 15px;">', unsafe_allow_html=True)
-  f1, f2 = st.columns(2)
-  with f1:
-    busca_termo = st.text_input(
-        "Busca", placeholder="🔍 Buscar receita...", label_visibility="collapsed"
-    )
-  with f2:
-    filtro_cat = st.selectbox(
-        "Categoria",
-        ["Todas as categorias"] + CATEGORIAS_RECEITAS,
-        label_visibility="collapsed",
-    )
-  st.markdown("</div>", unsafe_allow_html=True)
+  # Sistema de Abas Superiores (Simples, Recorrentes, Avançada)
+  aba = st.radio(
+      "Abas",
+      ["📋 Simples", "🔄 Recorrentes", "📊 Avançada"],
+      horizontal=True,
+      label_visibility="collapsed",
+  )
 
-  # Painel de Cadastro de Nova Receita
-  if nova_rec_btn or st.session_state.get("abrir_modal_receita", False):
-    st.session_state["abrir_modal_receita"] = True
+  st.markdown("<br>", unsafe_allow_html=True)
+
+  # Painel de Cadastro (Modal simulado)
+  if nova_btn or st.session_state.get(f"abrir_modal_{tabela}", False):
+    st.session_state[f"abrir_modal_{tabela}"] = True
 
     with st.container():
       st.markdown(
-          """
+          f"""
             <div style='background-color: #161e2e; border: 1px solid #374151; padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);'>
-                <h3 style='margin-top: 0; color: #fff;'>Nova Receita</h3>
+                <h3 style='margin-top: 0; color: #fff;'>Nova {titulo[:-1]}</h3>
             """,
           unsafe_allow_html=True,
       )
 
-      with st.form("form_nova_receita", clear_on_submit=True):
-        desc = st.text_input("Descrição", placeholder="Ex: Salário mensal")
-
+      with st.form(f"form_novo_{tabela}", clear_on_submit=True):
+        desc = st.text_input("Descrição", placeholder="Ex: Conta / Salário")
         col_v1, col_v2 = st.columns(2)
         with col_v1:
           val = st.number_input(
@@ -475,7 +410,7 @@ elif menu == "Receitas":
         with col_v2:
           dt = st.date_input("Data", datetime.today())
 
-        cat = st.selectbox("Categoria", CATEGORIAS_RECEITAS)
+        cat = st.selectbox("Categoria", categorias)
         obs = st.text_area(
             "Observações", placeholder="Adicione observações..."
         )
@@ -484,7 +419,7 @@ elif menu == "Receitas":
         col_b1, col_b2 = st.columns(2)
         with col_b1:
           salvar = st.form_submit_button(
-              "Salvar Receita", use_container_width=True, type="primary"
+              f"Salvar {titulo[:-1]}", use_container_width=True, type="primary"
           )
         with col_b2:
           fechar = st.form_submit_button("Cancelar", use_container_width=True)
@@ -493,13 +428,13 @@ elif menu == "Receitas":
           if desc and val > 0:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO receitas (descricao, valor, data, categoria,"
+                f"INSERT INTO {tabela} (descricao, valor, data, categoria,"
                 " observacoes, recorrente) VALUES (?, ?, ?, ?, ?, ?)",
                 (desc, val, str(dt), cat, obs, 1 if rec else 0),
             )
             conn.commit()
-            st.session_state["abrir_modal_receita"] = False
-            st.success("Receita salva com sucesso!")
+            st.session_state[f"abrir_modal_{tabela}"] = False
+            st.success(f"{titulo[:-1]} salva com sucesso!")
             st.rerun()
           else:
             st.warning(
@@ -507,187 +442,295 @@ elif menu == "Receitas":
             )
 
         if fechar:
-          st.session_state["abrir_modal_receita"] = False
+          st.session_state[f"abrir_modal_{tabela}"] = False
           st.rerun()
 
       st.markdown("</div>", unsafe_allow_html=True)
 
-  st.markdown(
-      f"<p style='color: #6b7280; font-size: 12px;'>{qtd_receitas}"
-      " receitas</p>",
-      unsafe_allow_html=True,
-  )
-
-  if df_receitas.empty:
+  # ==========================================
+  # RENDERIZAÇÃO DA ABA AVANÇADA (IDÊNTICA AOS PRINTS)
+  # ==========================================
+  if aba == "📊 Avançada":
+    # 1. Barra de Período Superior do Avançado
     st.markdown(
         """
-        <div style='text-align: center; padding: 50px 20px; background-color: #161e2e; border: 1px solid #1f2937; border-radius: 12px; margin-top: 20px;'>
-            <p style='color: #9ca3af; font-size: 15px; margin-bottom: 20px;'>Você ainda não tem receitas cadastradas</p>
+        <div class="gm-card" style="padding: 15px; margin-bottom: 20px;">
+            <span style="color: #9ca3af; font-size: 13px; font-weight: 500;">🔻 Período</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
-  else:
-    df_filtrado = df_receitas.copy()
-    if busca_termo:
-      df_filtrado = df_filtrado[
-          df_filtrado["descricao"].str.contains(busca_termo, case=False, na=False)
-      ]
-    if filtro_cat != "Todas as categorias":
-      df_filtrado = df_filtrado[df_filtrado["categoria"] == filtro_cat]
 
-    df_filtrado["Ícone"] = df_filtrado["categoria"].apply(obter_icone_receita)
-    st.dataframe(
-        df_filtrado[[
-            "data",
-            "Ícone",
-            "descricao",
-            "categoria",
-            "valor",
-            "observacoes",
-        ]],
-        use_container_width=True,
+    p1, p2, p3 = st.columns([2, 2, 1])
+    with p1:
+      data_inicio = st.date_input(
+          "Início", value=date(2026, 8, 1), key=f"ini_{tabela}"
+      )
+    with p2:
+      data_fim = st.date_input(
+          "Fim", value=date(2026, 8, 31), key=f"fim_{tabela}"
+      )
+    with p3:
+      st.markdown("<br>", unsafe_allow_html=True)
+      st.button("Filtrar", use_container_width=True, type="primary")
+
+    # 2. Cards de Resumo Superior do Avançado
+    if not df_dados.empty:
+      df_dados["dt_obj"] = pd.to_datetime(
+          df_dados["data"], errors="coerce"
+      ).dt.date
+      df_periodo = df_dados[
+          (df_dados["dt_obj"] >= data_inicio)
+          & (df_dados["dt_obj"] <= data_fim)
+      ]
+    else:
+      df_periodo = pd.DataFrame(columns=df_dados.columns)
+
+    total_periodo = (
+        df_periodo["valor"].sum() if not df_periodo.empty else 0.0
+    )
+    maior_valor = (
+        df_periodo["valor"].max() if not df_periodo.empty else 0.0
     )
 
+    ac1, ac2, ac3 = st.columns(3)
+    if tabela == "despesas":
+      with ac1:
+        st.markdown(
+            f"""
+            <div class="gm-card" style="background-color: #181216; border: 1px solid #3b1f23;">
+                <div class="gm-card-title">🏛️ DESPESAS GERAIS</div>
+                <div class="gm-card-value" style="color: #ef4444;">R$ {total_periodo:,.2f}</div>
+                <div class="gm-card-footer">Saídas da conta no período</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+      with ac2:
+        st.markdown(
+            """
+            <div class="gm-card" style="background-color: #141624; border: 1px solid #23223b;">
+                <div class="gm-card-title">💳 COMPRAS NO CARTÃO</div>
+                <div class="gm-card-value" style="color: #a855f7;">R$ 0,00</div>
+                <div class="gm-card-footer">Parcelas e compras à vista</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+      with ac3:
+        st.markdown(
+            f"""
+            <div class="gm-card" style="background-color: #121f18; border: 1px solid #1f3b27;">
+                <div class="gm-card-title">🛡️ TOTAL QUE VOCÊ GASTOU</div>
+                <div class="gm-card-value" style="color: #10b981;">R$ {total_periodo:,.2f}</div>
+                <div class="gm-card-footer">Conta + cartões no período</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+      with ac1:
+        st.markdown(
+            f"""
+            <div class="gm-card" style="background-color: #121f18; border: 1px solid #1f3b27;">
+                <div class="gm-card-title">💲 TOTAL DE RECEITAS</div>
+                <div class="gm-card-value" style="color: #10b981;">R$ {total_periodo:,.2f}</div>
+                <div class="gm-card-footer">Soma de todas as entradas</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+      with ac2:
+        st.markdown(
+            f"""
+            <div class="gm-card" style="background-color: #141624; border: 1px solid #23223b;">
+                <div class="gm-card-title">📊 MÉDIA MENSAL</div>
+                <div class="gm-card-value" style="color: #3b82f6;">R$ {total_periodo:,.2f}</div>
+                <div class="gm-card-footer">Baseado no período</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+      with ac3:
+        st.markdown(
+            f"""
+            <div class="gm-card" style="background-color: #181216; border: 1px solid #3b1f23;">
+                <div class="gm-card-title">🏆 MAIOR {titulo[:-1].upper()}</div>
+                <div class="gm-card-value" style="color: #f59e0b;">R$ {maior_valor:,.2f}</div>
+                <div class="gm-card-footer">Pico no período selecionado</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # 3. Gráfico por Categoria (Estilo Card do Print)
+    st.markdown(
+        f"""
+        <div class="gm-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <b>{titulo} por Categoria</b><br>
+                    <span style="color: #6b7280; font-size: 11px;">{data_inicio.strftime('%d/%m')} - {data_fim.strftime('%d/%m')} • Total: R$ {total_periodo:,.2f}</span>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if not df_periodo.empty:
+      df_cat = df_periodo.groupby("categoria")["valor"].sum().reset_index()
+      st.bar_chart(df_cat.set_index("categoria"))
+    else:
+      st.markdown(
+          "<p style='text-align: center; color: #6b7280; padding: 20px;'>Nenhuma"
+          " categoria no período.</p>",
+          unsafe_allow_html=True,
+      )
+
+    # 4. Ranking das Maiores Movimentações
+    st.markdown(
+        f"""
+        <div class="gm-card">
+            <b>Ranking das Maiores {titulo}</b><br>
+            <span style="color: #6b7280; font-size: 11px;">{data_inicio.strftime('%d/%m')} - {data_fim.strftime('%d/%m')} • {len(df_periodo)} registros</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if not df_periodo.empty:
+      df_ranking = df_periodo.sort_values(by="valor", ascending=False)
+      df_ranking["Ícone"] = df_ranking["categoria"].apply(icone_func)
+      st.dataframe(
+          df_ranking[[
+              "data",
+              "Ícone",
+              "descricao",
+              "categoria",
+              "valor",
+              "observacoes",
+          ]],
+          use_container_width=True,
+      )
+    else:
+      st.markdown(
+          "<p style='text-align: center; color: #6b7280; padding: 20px;'>Nenhum"
+          " registro no período.</p>",
+          unsafe_allow_html=True,
+      )
+
+  # ==========================================
+  # RENDERIZAÇÃO DAS ABAS SIMPLES / RECORRENTES
+  # ==========================================
+  else:
+    st.markdown(
+        '<div class="gm-card" style="padding: 15px;">', unsafe_allow_html=True
+    )
+    f1, f2, f3, f4 = st.columns(4)
+    with f1:
+      busca = st.text_input(
+          "Busca",
+          placeholder=f"🔍 Buscar {titulo.lower()}...",
+          label_visibility="collapsed",
+      )
+    with f2:
+      filtro_cat = st.selectbox(
+          "Categoria",
+          ["Todas as categorias"] + categorias,
+          label_visibility="collapsed",
+      )
+    with f3:
+      st.selectbox(
+          "Membros",
+          ["Todos os membros", "Vinicius Ramos"],
+          label_visibility="collapsed",
+      )
+    with f4:
+      st.selectbox(
+          "Status", ["Todas", "Pagas", "Pendentes"], label_visibility="collapsed"
+      )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    df_filtrado = df_dados.copy()
+    if not df_filtrado.empty:
+      if aba == "🔄 Recorrentes":
+        df_filtrado = df_filtrado[df_filtrado["recorrente"] == 1]
+      if busca:
+        df_filtrado = df_filtrado[
+            df_filtrado["descricao"].str.contains(busca, case=False, na=False)
+        ]
+      if filtro_cat != "Todas as categorias":
+        df_filtrado = df_filtrado[df_filtrado["categoria"] == filtro_cat]
+
+    st.markdown(
+        f"<p style='color: #6b7280; font-size: 12px;'>{qtd_registros}"
+        f" {titulo.lower()}</p>",
+        unsafe_allow_html=True,
+    )
+
+    if df_dados.empty:
+      st.markdown(
+          f"""
+            <div style='text-align: center; padding: 50px 20px; background-color: #161e2e; border: 1px solid #1f2937; border-radius: 12px; margin-top: 20px;'>
+                <p style='color: #9ca3af; font-size: 15px; margin-bottom: 20px;'>Você ainda não tem {titulo.lower()} cadastradas</p>
+            </div>
+            """,
+          unsafe_allow_html=True,
+      )
+    else:
+      df_filtrado["Ícone"] = df_filtrado["categoria"].apply(icone_func)
+      st.dataframe(
+          df_filtrado[[
+              "id",
+              "data",
+              "Ícone",
+              "descricao",
+              "categoria",
+              "valor",
+              "observacoes",
+          ]],
+          use_container_width=True,
+      )
+
+      st.markdown("<br>", unsafe_allow_html=True)
+      with st.expander(f"🗑️ Excluir {titulo[:-1]} por ID"):
+        id_exc = st.number_input(
+            f"ID da {titulo[:-1]} para remover",
+            min_value=1,
+            step=1,
+            format="%d",
+            key=f"exc_{tabela}",
+        )
+        if st.button(
+            "Remover Registro", type="primary", key=f"btn_exc_{tabela}"
+        ):
+          cursor = conn.cursor()
+          cursor.execute(f"DELETE FROM {tabela} WHERE id = ?", (id_exc,))
+          conn.commit()
+          st.success("Registro excluído com sucesso!")
+          st.rerun()
+
+
 # ==========================================
-# MÓDULO: DESPESAS
+# ROTEAMENTO DOS MÓDULOS ATIVOS
 # ==========================================
+if menu == "Receitas":
+  renderizar_modulo_financeiro(
+      "Receitas",
+      "receitas",
+      CATEGORIAS_RECEITAS,
+      lambda c: obter_icone(c),
+      "primary",
+  )
+
 elif menu == "Despesas":
-  c_t1, c_t2, c_t3 = st.columns([2, 2, 1])
-  with c_t1:
-    st.markdown(
-        "<h1 style='margin-bottom: 0;'>Despesas</h1>", unsafe_allow_html=True
-    )
-
-  df_despesas = pd.read_sql("SELECT * FROM despesas", conn)
-  total_geral_despesas = (
-      df_despesas["valor"].sum() if not df_despesas.empty else 0.0
+  renderizar_modulo_financeiro(
+      "Despesas",
+      "despesas",
+      CATEGORIAS_DESPESAS,
+      lambda c: obter_icone(c),
+      "primary",
   )
-  qtd_despesas = len(df_despesas)
-
-  with c_t2:
-    st.markdown(
-        f"<p style='color: #9ca3af; margin-top: 10px;'>Total: <b style='color:"
-        f" #f9fafb;'>R$ {total_geral_despesas:,.2f}</b></p>",
-        unsafe_allow_html=True,
-    )
-
-  with c_t3:
-    nova_desp_btn = st.button(
-        "➕ Nova", use_container_width=True, type="primary"
-    )
-
-  # Barra de Filtros
-  st.markdown('<div class="gm-card" style="padding: 15px;">', unsafe_allow_html=True)
-  f1, f2 = st.columns(2)
-  with f1:
-    busca_termo = st.text_input(
-        "Busca", placeholder="🔍 Buscar despesa...", label_visibility="collapsed"
-    )
-  with f2:
-    filtro_cat = st.selectbox(
-        "Categoria",
-        ["Todas as categorias"] + CATEGORIAS_DESPESAS,
-        label_visibility="collapsed",
-    )
-  st.markdown("</div>", unsafe_allow_html=True)
-
-  # Painel de Cadastro de Nova Despesa
-  if nova_desp_btn or st.session_state.get("abrir_modal_despesa", False):
-    st.session_state["abrir_modal_despesa"] = True
-
-    with st.container():
-      st.markdown(
-          """
-            <div style='background-color: #161e2e; border: 1px solid #374151; padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);'>
-                <h3 style='margin-top: 0; color: #fff;'>Nova Despesa</h3>
-            """,
-          unsafe_allow_html=True,
-      )
-
-      with st.form("form_nova_despesa", clear_on_submit=True):
-        desc = st.text_input("Descrição", placeholder="Ex: Conta de luz")
-
-        col_v1, col_v2 = st.columns(2)
-        with col_v1:
-          val = st.number_input(
-              "Valor (R$)", min_value=0.00, format="%.2f", value=0.00
-          )
-        with col_v2:
-          dt = st.date_input("Data", datetime.today())
-
-        cat = st.selectbox("Categoria", CATEGORIAS_DESPESAS)
-        obs = st.text_area(
-            "Observações", placeholder="Adicione observações..."
-        )
-        rec = st.toggle("Recorrente")
-
-        col_b1, col_b2 = st.columns(2)
-        with col_b1:
-          salvar = st.form_submit_button(
-              "Salvar Despesa", use_container_width=True, type="primary"
-          )
-        with col_b2:
-          fechar = st.form_submit_button("Cancelar", use_container_width=True)
-
-        if salvar:
-          if desc and val > 0:
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO despesas (descricao, valor, data, categoria,"
-                " observacoes, recorrente) VALUES (?, ?, ?, ?, ?, ?)",
-                (desc, val, str(dt), cat, obs, 1 if rec else 0),
-            )
-            conn.commit()
-            st.session_state["abrir_modal_despesa"] = False
-            st.success("Despesa salva com sucesso!")
-            st.rerun()
-          else:
-            st.warning(
-                "Por favor, preencha a descrição e um valor maior que zero."
-            )
-
-        if fechar:
-          st.session_state["abrir_modal_despesa"] = False
-          st.rerun()
-
-      st.markdown("</div>", unsafe_allow_html=True)
-
-  st.markdown(
-      f"<p style='color: #6b7280; font-size: 12px;'>{qtd_despesas}"
-      " despesas</p>",
-      unsafe_allow_html=True,
-  )
-
-  if df_despesas.empty:
-    st.markdown(
-        """
-        <div style='text-align: center; padding: 50px 20px; background-color: #161e2e; border: 1px solid #1f2937; border-radius: 12px; margin-top: 20px;'>
-            <p style='color: #9ca3af; font-size: 15px; margin-bottom: 20px;'>Você ainda não tem despesas cadastradas</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  else:
-    df_filtrado = df_despesas.copy()
-    if busca_termo:
-      df_filtrado = df_filtrado[
-          df_filtrado["descricao"].str.contains(busca_termo, case=False, na=False)
-      ]
-    if filtro_cat != "Todas as categorias":
-      df_filtrado = df_filtrado[df_filtrado["categoria"] == filtro_cat]
-
-    df_filtrado["Ícone"] = df_filtrado["categoria"].apply(obter_icone_despesa)
-    st.dataframe(
-        df_filtrado[[
-            "data",
-            "Ícone",
-            "descricao",
-            "categoria",
-            "valor",
-            "observacoes",
-        ]],
-        use_container_width=True,
-    )
 
 conn.close()
