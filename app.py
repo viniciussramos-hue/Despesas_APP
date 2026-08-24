@@ -3,6 +3,7 @@ import io
 import os
 import sqlite3
 import pandas as pd
+import pdfplumber
 import streamlit as st
 
 # ==========================================
@@ -496,91 +497,165 @@ if menu == "Dashboard":
 
 
 # ==========================================
-# MÓDULO: IMPORTAR EXTRATO BANCÁRIO
+# MÓDULO: IMPORTAR EXTRATO (CSV & PDF)
 # ==========================================
 elif menu == "Importar Extrato":
   st.markdown("<h1>📂 Importar Extrato Bancário</h1>", unsafe_allow_html=True)
   st.markdown(
       "<p style='color: #9ca3af;'>Faça upload do arquivo de extrato do seu"
-      " banco em formato CSV para carregar as transações automaticamente para o"
-      " dashboard.</p>",
+      " banco em formato <b>CSV</b> ou <b>PDF</b> para carregar as transações"
+      " automaticamente.</p>",
       unsafe_allow_html=True,
   )
 
   uploaded_file = st.file_uploader(
-      "Escolha o arquivo CSV do extrato", type=["csv", "txt"]
+      "Escolha o arquivo de extrato", type=["csv", "txt", "pdf"]
   )
 
   if uploaded_file is not None:
-    try:
-      df_importado = pd.read_csv(uploaded_file)
-      st.success("Arquivo carregado com sucesso! Pré-visualização abaixo:")
-      st.dataframe(df_importado.head(), use_container_width=True)
+    file_extension = uploaded_file.name.split(".")[-1].lower()
 
-      st.markdown("### Configurar Colunas do Extrato")
-      cols_disp = df_importado.columns.tolist()
+    if file_extension in ["csv", "txt"]:
+      try:
+        df_importado = pd.read_csv(uploaded_file)
+        st.success("Arquivo CSV carregado com sucesso! Pré-visualização:")
+        st.dataframe(df_importado.head(), use_container_width=True)
 
-      c1, c2, c3, c4 = st.columns(4)
-      with c1:
-        col_data = st.selectbox("Coluna de Data", cols_disp)
-      with c2:
-        col_desc = st.selectbox("Coluna de Descrição", cols_disp)
-      with c3:
-        col_valor = st.selectbox("Coluna de Valor", cols_disp)
-      with c4:
-        cat_padrao = st.selectbox(
-            "Categoria Padrão",
-            pd.read_sql("SELECT nome FROM categorias", conn)["nome"].tolist(),
-        )
-
-      if st.button(
-          "📥 Processar e Importar Transações",
-          type="primary",
-          use_container_width=True,
-      ):
-        cursor = conn.cursor()
-        count = 0
-        for _, row in df_importado.iterrows():
-          data_val = str(row[col_data])
-          desc_val = str(row[col_desc])
-          try:
-            valor_val = float(
-                str(row[col_valor])
-                .replace("R$", "")
-                .replace(".", "")
-                .replace(",", ".")
-                .strip()
-            )
-          except:
-            valor_val = 0.0
-
-          tipo_val = "Receita" if valor_val > 0 else "Despesa"
-          valor_val = abs(valor_val)
-
-          cursor.execute(
-              """
-                INSERT INTO transacoes (data, descricao, valor, tipo, categoria, observacoes)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-              (
-                  data_val,
-                  desc_val,
-                  valor_val,
-                  tipo_val,
-                  cat_padrao,
-                  "Importado via Extrato",
-              ),
+        cols_disp = df_importado.columns.tolist()
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+          col_data = st.selectbox("Coluna de Data", cols_disp)
+        with c2:
+          col_desc = st.selectbox("Coluna de Descrição", cols_disp)
+        with c3:
+          col_valor = st.selectbox("Coluna de Valor", cols_disp)
+        with c4:
+          cat_padrao = st.selectbox(
+              "Categoria Padrão",
+              pd.read_sql("SELECT nome FROM categorias", conn)["nome"].tolist(),
           )
-          count += 1
 
-        conn.commit()
+        if st.button(
+            "📥 Processar e Importar CSV",
+            type="primary",
+            use_container_width=True,
+        ):
+          cursor = conn.cursor()
+          count = 0
+          for _, row in df_importado.iterrows():
+            data_val = str(row[col_data])
+            desc_val = str(row[col_desc])
+            try:
+              valor_val = float(
+                  str(row[col_valor])
+                  .replace("R$", "")
+                  .replace(".", "")
+                  .replace(",", ".")
+                  .strip()
+              )
+            except:
+              valor_val = 0.0
+
+            tipo_val = "Receita" if valor_val > 0 else "Despesa"
+            valor_val = abs(valor_val)
+
+            cursor.execute(
+                """
+                        INSERT INTO transacoes (data, descricao, valor, tipo, categoria, observacoes)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                (
+                    data_val,
+                    desc_val,
+                    valor_val,
+                    tipo_val,
+                    cat_padrao,
+                    "Importado via CSV",
+                ),
+            )
+            count += 1
+          conn.commit()
+          st.success(
+              f"🎉 {count} transações importadas com sucesso do CSV!"
+          )
+      except Exception as e:
+        st.error(f"Erro ao processar CSV: {e}")
+
+    elif file_extension == "pdf":
+      try:
+        with pdfplumber.open(uploaded_file) as pdf:
+          texto_extraido = ""
+          for pagina in pdf.pages:
+            t = pagina.extract_text()
+            if t:
+              texto_extraido += t + "\n"
+
         st.success(
-            f"🎉 {count} transações importadas com sucesso! Verifique no"
-            " Dashboard ou Transações."
+            "📄 Arquivo PDF lido com sucesso! Texto extraído do extrato:"
+        )
+        st.text_area(
+            "Pré-visualização do conteúdo do PDF",
+            texto_extraido[:2000],
+            height=200,
         )
 
-    except Exception as e:
-      st.error(f"Erro ao ler o arquivo: {e}")
+        cat_padrao_pdf = st.selectbox(
+            "Categoria Padrão para os lançamentos do PDF",
+            pd.read_sql("SELECT nome FROM categorias", conn)["nome"].tolist(),
+            key="cat_pdf",
+        )
+
+        if st.button(
+            "📥 Processar e Importar PDF",
+            type="primary",
+            use_container_width=True,
+        ):
+          # Processamento básico por linha do PDF (procurando linhas com valores monetários)
+          cursor = conn.cursor()
+          linhas = texto_extraido.split("\n")
+          count = 0
+          for linha in linhas:
+            # Lógica simples de varredura para identificar valores e descrições no PDF
+            if "R$" in linha or any(char.isdigit() for char in linha):
+              partes = linha.split()
+              if len(partes) >= 2:
+                descricao = " ".join(partes[:-1])
+                try:
+                  val_str = (
+                      partes[-1]
+                      .replace("R$", "")
+                      .replace(".", "")
+                      .replace(",", ".")
+                  )
+                  valor = float(val_str)
+                  tipo = "Receita" if valor > 0 else "Despesa"
+                  valor = abs(valor)
+                  data_hoje = datetime.today().strftime("%Y-%m-%d")
+
+                  cursor.execute(
+                      """
+                                    INSERT INTO transacoes (data, descricao, valor, tipo, categoria, observacoes)
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                """,
+                      (
+                          data_hoje,
+                          descricao,
+                          valor,
+                          tipo,
+                          cat_padrao_pdf,
+                          "Importado via PDF",
+                      ),
+                  )
+                  count += 1
+                except:
+                  continue
+
+          conn.commit()
+          st.success(
+              f"🎉 {count} transações extraídas e importadas com sucesso do PDF!"
+          )
+      except Exception as e:
+        st.error(f"Erro ao ler PDF: {e}")
 
 
 # ==========================================
