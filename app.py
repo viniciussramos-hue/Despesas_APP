@@ -424,6 +424,7 @@ if menu == "Dashboard":
     df_recentes["Ícone"] = df_recentes["categoria"].apply(obter_icone)
     st.dataframe(
         df_recentes[[
+            "id",
             "data",
             "Ícone",
             "descricao",
@@ -444,7 +445,7 @@ if menu == "Dashboard":
 
 
 # ==========================================
-# MÓDULO: IMPORTAR EXTRATO (ROTO-REGEX ROBUSTO PARA PDF)
+# MÓDULO: IMPORTAR EXTRATO (PARSER PDF INTELIGENTE ITAÚ)
 # ==========================================
 elif menu == "Importar Extrato":
   st.markdown("<h1>📂 Importar Extrato Bancário</h1>", unsafe_allow_html=True)
@@ -530,7 +531,7 @@ elif menu == "Importar Extrato":
 
         st.success("📄 PDF lido com sucesso!")
         st.text_area(
-            "Conteúdo Extraído do Extrato:", texto_extraido[:1000], height=150
+            "Conteúdo Extraído do Extrato:", texto_extraido[:1200], height=150
         )
 
         if st.button(
@@ -542,22 +543,24 @@ elif menu == "Importar Extrato":
           linhas = texto_extraido.split("\n")
           count = 0
 
-          # Expressão regular para capturar datas no início (ex: 03/08/2026 ou 30/07) seguidas de texto e valor monetário com sinal opcional
-          # Exemplo de linha do Itaú: "30/07/2026 REMUNERACAO/SALARIO 1.162,53" ou "03/08/2026 SALDO DO DIA -19,68"
+          # Regex otimizado para extratos bancários (captura data DD/MM/YYYY ou DD/MM no início, texto no meio e valor no fim com ponto/vírgula e sinal opcional)
           padrao_transacao = re.compile(
-              r"^(\d{2}/\d{2}(?:/\d{4})?)\s+(.*?)\s+(-?[\d\.]+,\d{2})$"
+              r"(\d{2}/\d{2}(?:/\d{4})?)\s+(.+?)\s+(-?[\d\.]+,\d{2})$"
           )
 
           for linha in linhas:
             linha_limpa = linha.strip()
-            match = padrao_transacao.match(linha_limpa)
+            # Ignora linhas de saldo diário ou cabeçalhos comuns para focar nas transações reais
+            if "SALDO DO DIA" in linha_limpa.upper():
+              continue
+
+            match = padrao_transacao.search(linha_limpa)
             if match:
               data_val = match.group(1)
               descricao = match.group(2).strip()
               valor_str = match.group(3)
 
               try:
-                # Tratamento do valor monetário brasileiro para float
                 valor_limpo = (
                     valor_str.replace(".", "").replace(",", ".").strip()
                 )
