@@ -212,7 +212,7 @@ if st.sidebar.button(
   st.rerun()
 
 if st.sidebar.button(
-    "📁 Categorias",
+    " Categorias",
     use_container_width=True,
     type="primary"
     if st.session_state["menu_ativo"] == "Categorias"
