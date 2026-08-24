@@ -159,7 +159,7 @@ menu = st.sidebar.selectbox(
 conn = sqlite3.connect(DB_NAME)
 
 # ==========================================
-# MÓDULO: DASHBOARD
+# MÓDULO: DASHBOARD (PADRÃO COMPLETO DA REFERÊNCIA)
 # ==========================================
 if menu == "Dashboard":
   col_head1, col_head2 = st.columns([3, 1])
@@ -198,15 +198,15 @@ if menu == "Dashboard":
   df_desp = pd.read_sql("SELECT * FROM despesas", conn)
   df_inv = pd.read_sql("SELECT * FROM investimentos", conn)
 
-  total_despesas = (
-      df_desp["valor"].sum() if not df_desp.empty else 0.0
-  )
+  total_despesas = df_desp["valor"].sum() if not df_desp.empty else 0.0
   total_investido = (
       df_inv["total_investido"].sum() if not df_inv.empty else 0.0
   )
   valor_mercado = df_inv["valor_mercado"].sum() if not df_inv.empty else 0.0
   lucro_inv = valor_mercado - total_investido
+  patrimonio_total = total_investido
 
+  # --- PRIMEIRA LINHA DE CARDS ---
   col_c1, col_c2 = st.columns(2)
 
   with col_c1:
@@ -214,11 +214,15 @@ if menu == "Dashboard":
         f"""
         <div class="gm-card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="gm-card-title">💰 Total Despesas Registradas</span>
-                <span style="color: #ef4444; font-size: 16px;">📉</span>
+                <span class="gm-card-title">💰 Disponível em Caixa</span>
+                <span style="color: #10b981; font-size: 16px;">👁️</span>
             </div>
-            <div class="gm-card-value" style="color: #ef4444;">R$ {total_despesas:,.2f}</div>
-            <div class="gm-card-footer">Acumulado geral de despesas</div>
+            <div class="gm-card-value" style="color: #10b981;">R$ 0,00</div>
+            <div class="gm-card-footer">Patrimônio inicial<br>Saldo (receitas – despesas): R$ 0,00</div>
+            <div style="margin-top: 15px; font-size: 13px; color: #e5e7eb; display: flex; justify-content: space-between; border-top: 1px solid #1f2937; padding-top: 10px;">
+                <span>✨ Previsão fim do mês</span>
+                <b style="color: #3b82f6;">R$ 0,00 ▾</b>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -246,16 +250,95 @@ if menu == "Dashboard":
                     <b style="font-size: 15px; color: #10b981;">+R$ {lucro_inv:,.2f}</b>
                 </div>
             </div>
+            <div style="margin-top: 15px; font-size: 13px; color: #e5e7eb; display: flex; justify-content: space-between; border-top: 1px solid #1f2937; padding-top: 10px;">
+                <span>Patrimônio Total<br><span style="color: #6b7280; font-size: 11px;">Caixa + investimentos</span></span>
+                <b style="font-size: 18px; color: #10b981;">R$ {patrimonio_total:,.2f}</b>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
+  # --- SEGUNDA LINHA DE CARDS ---
+  dc1, dc2, dc3, dc4 = st.columns(4)
+
+  with dc1:
+    st.markdown(
+        """
+        <div class="gm-card">
+            <div class="gm-card-title">📉 Dívida Total</div>
+            <div class="gm-card-value" style="color: #ef4444;">R$ 0,00</div>
+            <div class="gm-card-footer">Cartões + contas + financiamentos</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with dc2:
+    st.markdown(
+        """
+        <div class="gm-card">
+            <div class="gm-card-title">↗️ Contas a Receber Este Mês</div>
+            <div class="gm-card-value" style="color: #10b981;">R$ 0,00</div>
+            <div class="gm-card-footer">Vencimentos de ago/26</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with dc3:
+    st.markdown(
+        f"""
+        <div class="gm-card">
+            <div class="gm-card-title">📅 Contas a Pagar Este Mês</div>
+            <div class="gm-card-value" style="color: #f59e0b;">R$ {total_despesas:,.2f}</div>
+            <div class="gm-card-footer">Cartões + contas + dívidas (ago/26)</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with dc4:
+    st.markdown(
+        """
+        <div class="gm-card">
+            <div class="gm-card-title">💳 Limite Disponível Cartões</div>
+            <div class="gm-card-value" style="color: #3b82f6;">R$ 0,00</div>
+            <div class="gm-card-footer">Limite total: R$ 0,00</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  st.divider()
+
+  # --- GRÁFICOS INFERIORES ---
+  gc1, gc2 = st.columns(2)
+  with gc1:
+    st.subheader("Fluxo de Caixa Pessoal")
+    st.markdown(
+        "<p style='color: #6b7280; font-size: 12px;'>Movimentação financeira"
+        " dos últimos 6 meses</p>",
+        unsafe_allow_html=True,
+    )
+    if not df_desp.empty:
+      st.bar_chart(df_desp[["valor"]])
+    else:
+      st.info("Sem dados de movimentação para o gráfico.")
+
+  with gc2:
+    st.subheader("Comparativo Semanal")
+    st.markdown(
+        "<p style='color: #6b7280; font-size: 12px;'>Receitas vs Despesas -"
+        " Semana atual (Dom a Sáb)</p>",
+        unsafe_allow_html=True,
+    )
+    if not df_desp.empty:
+      st.line_chart(df_desp[["valor"]])
+    else:
+      st.info("Sem dados suficientes para o comparativo semanal.")
+
 # ==========================================
-# MÓDULO: DESPESAS (FIEL AO NOVO DESIGN)
+# MÓDULO: DESPESAS (CORRIGIDO E IDÊNTICO AO PRINT)
 # ==========================================
 elif menu == "Despesas":
-  # Cabeçalho da página de Despesas
   c_t1, c_t2, c_t3 = st.columns([2, 2, 1])
   with c_t1:
     st.markdown(
@@ -275,13 +358,12 @@ elif menu == "Despesas":
         unsafe_allow_html=True,
     )
 
-  # Botão Nova Despesa que ativa um modal/expander simulando a janela flutuante
   with c_t3:
     nova_desp_btn = st.button(
         "➕ Nova", use_container_width=True, type="primary"
     )
 
-  # Barra de Filtros idêntica à referência (Busca, Categoria, Membro, etc.)
+  # Barra de Filtros
   st.markdown('<div class="gm-card" style="padding: 15px;">', unsafe_allow_html=True)
   f1, f2, f3, f4 = st.columns(4)
   with f1:
@@ -306,7 +388,7 @@ elif menu == "Despesas":
     )
   st.markdown("</div>", unsafe_allow_html=True)
 
-  # Bloco / Janela flutuante de cadastro ("Nova Despesa")
+  # Painel de Cadastro de Nova Despesa
   if nova_desp_btn or st.session_state.get("abrir_modal_despesa", False):
     st.session_state["abrir_modal_despesa"] = True
 
@@ -324,8 +406,9 @@ elif menu == "Despesas":
 
         col_v1, col_v2 = st.columns(2)
         with col_v1:
+          # CORRIGIDO: min_value ajustado para 0.00 evitando o erro do Streamlit
           val = st.number_input(
-              "Valor (R$)", min_value=0.01, format="%.2f", value=0.00
+              "Valor (R$)", min_value=0.00, format="%.2f", value=0.00
           )
         with col_v2:
           dt = st.date_input("Data", datetime.today())
@@ -345,11 +428,11 @@ elif menu == "Despesas":
           fechar = st.form_submit_button("Cancelar", use_container_width=True)
 
         if salvar:
-          if desc:
+          if desc and val > 0:
             cursor = conn.cursor()
             cursor.execute(
-                """INSERT INTO despesas (descricao, valor, data, categoria,"
-                " observacoes, recorrente) VALUES (?, ?, ?, ?, ?, ?)""",
+                "INSERT INTO despesas (descricao, valor, data, categoria,"
+                " observacoes, recorrente) VALUES (?, ?, ?, ?, ?, ?)",
                 (desc, val, str(dt), cat, obs, 1 if rec else 0),
             )
             conn.commit()
@@ -357,7 +440,9 @@ elif menu == "Despesas":
             st.success("Despesa salva com sucesso!")
             st.rerun()
           else:
-            st.warning("Por favor, preencha a descrição da despesa.")
+            st.warning(
+                "Por favor, preencha a descrição e um valor maior que zero."
+            )
 
         if fechar:
           st.session_state["abrir_modal_despesa"] = False
@@ -365,7 +450,6 @@ elif menu == "Despesas":
 
       st.markdown("</div>", unsafe_allow_html=True)
 
-  # Listagem de Despesas ou Estado Vazio
   st.markdown(
       f"<p style='color: #6b7280; font-size: 12px;'>{qtd_despesas}"
       " despesas</p>",
@@ -382,7 +466,6 @@ elif menu == "Despesas":
         unsafe_allow_html=True,
     )
   else:
-    # Aplicando filtros na exibição
     df_filtrado = df_despesas.copy()
     if busca_termo:
       df_filtrado = df_filtrado[
