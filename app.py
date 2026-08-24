@@ -212,7 +212,7 @@ if st.sidebar.button(
   st.rerun()
 
 if st.sidebar.button(
-    " Categorias",
+    "📁 Categorias",
     use_container_width=True,
     type="primary"
     if st.session_state["menu_ativo"] == "Categorias"
@@ -324,12 +324,11 @@ if menu == "Dashboard":
 
 
 # ==========================================
-# MÓDULO: TRANSAÇÕES (EXTRATO CONSOLIDADO)
+# MÓDULO: TRANSAÇÕES
 # ==========================================
 elif menu == "Transações":
   st.markdown("<h1>Transações</h1>", unsafe_allow_html=True)
 
-  # Barra de Filtros Superior idêntica ao print
   st.markdown('<div class="gm-card" style="padding: 15px;">', unsafe_allow_html=True)
   f1, f2, f3, f4, f5 = st.columns(5)
   with f1:
@@ -362,7 +361,6 @@ elif menu == "Transações":
     )
   st.markdown("</div>", unsafe_allow_html=True)
 
-  # Consolidação de Receitas e Despesas em um único DataFrame
   df_r = pd.read_sql("SELECT * FROM receitas", conn)
   if not df_r.empty:
     df_r["Tipo"] = "Receita"
@@ -379,7 +377,6 @@ elif menu == "Transações":
     )
     df_transacoes = df_transacoes.sort_values(by="data_dt", ascending=False)
 
-    # Aplicando filtros
     if filtro_tipo != "Todos os tipos":
       df_transacoes = df_transacoes[df_transacoes["Tipo"] == filtro_tipo]
     if filtro_cat_t != "Todas as categorias":
@@ -411,6 +408,7 @@ elif menu == "Transações":
     df_transacoes["Ícone"] = df_transacoes["categoria"].apply(obter_icone)
     st.dataframe(
         df_transacoes[[
+            "id",
             "data",
             "Ícone",
             "descricao",
@@ -424,7 +422,7 @@ elif menu == "Transações":
 
 
 # ==========================================
-# MÓDULOS DE CATEGORIAS, RECEITAS E DESPESAS
+# MÓDULO: CATEGORIAS
 # ==========================================
 elif menu == "Categorias":
   c_t1, c_t2 = st.columns([3, 1])
@@ -518,6 +516,10 @@ elif menu == "Categorias":
               unsafe_allow_html=True,
           )
 
+
+# ==========================================
+# MÓDULOS DE RECEITAS E DESPESAS (COM OPÇÃO DE DELEÇÃO)
+# ==========================================
 elif menu in ["Receitas", "Despesas"]:
   tabela = menu.lower()
   titulo = menu
@@ -600,6 +602,7 @@ elif menu in ["Receitas", "Despesas"]:
     df_dados["Ícone"] = df_dados["categoria"].apply(obter_icone)
     st.dataframe(
         df_dados[[
+            "id",
             "data",
             "Ícone",
             "descricao",
@@ -609,6 +612,29 @@ elif menu in ["Receitas", "Despesas"]:
         ]],
         use_container_width=True,
     )
+
+    # Opção para deletar lançamento lançado errado
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander(f"🗑️ Excluir / Corrigir {titulo[:-1]} Lançada Errada"):
+      id_deletar = st.number_input(
+          f"Informe o ID da {titulo[:-1].lower()} que deseja excluir",
+          min_value=1,
+          step=1,
+          format="%d",
+          key=f"del_id_{tabela}",
+      )
+      if st.button(
+          f"Confirmar Exclusão de {titulo[:-1]}",
+          type="primary",
+          key=f"btn_del_{tabela}",
+      ):
+        cursor = conn.cursor()
+        cursor.execute(f"DELETE FROM {tabela} WHERE id = ?", (id_deletar,))
+        conn.commit()
+        st.success(
+            f"{titulo[:-1]} com ID {id_deletar} foi excluída com sucesso!"
+        )
+        st.rerun()
   else:
     st.info(f"Nenhuma {titulo.lower()} cadastrada.")
 
