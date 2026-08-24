@@ -225,7 +225,7 @@ menu = st.session_state["menu_ativo"]
 conn = sqlite3.connect(DB_NAME)
 
 # ==========================================
-# MÓDULO: DASHBOARD
+# MÓDULO: DASHBOARD (FIEL ÀS REFERÊNCIAS)
 # ==========================================
 if menu == "Dashboard":
   col_head1, col_head2 = st.columns([3, 1])
@@ -250,12 +250,13 @@ if menu == "Dashboard":
         unsafe_allow_html=True,
     )
 
+  # Barra de Conquistas / Troféus
   st.markdown(
       """
       <div style='background-color: #161e2e; border: 1px solid #1f2937; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; font-size: 14px;'>
           <span style='color: #f59e0b; font-weight: bold;'>🏆 0/9</span>
           <span style='color: #6b7280;'>|</span>
-          <span>🎯 🪙 🛡️ 📊 💡 🚀 👑 ⚡</span>
+          <span>🎯 🪙 🛡️ 📊 💡 🚀 👑 ⚡ ❓</span>
       </div>
   """,
       unsafe_allow_html=True,
@@ -276,17 +277,22 @@ if menu == "Dashboard":
   lucro_inv = valor_mercado - total_investido
   patrimonio_total = total_investido + saldo_caixa
 
+  # --- PRIMEIRA LINHA DE CARDS ---
   col_c1, col_c2 = st.columns(2)
   with col_c1:
     st.markdown(
         f"""
         <div class="gm-card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="gm-card-title">💰 Disponível em Caixa</span>
+                <span class="gm-card-title">💰 Disponível em Caixa ℹ️</span>
                 <span style="color: #10b981; font-size: 16px;">👁️</span>
             </div>
             <div class="gm-card-value" style="color: #10b981;">R$ {saldo_caixa:,.2f}</div>
-            <div class="gm-card-footer">Receitas: R$ {total_receitas:,.2f} | Despesas: R$ {total_despesas:,.2f}</div>
+            <div class="gm-card-footer">Patrimônio inicial<br>Saldo (receitas – despesas): R$ {saldo_caixa:,.2f}</div>
+            <div style="margin-top: 15px; font-size: 13px; color: #e5e7eb; display: flex; justify-content: space-between; border-top: 1px solid #1f2937; padding-top: 10px;">
+                <span>✨ Previsão fim do mês</span>
+                <b style="color: #3b82f6;">R$ {saldo_caixa:,.2f} ▾</b>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -296,7 +302,7 @@ if menu == "Dashboard":
         f"""
         <div class="gm-card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="gm-card-title">📈 Investimentos</span>
+                <span class="gm-card-title">📈 Investimentos ℹ️</span>
                 <span style="color: #10b981; font-size: 16px;">📈</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 15px;">
@@ -314,8 +320,228 @@ if menu == "Dashboard":
                 </div>
             </div>
             <div style="margin-top: 15px; font-size: 13px; color: #e5e7eb; display: flex; justify-content: space-between; border-top: 1px solid #1f2937; padding-top: 10px;">
-                <span>Patrimônio Total</span>
+                <span>Patrimônio Total<br><span style="color: #6b7280; font-size: 11px;">Caixa + investimentos</span></span>
                 <b style="font-size: 18px; color: #10b981;">R$ {patrimonio_total:,.2f}</b>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  # --- SEGUNDA LINHA DE CARDS ---
+  dc1, dc2, dc3, dc4 = st.columns(4)
+  with dc1:
+    st.markdown(
+        """
+        <div class="gm-card">
+            <div class="gm-card-title">📉 Dívida Total ℹ️</div>
+            <div class="gm-card-value" style="color: #ef4444;">R$ 0,00</div>
+            <div class="gm-card-footer">Cartões + contas + financiamentos</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with dc2:
+    st.markdown(
+        f"""
+        <div class="gm-card">
+            <div class="gm-card-title">↗️ Contas a Receber Este Mês ℹ️</div>
+            <div class="gm-card-value" style="color: #10b981;">R$ {total_receitas:,.2f}</div>
+            <div class="gm-card-footer">Vencimentos do mês</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with dc3:
+    st.markdown(
+        f"""
+        <div class="gm-card">
+            <div class="gm-card-title">📅 Contas a Pagar Este Mês ℹ️</div>
+            <div class="gm-card-value" style="color: #f59e0b;">R$ {total_despesas:,.2f}</div>
+            <div class="gm-card-footer">Cartões + contas + dívidas</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with dc4:
+    st.markdown(
+        """
+        <div class="gm-card">
+            <div class="gm-card-title">💳 Limite Disponível Cartões ℹ️</div>
+            <div class="gm-card-value" style="color: #3b82f6;">R$ 0,00</div>
+            <div class="gm-card-footer">Limite total: R$ 0,00</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  st.divider()
+
+  # --- GRÁFICOS INFERIORES ---
+  gc1, gc2 = st.columns(2)
+  with gc1:
+    st.subheader("Fluxo de Caixa Pessoal")
+    st.markdown(
+        "<p style='color: #6b7280; font-size: 12px;'>Movimentação financeira"
+        " dos últimos 6 meses</p>",
+        unsafe_allow_html=True,
+    )
+    if not df_desp.empty or not df_rec.empty:
+      chart_data = pd.DataFrame(
+          {
+              "Receitas": df_rec["valor"].tolist()
+              if not df_rec.empty
+              else [0],
+              "Despesas": df_desp["valor"].tolist()
+              if not df_desp.empty
+              else [0],
+          }
+      )
+      st.bar_chart(chart_data)
+    else:
+      st.info("Sem dados de movimentação para o gráfico.")
+
+  with gc2:
+    st.subheader("Comparativo Semanal")
+    st.markdown(
+        "<p style='color: #6b7280; font-size: 12px;'>Receitas vs Despesas -"
+        " Semana atual (Dom a Sáb)</p>",
+        unsafe_allow_html=True,
+    )
+    if not df_desp.empty or not df_rec.empty:
+      st.line_chart(chart_data)
+    else:
+      st.info("Sem dados suficientes para o comparativo semanal.")
+
+  st.divider()
+
+  # --- SELETOR DE PERÍODO ---
+  st.markdown("### Período de Análise")
+  st.markdown(
+      "<p style='color: #6b7280; font-size: 12px;'>Selecione o período para"
+      " visualizar as estatísticas</p>",
+      unsafe_allow_html=True,
+  )
+  periodo_sel = st.selectbox(
+      "Período",
+      ["Mês Atual", "Últimos 3 Meses", "Ano Atual", "Personalizado"],
+      label_visibility="collapsed",
+  )
+
+  # --- CARDS DO PERÍODO SELECIONADO ---
+  pc1, pc2, pc3, pc4 = st.columns(4)
+  with pc1:
+    st.markdown(
+        f"""
+        <div class="gm-card">
+            <div class="gm-card-title">Saldo do Período ℹ️</div>
+            <div class="gm-card-value" style="color: #10b981;">R$ {saldo_caixa:,.2f}</div>
+            <div class="gm-card-footer">Receitas - Despesas</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with pc2:
+    st.markdown(
+        f"""
+        <div class="gm-card">
+            <div class="gm-card-title">Receitas ℹ️</div>
+            <div class="gm-card-value" style="color: #10b981;">R$ {total_receitas:,.2f}</div>
+            <div class="gm-card-footer">No período selecionado</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with pc3:
+    st.markdown(
+        f"""
+        <div class="gm-card">
+            <div class="gm-card-title">Despesas ℹ️</div>
+            <div class="gm-card-value" style="color: #ef4444;">R$ {total_despesas:,.2f}</div>
+            <div class="gm-card-footer">No período selecionado</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with pc4:
+    st.markdown(
+        """
+        <div class="gm-card">
+            <div class="gm-card-title">Saúde Financeira ℹ️</div>
+            <div class="gm-card-value" style="color: #10b981;">0.0%</div>
+            <div class="gm-card-footer" style="color: #10b981;">❤ Excelente</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  # --- SEÇÕES INFERIORES: ORIGEM/DESTINO E MEMBROS ---
+  inf1, inf2 = st.columns(2)
+  with inf1:
+    st.markdown(
+        """
+        <div class="gm-card">
+            <b>Origem das Receitas</b><br>
+            <span style="color: #6b7280; font-size: 11px;">Distribuição por categoria</span>
+            <div style="text-align: center; padding: 40px; color: #6b7280;">Nenhuma receita no período selecionado</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with inf2:
+    st.markdown(
+        """
+        <div class="gm-card">
+            <b>Destino das Despesas</b><br>
+            <span style="color: #6b7280; font-size: 11px;">Consolidado: transações gerais + cartão de crédito</span>
+            <div style="text-align: center; padding: 40px; color: #6b7280;">Nenhuma despesa no período selecionado</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  # Transações recentes e Membros
+  t_col1, t_col2 = st.columns([2, 1])
+  with t_col1:
+    st.markdown(
+        """
+        <div class="gm-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <b>Transações Recentes</b>
+                <span style="color: #3b82f6; font-size: 12px; cursor: pointer;">Ver todas</span>
+            </div>
+            <div style="text-align: center; padding: 60px; color: #6b7280;">Nenhuma transação recente</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with t_col2:
+    st.markdown(
+        f"""
+        <div class="gm-card">
+            <b>Resumo por Membro</b><br>
+            <span style="color: #6b7280; font-size: 11px;">Despesas e receitas no período</span>
+            
+            <div style="background-color: #121826; padding: 10px; border-radius: 8px; margin-top: 15px;">
+                <span style="background: #f59e0b; color: #000; padding: 2px 6px; border-radius: 50%; font-size: 10px; font-weight: bold;">VD</span>
+                <b style="font-size: 13px; margin-left: 5px;">Vinicius Da Silva Ramos</b>
+                <div style="background: #10b98122; color: #10b981; padding: 4px; border-radius: 4px; font-size: 12px; margin-top: 8px; display: flex; justify-content: space-between;">
+                    <span>Receitas:</span> <b>R$ {total_receitas:,.2f}</b>
+                </div>
+                <div style="background: #ef444422; color: #ef4444; padding: 4px; border-radius: 4px; font-size: 12px; margin-top: 5px; display: flex; justify-content: space-between;">
+                    <span>Despesas:</span> <b>R$ {total_despesas:,.2f}</b>
+                </div>
+            </div>
+
+            <div style="background-color: #121826; padding: 10px; border-radius: 8px; margin-top: 10px;">
+                <span style="background: #8b5cf6; color: #fff; padding: 2px 6px; border-radius: 50%; font-size: 10px; font-weight: bold;">VR</span>
+                <b style="font-size: 13px; margin-left: 5px;">Vanessa Rodrigues Ramos</b>
+                <div style="background: #10b98122; color: #10b981; padding: 4px; border-radius: 4px; font-size: 12px; margin-top: 8px; display: flex; justify-content: space-between;">
+                    <span>Receitas:</span> <b>R$ 0,00</b>
+                </div>
+                <div style="background: #ef444422; color: #ef4444; padding: 4px; border-radius: 4px; font-size: 12px; margin-top: 5px; display: flex; justify-content: space-between;">
+                    <span>Despesas:</span> <b>R$ 0,00</b>
+                </div>
             </div>
         </div>
         """,
@@ -324,87 +550,18 @@ if menu == "Dashboard":
 
 
 # ==========================================
-# MÓDULO: TRANSAÇÕES
+# OUTROS MÓDULOS (TRANSAÇÕES, CATEGORIAS, RECEITAS, DESPESAS)
 # ==========================================
 elif menu == "Transações":
   st.markdown("<h1>Transações</h1>", unsafe_allow_html=True)
-
-  st.markdown('<div class="gm-card" style="padding: 15px;">', unsafe_allow_html=True)
-  f1, f2, f3, f4, f5 = st.columns(5)
-  with f1:
-    busca_trans = st.text_input(
-        "Busca",
-        placeholder="🔍 Buscar transação...",
-        label_visibility="collapsed",
-    )
-  with f2:
-    filtro_tipo = st.selectbox(
-        "Tipo",
-        ["Todos os tipos", "Receita", "Despesa"],
-        label_visibility="collapsed",
-    )
-  with f3:
-    filtro_cat_t = st.selectbox(
-        "Categoria",
-        ["Todas as categorias"] + CATEGORIAS_RECEITAS + CATEGORIAS_DESPESAS,
-        label_visibility="collapsed",
-    )
-  with f4:
-    st.selectbox(
-        "Membros",
-        ["Todos os membros", "Vinicius Ramos"],
-        label_visibility="collapsed",
-    )
-  with f5:
-    st.selectbox(
-        "Períodos", ["Todos os períodos", "Este mês"], label_visibility="collapsed"
-    )
-  st.markdown("</div>", unsafe_allow_html=True)
-
   df_r = pd.read_sql("SELECT * FROM receitas", conn)
   if not df_r.empty:
     df_r["Tipo"] = "Receita"
-
   df_d = pd.read_sql("SELECT * FROM despesas", conn)
   if not df_d.empty:
     df_d["Tipo"] = "Despesa"
-
   df_transacoes = pd.concat([df_r, df_d], ignore_index=True)
-
   if not df_transacoes.empty:
-    df_transacoes["data_dt"] = pd.to_datetime(
-        df_transacoes["data"], errors="coerce"
-    )
-    df_transacoes = df_transacoes.sort_values(by="data_dt", ascending=False)
-
-    if filtro_tipo != "Todos os tipos":
-      df_transacoes = df_transacoes[df_transacoes["Tipo"] == filtro_tipo]
-    if filtro_cat_t != "Todas as categorias":
-      df_transacoes = df_transacoes[
-          df_transacoes["categoria"] == filtro_cat_t
-      ]
-    if busca_trans:
-      df_transacoes = df_transacoes[
-          df_transacoes["descricao"]
-          .str.contains(busca_trans, case=False, na=False)
-      ]
-
-  qtd_t = len(df_transacoes) if not df_transacoes.empty else 0
-  st.markdown(
-      f"<p style='color: #6b7280; font-size: 12px;'>{qtd_t} transações</p>",
-      unsafe_allow_html=True,
-  )
-
-  if df_transacoes is None or df_transacoes.empty:
-    st.markdown(
-        """
-        <div style='text-align: center; padding: 60px 20px; background-color: #161e2e; border: 1px solid #1f2937; border-radius: 12px; margin-top: 20px;'>
-            <p style='color: #9ca3af; font-size: 15px;'>Você ainda não tem transações</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  else:
     df_transacoes["Ícone"] = df_transacoes["categoria"].apply(obter_icone)
     st.dataframe(
         df_transacoes[[
@@ -419,11 +576,9 @@ elif menu == "Transações":
         ]],
         use_container_width=True,
     )
+  else:
+    st.info("Nenhuma transação cadastrada.")
 
-
-# ==========================================
-# MÓDULO: CATEGORIAS
-# ==========================================
 elif menu == "Categorias":
   c_t1, c_t2 = st.columns([3, 1])
   with c_t1:
@@ -434,19 +589,6 @@ elif menu == "Categorias":
     st.markdown('<div class="btn-verde">', unsafe_allow_html=True)
     nova_cat_btn = st.button("＋ Nova Categoria", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
-  busca_cat = st.text_input(
-      "Busca",
-      placeholder="🔍 Buscar categoria...",
-      label_visibility="collapsed",
-  )
-  aba_cat = st.radio(
-      "Filtro Categorias",
-      ["Todas", "Receitas", "Despesas"],
-      horizontal=True,
-      label_visibility="collapsed",
-  )
-  st.markdown("<br>", unsafe_allow_html=True)
 
   if nova_cat_btn or st.session_state.get("abrir_modal_categoria", False):
     st.session_state["abrir_modal_categoria"] = True
@@ -459,7 +601,7 @@ elif menu == "Categorias":
           unsafe_allow_html=True,
       )
       with st.form("form_nova_categoria", clear_on_submit=True):
-        nome_cat = st.text_input("Nome da Categoria", placeholder="Ex: Educação")
+        nome_cat = st.text_input("Nome da Categoria")
         tipo_cat = st.selectbox("Tipo", ["Despesa", "Receita"])
         icone_cat = st.text_input("Ícone (Emoji)", value="📁")
         b1, b2 = st.columns(2)
@@ -484,16 +626,6 @@ elif menu == "Categorias":
       st.markdown("</div>", unsafe_allow_html=True)
 
   df_categorias = pd.read_sql("SELECT * FROM categorias", conn)
-  if not df_categorias.empty:
-    if aba_cat == "Receitas":
-      df_categorias = df_categorias[df_categorias["tipo"] == "Receita"]
-    elif aba_cat == "Despesas":
-      df_categorias = df_categorias[df_categorias["tipo"] == "Despesa"]
-    if busca_cat:
-      df_categorias = df_categorias[
-          df_categorias["nome"].str.contains(busca_cat, case=False, na=False)
-      ]
-
   if df_categorias.empty:
     st.info("Nenhuma categoria encontrada.")
   else:
@@ -516,10 +648,6 @@ elif menu == "Categorias":
               unsafe_allow_html=True,
           )
 
-
-# ==========================================
-# MÓDULOS DE RECEITAS E DESPESAS (COM OPÇÃO DE DELEÇÃO)
-# ==========================================
 elif menu in ["Receitas", "Despesas"]:
   tabela = menu.lower()
   titulo = menu
@@ -613,7 +741,6 @@ elif menu in ["Receitas", "Despesas"]:
         use_container_width=True,
     )
 
-    # Opção para deletar lançamento lançado errado
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander(f"🗑️ Excluir / Corrigir {titulo[:-1]} Lançada Errada"):
       id_deletar = st.number_input(
