@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 import sqlite3
 import pandas as pd
@@ -6,7 +6,7 @@ import pdfplumber
 import streamlit as st
 
 # ==========================================
-# CONFIGURAÇÃO DA PÁGINA (ESTILO 100% GESTORMONEY)
+# CONFIGURAÇÃO DA PÁGINA (ESTILO GESTORMONEY)
 # ==========================================
 st.set_page_config(
     page_title="GestorMoney - Seu Aliado Financeiro",
@@ -17,11 +17,8 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Fundo geral e paleta de cores inspirada no GestorMoney */
     .main { background-color: #0c101d; color: #e5e7eb; }
     .stSidebar { background-color: #121826; border-right: 1px solid #1f2937; }
-    
-    /* Estilização dos Cards idênticos à referência */
     .gm-card {
         background-color: #161e2e;
         padding: 20px;
@@ -70,19 +67,9 @@ def init_db():
             valor REAL,
             tipo TEXT,
             categoria TEXT,
+            observacoes TEXT,
+            recorrente TEXT,
             origem TEXT
-        )
-    """)
-
-  cursor.execute("""
-        CREATE TABLE IF NOT EXISTS contas_futuras (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            vencimento TEXT,
-            descricao TEXT,
-            valor REAL,
-            tipo TEXT,
-            categoria TEXT,
-            status TEXT DEFAULT 'Pendente'
         )
     """)
 
@@ -171,7 +158,7 @@ def classificar_categoria(descricao):
 
 
 # ==========================================
-# MENU LATERAL (ESTILO NAVBAR GESTORMONEY)
+# MENU LATERAL (ESTILO GESTORMONEY)
 # ==========================================
 st.sidebar.markdown(
     """
@@ -191,8 +178,11 @@ menu = st.sidebar.selectbox(
     "Navegação Principal",
     [
         "Dashboard",
-        "Lançamentos",
-        "Contas a Pagar/Receber",
+        "Patrimônio 'Conta'",
+        "Receitas",
+        "Despesas",
+        "Transações",
+        "Cartões de Crédito",
         "Investimentos",
         "Importador Extratos (PDF)",
         "Regras De/Para",
@@ -203,10 +193,9 @@ menu = st.sidebar.selectbox(
 conn = sqlite3.connect(DB_NAME)
 
 # ==========================================
-# MÓDULO: DASHBOARD (FIEL À IMAGEM DE REFERÊNCIA)
+# MÓDULO: DASHBOARD
 # ==========================================
 if menu == "Dashboard":
-  # Barra de Saudação Superior e Status (como na imagem)
   col_head1, col_head2 = st.columns([3, 1])
   with col_head1:
     st.markdown(
@@ -229,7 +218,6 @@ if menu == "Dashboard":
         unsafe_allow_html=True,
     )
 
-  # Barra de Conquistas (Linha de troféus superior idêntica ao print)
   st.markdown(
       """
       <div style='background-color: #161e2e; border: 1px solid #1f2937; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; font-size: 14px;'>
@@ -241,12 +229,9 @@ if menu == "Dashboard":
       unsafe_allow_html=True,
   )
 
-  # Leitura dos dados para preenchimento dos cards
   df_trans = pd.read_sql("SELECT * FROM transacoes", conn)
-  df_contas = pd.read_sql("SELECT * FROM contas_futuras", conn)
   df_inv = pd.read_sql("SELECT * FROM investimentos", conn)
 
-  # Cálculos financeiros
   total_receitas = (
       df_trans[df_trans["tipo"] == "Receita"]["valor"].sum()
       if not df_trans.empty
@@ -259,268 +244,281 @@ if menu == "Dashboard":
   )
   disponivel_caixa = total_receitas - total_despesas
 
-  pagar_mes = (
-      df_contas[
-          (df_contas["tipo"] == "Despesa")
-          & (df_contas["status"] == "Pendente")
-      ]["valor"].sum()
-      if not df_contas.empty
-      else 0.0
-  )
-  receber_mes = (
-      df_contas[
-          (df_contas["tipo"] == "Receita")
-          & (df_contas["status"] == "Pendente")
-      ]["valor"].sum()
-      if not df_contas.empty
-      else 0.0
-  )
-
   total_investido = (
       df_inv["total_investido"].sum() if not df_inv.empty else 0.0
   )
   valor_mercado = df_inv["valor_mercado"].sum() if not df_inv.empty else 0.0
   lucro_inv = valor_mercado - total_investido
 
-  # --- PRIMEIRA LINHA DE CARDS PRINCIPAIS ---
   col_c1, col_c2 = st.columns(2)
-
   with col_c1:
     st.markdown(
         f"""
         <div class="gm-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="gm-card-title">💰 Disponível em Caixa</span>
-                <span style="color: #10b981; font-size: 16px;">👁️</span>
-            </div>
+            <span class="gm-card-title">💰 Disponível em Caixa</span>
             <div class="gm-card-value" style="color: #10b981;">R$ {disponivel_caixa:,.2f}</div>
             <div class="gm-card-footer">Inicial + saldo (sem investimentos)</div>
-            <div style="margin-top: 10px; font-size: 12px; color: #9ca3af; display: flex; justify-content: space-between;">
-                <span>✨ Previsão fim do mês</span>
-                <b style="color: #3b82f6;">R$ 0,00 ▾</b>
-            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
   with col_c2:
     st.markdown(
         f"""
         <div class="gm-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="gm-card-title">📈 Investimentos</span>
-                <span style="color: #10b981; font-size: 16px;">📈</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 15px;">
-                <div>
-                    <span style="color: #6b7280; font-size: 11px;">Total Investido</span><br>
-                    <b style="font-size: 15px;">R$ {total_investido:,.2f}</b>
-                </div>
-                <div>
-                    <span style="color: #6b7280; font-size: 11px;">Valor de Mercado</span><br>
-                    <b style="font-size: 15px;">R$ {valor_mercado:,.2f}</b>
-                </div>
-                <div>
-                    <span style="color: #6b7280; font-size: 11px;">Lucro</span><br>
-                    <b style="font-size: 15px; color: #10b981;">+R$ {lucro_inv:,.2f}</b>
-                </div>
+            <span class="gm-card-title">📈 Investimentos</span>
+            <div style='display: flex; justify-content: space-between; margin-top: 15px;'>
+                <div><span style='color: #6b7280; font-size: 11px;'>Total</span><br><b>R$ {total_investido:,.2f}</b></div>
+                <div><span style='color: #6b7280; font-size: 11px;'>Mercado</span><br><b>R$ {valor_mercado:,.2f}</b></div>
+                <div><span style='color: #6b7280; font-size: 11px;'>Lucro</span><br><b style='color: #10b981;'>+R$ {lucro_inv:,.2f}</b></div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-  # --- SEGUNDA LINHA DE CARDS (4 Cards de Resumo) ---
-  dc1, dc2, dc3, dc4 = st.columns(4)
+# ==========================================
+# MÓDULO: PATRIMÔNIO "CONTA"
+# ==========================================
+elif menu == "Patrimônio 'Conta'":
+  st.title("🏦 Patrimônio / Contas")
+  st.info(
+      "Gerencie suas contas bancárias, saldos iniciais e patrimônio consolidado."
+  )
+  df_trans = pd.read_sql("SELECT * FROM transacoes", conn)
+  total_rec = (
+      df_trans[df_trans["tipo"] == "Receita"]["valor"].sum()
+      if not df_trans.empty
+      else 0.0
+  )
+  total_desp = (
+      df_trans[df_trans["tipo"] == "Despesa"]["valor"].sum()
+      if not df_trans.empty
+      else 0.0
+  )
+  st.metric("Saldo Consolidado em Contas", f"R$ {total_rec - total_desp:,.2f}")
 
-  with dc1:
-    st.markdown(
-        """
-        <div class="gm-card">
-            <div class="gm-card-title">📉 Dívida Total</div>
-            <div class="gm-card-value" style="color: #ef4444;">R$ 0,00</div>
-            <div class="gm-card-footer">Cartões + contas + financiamentos</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with dc2:
-    st.markdown(
-        f"""
-        <div class="gm-card">
-            <div class="gm-card-title">↗️ Contas a Receber Este Mês</div>
-            <div class="gm-card-value" style="color: #10b981;">R$ {receber_mes:,.2f}</div>
-            <div class="gm-card-footer">Vencimentos do mês atual</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with dc3:
-    st.markdown(
-        f"""
-        <div class="gm-card">
-            <div class="gm-card-title">📅 Contas a Pagar Este Mês</div>
-            <div class="gm-card-value" style="color: #f59e0b;">R$ {pagar_mes:,.2f}</div>
-            <div class="gm-card-footer">Cartões + contas + dívidas</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with dc4:
-    st.markdown(
-        """
-        <div class="gm-card">
-            <div class="gm-card-title">💳 Limite Disponível Cartões</div>
-            <div class="gm-card-value" style="color: #3b82f6;">R$ 0,00</div>
-            <div class="gm-card-footer">Limite total: R$ 0,00</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-  st.divider()
-
-  # --- SEÇÃO DE GRÁFICOS INFERIORES (Fluxo de Caixa e Comparativo Semanal) ---
-  gc1, gc2 = st.columns(2)
-  with gc1:
-    st.subheader("Fluxo de Caixa Pessoal")
-    st.markdown(
-        "<p style='color: #6b7280; font-size: 12px;'>Movimentação financeira"
-        " dos últimos 6 meses</p>",
-        unsafe_allow_html=True,
-    )
-    if not df_trans.empty:
-      df_trans["mes"] = pd.to_datetime(df_trans["data"]).dt.strftime("%Y-%m")
-      df_fluxo = (
-          df_trans.groupby(["mes", "tipo"])["valor"].sum().unstack().fillna(0)
+# ==========================================
+# MÓDULO: RECEITAS (Idêntico ao print)
+# ==========================================
+elif menu == "Receitas":
+  st.title("Receitas")
+  df_rec = (
+      pd.read_sql(
+          "SELECT * FROM transacoes WHERE tipo = 'Receita' ORDER BY data DESC",
+          conn,
       )
-      st.bar_chart(df_fluxo)
-    else:
-      st.info("Sem dados de movimentação para o gráfico.")
+      if not conn.cursor().execute(
+          "SELECT name FROM sqlite_master WHERE name='transacoes'"
+      ).fetchall()
+      else pd.read_sql(
+          "SELECT * FROM transacoes WHERE tipo = 'Receita' ORDER BY data DESC",
+          conn,
+      )
+  )
+  total_receita_geral = df_rec["valor"].sum() if not df_rec.empty else 0.0
+  st.markdown(
+      f"<p style='color: #9ca3af;'>Total: R$ {total_receita_geral:,.2f}</p>",
+      unsafe_allow_html=True,
+  )
 
-  with gc2:
-    st.subheader("Comparativo Semanal")
-    st.markdown(
-        "<p style='color: #6b7280; font-size: 12px;'>Receitas vs Despesas -"
-        " Semana atual (Dom a Sáb)</p>",
-        unsafe_allow_html=True,
-    )
-    if not df_trans.empty:
-      st.line_chart(df_trans[["valor"]])
-    else:
-      st.info("Sem dados suficientes para o comparativo semanal.")
+  # Botões Superiores idênticos ao print (Simples, Recorrentes, Avançada, + Nova)
+  b1, b2, b3, b4 = st.columns([1, 1, 1, 2])
+  with b1:
+    st.button("📋 Simples", use_container_width=True)
+  with b2:
+    st.button("🔄 Recorrentes", use_container_width=True)
+  with b3:
+    st.button("📊 Avançada", use_container_width=True)
 
-# ==========================================
-# MÓDULO: LANÇAMENTOS
-# ==========================================
-elif menu == "Lançamentos":
-  st.title("📝 Lançamentos de Transações")
+  # Formulário flutuante estilo Modal idêntico à imagem
+  with st.expander("➕ Adicionar Nova Receita", expanded=True):
+    with st.form("form_nova_receita"):
+      st.markdown("### Nova Receita")
+      descricao = st.text_input(
+          "Descrição", placeholder="Ex: Salário", key="desc_rec"
+      )
 
-  with st.form("form_trans"):
-    c1, c2 = st.columns(2)
-    with c1:
-      data = st.date_input("Data", datetime.today())
-      descricao = st.text_input("Descrição / Estabelecimento")
-      valor = st.number_input("Valor (R$)", min_value=0.01, format="%.2f")
-    with c2:
-      tipo = st.selectbox("Tipo", ["Despesa", "Receita"])
-      cat_sugerida = classificar_categoria(descricao) if descricao else "Outros"
+      col_v, col_d = st.columns(2)
+      with col_v:
+        valor = st.number_input("Valor", min_value=0.01, format="%.2f")
+      with col_d:
+        data = st.date_input("Data", datetime.today())
+
       categoria = st.selectbox(
-          "Categoria Detalhada",
-          list(ICONES_CATEGORIAS.keys()),
-          index=list(ICONES_CATEGORIAS.keys()).index(cat_sugerida)
-          if cat_sugerida in ICONES_CATEGORIAS
-          else 0,
+          "Categoria", list(ICONES_CATEGORIAS.keys()), key="cat_rec"
       )
-      origem = st.text_input("Origem (Ex: Conta Corrente, Cartão Itaú)")
-
-    if st.form_submit_button("Adicionar Lançamento"):
-      cursor = conn.cursor()
-      cursor.execute(
-          "INSERT INTO transacoes (data, descricao, valor, tipo, categoria,"
-          " origem) VALUES (?, ?, ?, ?, ?, ?)",
-          (str(data), descricao, valor, tipo, categoria, origem),
+      observacoes = st.text_area(
+          "Observações",
+          placeholder="Adicione observações...",
+          key="obs_rec",
       )
-      conn.commit()
-      st.success("Transação registrada com sucesso!")
-      st.rerun()
+      recorrente = st.toggle("Recorrente", key="rec_toggle")
 
-  st.subheader("Histórico Detalhado")
-  df_hist = pd.read_sql("SELECT * FROM transacoes ORDER BY data DESC", conn)
-  if not df_hist.empty:
-    df_hist["Ícone"] = df_hist["categoria"].apply(obter_icone)
+      submitted = st.form_submit_button(
+          "Salvar Receita", use_container_width=True
+      )
+      if submitted and descricao:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO transacoes (data, descricao, valor, tipo, categoria,"
+            " observacoes, recorrente, origem) VALUES (?, ?, ?, 'Receita', ?,"
+            " ?, ?, ?)",
+            (
+                str(data),
+                descricao,
+                valor,
+                categoria,
+                observacoes,
+                "Sim" if recorrente else "Não",
+                "Conta Corrente",
+            ),
+        )
+        conn.commit()
+        st.success("Receita salva com sucesso!")
+        st.rerun()
+
+  st.subheader("Lista de Receitas")
+  if not df_rec.empty:
+    df_rec["Ícone"] = df_rec["categoria"].apply(obter_icone)
     st.dataframe(
-        df_hist[
+        df_rec[
             [
                 "data",
                 "Ícone",
                 "descricao",
                 "categoria",
                 "valor",
+                "observacoes",
+                "recorrente",
+            ]
+        ],
+        use_container_width=True,
+    )
+  else:
+    st.info("Você ainda não tem receitas cadastradas.")
+
+# ==========================================
+# MÓDULO: DESPESAS
+# ==========================================
+elif menu == "Despesas":
+  st.title("Despesas")
+  df_desp = pd.read_sql(
+      "SELECT * FROM transacoes WHERE tipo = 'Despesa' ORDER BY data DESC", conn
+  )
+  total_desp_geral = df_desp["valor"].sum() if not df_desp.empty else 0.0
+  st.markdown(
+      f"<p style='color: #9ca3af;'>Total: R$ {total_desp_geral:,.2f}</p>",
+      unsafe_allow_html=True,
+  )
+
+  with st.expander("➕ Adicionar Nova Despesa", expanded=True):
+    with st.form("form_nova_despesa"):
+      st.markdown("### Nova Despesa")
+      descricao = st.text_input(
+          "Descrição", placeholder="Ex: Supermercado", key="desc_desp"
+      )
+
+      col_v, col_d = st.columns(2)
+      with col_v:
+        valor = st.number_input("Valor", min_value=0.01, format="%.2f")
+      with col_d:
+        data = st.date_input("Data", datetime.today())
+
+      categoria = st.selectbox(
+          "Categoria", list(ICONES_CATEGORIAS.keys()), key="cat_desp"
+      )
+      observacoes = st.text_area(
+          "Observações",
+          placeholder="Adicione observações...",
+          key="obs_desp",
+      )
+      recorrente = st.toggle("Recorrente", key="rec_toggle_desp")
+
+      submitted = st.form_submit_button(
+          "Salvar Despesa", use_container_width=True
+      )
+      if submitted and descricao:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO transacoes (data, descricao, valor, tipo, categoria,"
+            " observacoes, recorrente, origem) VALUES (?, ?, ?, 'Despesa', ?,"
+            " ?, ?, ?)",
+            (
+                str(data),
+                descricao,
+                valor,
+                categoria,
+                observacoes,
+                "Sim" if recorrente else "Não",
+                "Cartão/Conta",
+            ),
+        )
+        conn.commit()
+        st.success("Despesa salva com sucesso!")
+        st.rerun()
+
+  st.subheader("Lista de Despesas")
+  if not df_desp.empty:
+    df_desp["Ícone"] = df_desp["categoria"].apply(obter_icone)
+    st.dataframe(
+        df_desp[
+            [
+                "data",
+                "Ícone",
+                "descricao",
+                "categoria",
+                "valor",
+                "observacoes",
+                "recorrente",
+            ]
+        ],
+        use_container_width=True,
+    )
+  else:
+    st.info("Você ainda não tem despesas cadastradas.")
+
+# ==========================================
+# MÓDULO: TRANSAÇÕES GERAIS
+# ==========================================
+elif menu == "Transações":
+  st.title("🔄 Todas as Transações")
+  df_all = pd.read_sql("SELECT * FROM transacoes ORDER BY data DESC", conn)
+  if not df_all.empty:
+    df_all["Ícone"] = df_all["categoria"].apply(obter_icone)
+    st.dataframe(
+        df_all[
+            [
+                "data",
+                "Ícone",
+                "descricao",
                 "tipo",
+                "categoria",
+                "valor",
                 "origem",
             ]
         ],
         use_container_width=True,
     )
+  else:
+    st.info("Nenhuma transação registrada.")
 
 # ==========================================
-# MÓDULO: CONTAS A PAGAR / RECEBER
+# MÓDULO: CARTÕES DE CRÉDITO
 # ==========================================
-elif menu == "Contas a Pagar/Receber":
-  st.title("📅 Projeção de Contas a Pagar e Receber")
-
-  with st.form("form_contas_futuras"):
-    c1, c2 = st.columns(2)
-    with c1:
-      vencimento = st.date_input("Data de Vencimento", datetime.today())
-      descricao = st.text_input("Descrição")
-      valor = st.number_input("Valor Previsto (R$)", min_value=0.01)
-    with c2:
-      tipo = st.selectbox("Tipo", ["Despesa", "Receita"])
-      categoria = st.selectbox("Categoria", list(ICONES_CATEGORIAS.keys()))
-
-    if st.form_submit_button("Salvar Conta Futura"):
-      cursor = conn.cursor()
-      cursor.execute(
-          "INSERT INTO contas_futuras (vencimento, descricao, valor, tipo,"
-          " categoria) VALUES (?, ?, ?, ?, ?)",
-          (str(vencimento), descricao, valor, tipo, categoria),
-      )
-      conn.commit()
-      st.success("Conta projetada cadastrada!")
-      st.rerun()
-
-  df_fut = pd.read_sql("SELECT * FROM contas_futuras", conn)
-  if not df_fut.empty:
-    df_fut["Ícone"] = df_fut["categoria"].apply(obter_icone)
-    st.dataframe(
-        df_fut[
-            [
-                "vencimento",
-                "Ícone",
-                "descricao",
-                "categoria",
-                "valor",
-                "tipo",
-                "status",
-            ]
-        ],
-        use_container_width=True,
-    )
+elif menu == "Cartões de Crédito":
+  st.title("💳 Cartões de Crédito")
+  st.info("Gerenciamento de faturas e limites de cartões.")
 
 # ==========================================
 # MÓDULO: INVESTIMENTOS
 # ==========================================
 elif menu == "Investimentos":
   st.title("📈 Controle de Investimentos")
-
   with st.form("form_inv"):
-    ativo = st.text_input("Nome do Ativo (Ex: PETR4, Tesouro Direto)")
+    ativo = st.text_input("Nome do Ativo (Ex: PETR4)")
     total_inv = st.number_input("Total Investido (R$)", min_value=0.0)
     val_merc = st.number_input("Valor de Mercado Atual (R$)", min_value=0.0)
-
     if st.form_submit_button("Cadastrar Ativo"):
       cursor = conn.cursor()
       cursor.execute(
@@ -541,11 +539,6 @@ elif menu == "Investimentos":
 # ==========================================
 elif menu == "Importador Extratos (PDF)":
   st.title("📄 Importação Automatizada de Extratos (PDF)")
-  st.info(
-      "Envie o arquivo PDF do banco ou fatura. O sistema extrairá e"
-      " categorizará os lançamentos com base nas suas regras De/Para."
-  )
-
   pdf_file = st.file_uploader(
       "Selecione o Extrato em PDF", type=["pdf"], key="pdf_up"
   )
@@ -553,38 +546,27 @@ elif menu == "Importador Extratos (PDF)":
     if st.button("Processar Extrato"):
       with pdfplumber.open(pdf_file) as pdf:
         texto = "".join([pagina.extract_text() for pagina in pdf.pages])
-
       st.text_area("Texto Extraído do PDF", texto, height=200)
-      st.success(
-          "Extrato processado com sucesso pelo motor inteligente De/Para!"
-      )
+      st.success("Extrato processado com sucesso!")
 
 # ==========================================
 # MÓDULO: REGRAS DE/PARA
 # ==========================================
 elif menu == "Regras De/Para":
   st.title("⚙️ Gerenciamento de Regras De/Para")
-  st.markdown(
-      "Cadastre palavras-chave para que os gastos importados sejam"
-      " categorizados automaticamente."
-  )
-
   with st.form("form_regras"):
-    termo = st.text_input(
-        "Termo Chave (Ex: UBER, PADARIA, POSTO IPIRANGA)"
-    ).upper()
+    termo = st.text_input("Termo Chave (Ex: UBER, PADARIA)").upper()
     cat_atribuida = st.selectbox(
         "Categoria Correspondente", list(ICONES_CATEGORIAS.keys())
     )
-
-    if st.form_submit_button("Salvar Regra De/Para") and termo:
+    if st.form_submit_button("Salvar Regra") and termo:
       cursor = conn.cursor()
       cursor.execute(
           "INSERT INTO regras_depara (termo_chave, categoria) VALUES (?, ?)",
           (termo, cat_atribuida),
       )
       conn.commit()
-      st.success(f"Regra para '{termo}' salva com sucesso!")
+      st.success(f"Regra para '{termo}' salva!")
       st.rerun()
 
   df_regras = pd.read_sql("SELECT * FROM regras_depara", conn)
@@ -596,17 +578,12 @@ elif menu == "Regras De/Para":
 # ==========================================
 elif menu == "Central de Backup":
   st.title("💾 Central de Backup")
-  st.info(
-      "Baixe uma cópia segura do seu banco de dados SQLite para preservar suas"
-      " finanças."
-  )
-
   if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
       st.download_button(
           label="📥 Baixar Backup Completo (.db)",
           data=f,
-          file_name="gestormoney_original_backup.db",
+          file_name="gestormoney_backup.db",
           mime="application/octet-stream",
       )
 
