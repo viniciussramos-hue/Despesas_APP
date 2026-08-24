@@ -46,6 +46,18 @@ st.markdown(
         font-size: 11px;
     }
     h1, h2, h3 { color: #f9fafb !important; }
+    
+    /* Estilização específica para o botão verde de Receitas (+ Nova) */
+    .btn-verde button {
+        background-color: #a3e635 !important;
+        color: #000 !important;
+        font-weight: bold !important;
+        border: none !important;
+    }
+    .btn-verde button:hover {
+        background-color: #bef264 !important;
+        color: #000 !important;
+    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -348,10 +360,10 @@ if menu == "Dashboard":
 
 
 # ==========================================
-# FUNÇÃO REUTILIZÁVEL PARA MÓDULOS (COM ABA AVANÇADA IDÊNTICA AO PRINT)
+# FUNÇÃO REUTILIZÁVEL PARA MÓDULOS
 # ==========================================
 def renderizar_modulo_financeiro(
-    titulo, tabela, categorias, icone_func, cor_botao_novo
+    titulo, tabela, categorias, icone_func, classe_botao_novo
 ):
   c_t1, c_t2, c_t3 = st.columns([2, 2, 1])
   with c_t1:
@@ -371,11 +383,13 @@ def renderizar_modulo_financeiro(
     )
 
   with c_t3:
-    nova_btn = st.button(
-        "＋ Nova",
-        use_container_width=True,
-        type="primary" if cor_botao_novo == "primary" else "secondary",
-    )
+    # Aplica classe CSS customizada caso seja o botão verde de receitas
+    if classe_botao_novo == "btn-verde":
+      st.markdown('<div class="btn-verde">', unsafe_allow_html=True)
+      nova_btn = st.button("＋ Nova", use_container_width=True)
+      st.markdown("</div>", unsafe_allow_html=True)
+    else:
+      nova_btn = st.button("＋ Nova", use_container_width=True, type="primary")
 
   # Sistema de Abas Superiores (Simples, Recorrentes, Avançada)
   aba = st.radio(
@@ -448,10 +462,9 @@ def renderizar_modulo_financeiro(
       st.markdown("</div>", unsafe_allow_html=True)
 
   # ==========================================
-  # RENDERIZAÇÃO DA ABA AVANÇADA (IDÊNTICA AOS PRINTS)
+  # RENDERIZAÇÃO DA ABA AVANÇADA
   # ==========================================
   if aba == "📊 Avançada":
-    # 1. Barra de Período Superior do Avançado
     st.markdown(
         """
         <div class="gm-card" style="padding: 15px; margin-bottom: 20px;">
@@ -474,7 +487,6 @@ def renderizar_modulo_financeiro(
       st.markdown("<br>", unsafe_allow_html=True)
       st.button("Filtrar", use_container_width=True, type="primary")
 
-    # 2. Cards de Resumo Superior do Avançado
     if not df_dados.empty:
       df_dados["dt_obj"] = pd.to_datetime(
           df_dados["data"], errors="coerce"
@@ -563,7 +575,6 @@ def renderizar_modulo_financeiro(
             unsafe_allow_html=True,
         )
 
-    # 3. Gráfico por Categoria (Estilo Card do Print)
     st.markdown(
         f"""
         <div class="gm-card">
@@ -588,7 +599,6 @@ def renderizar_modulo_financeiro(
           unsafe_allow_html=True,
       )
 
-    # 4. Ranking das Maiores Movimentações
     st.markdown(
         f"""
         <div class="gm-card">
@@ -721,7 +731,7 @@ if menu == "Receitas":
       "receitas",
       CATEGORIAS_RECEITAS,
       lambda c: obter_icone(c),
-      "primary",
+      "btn-verde",  # Botão verde exclusivo para receitas
   )
 
 elif menu == "Despesas":
@@ -730,7 +740,7 @@ elif menu == "Despesas":
       "despesas",
       CATEGORIAS_DESPESAS,
       lambda c: obter_icone(c),
-      "primary",
+      "primary",  # Padrão para despesas
   )
 
 conn.close()
