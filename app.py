@@ -1,4 +1,5 @@
 from datetime import datetime, date
+import io
 import os
 import sqlite3
 import pandas as pd
@@ -74,26 +75,14 @@ def init_db():
   cursor = conn.cursor()
 
   cursor.execute("""
-        CREATE TABLE IF NOT EXISTS despesas (
+        CREATE TABLE IF NOT EXISTS transacoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            data TEXT,
             descricao TEXT,
             valor REAL,
-            data TEXT,
+            tipo TEXT,
             categoria TEXT,
-            observacoes TEXT,
-            recorrente INTEGER DEFAULT 0
-        )
-    """)
-
-  cursor.execute("""
-        CREATE TABLE IF NOT EXISTS receitas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            descricao TEXT,
-            valor REAL,
-            data TEXT,
-            categoria TEXT,
-            observacoes TEXT,
-            recorrente INTEGER DEFAULT 0
+            observacoes TEXT
         )
     """)
 
@@ -115,36 +104,47 @@ def init_db():
         )
     """)
 
+  # Insere categorias básicas se a tabela estiver vazia
+  cursor.execute("SELECT COUNT(*) FROM categorias")
+  if cursor.fetchone()[0] == 0:
+    categorias_iniciais = [
+        ("Alimentação", "Despesa", "🍔"),
+        ("Supermercado", "Despesa", "🛒"),
+        ("Moradia / Aluguel", "Despesa", "🏠"),
+        ("Contas (Água/Luz/Net)", "Despesa", "💡"),
+        ("Transporte", "Despesa", "🚗"),
+        ("Combustível", "Despesa", "⛽"),
+        ("Saúde / Farmácia", "Despesa", "💊"),
+        ("Educação", "Despesa", "📚"),
+        ("Lazer / Entretenimento", "Despesa", "🎮"),
+        ("Vestuário", "Despesa", "👕"),
+        ("Pets", "Despesa", "🐾"),
+        ("Assinaturas e Serviços", "Despesa", "📱"),
+        ("Outras Despesas", "Despesa", "📦"),
+        ("Salário", "Receita", "💵"),
+        ("Freelance", "Receita", "💻"),
+        ("Investimentos", "Receita", "📈"),
+        ("Outras Receitas", "Receita", "💰"),
+    ]
+    cursor.executemany(
+        "INSERT INTO categorias (nome, tipo, icone) VALUES (?, ?, ?)",
+        categorias_iniciais,
+    )
+
   conn.commit()
   conn.close()
 
 
 init_db()
 
-CATEGORIAS_DESPESAS = [
-    "Alimentação",
-    "Aluguel",
-    "Combustível",
-    "Lazer",
-    "Saúde",
-    "Outros",
-]
-CATEGORIAS_RECEITAS = ["Salário", "Freelance", "Investimentos", "Outros"]
-
 
 def obter_icone(categoria):
-  icones = {
-      "Alimentação": "🍔",
-      "Aluguel": "🏠",
-      "Combustível": "⛽",
-      "Lazer": "🎮",
-      "Saúde": "💊",
-      "Salário": "💵",
-      "Freelance": "💻",
-      "Investimentos": "📈",
-      "Outros": "📦",
-  }
-  return icones.get(categoria, "📁")
+  conn = sqlite3.connect(DB_NAME)
+  res = conn.execute(
+      "SELECT icone FROM categorias WHERE nome = ?", (categoria,)
+  ).fetchone()
+  conn.close()
+  return res[0] if res else "📁"
 
 
 # ==========================================
@@ -182,23 +182,13 @@ if st.sidebar.button(
   st.rerun()
 
 if st.sidebar.button(
-    "📈 Receitas",
+    "📂 Importar Extrato",
     use_container_width=True,
     type="primary"
-    if st.session_state["menu_ativo"] == "Receitas"
+    if st.session_state["menu_ativo"] == "Importar Extrato"
     else "secondary",
 ):
-  st.session_state["menu_ativo"] = "Receitas"
-  st.rerun()
-
-if st.sidebar.button(
-    "📉 Despesas",
-    use_container_width=True,
-    type="primary"
-    if st.session_state["menu_ativo"] == "Despesas"
-    else "secondary",
-):
-  st.session_state["menu_ativo"] = "Despesas"
+  st.session_state["menu_ativo"] = "Importar Extrato"
   st.rerun()
 
 if st.sidebar.button(
@@ -261,12 +251,19 @@ if menu == "Dashboard":
       unsafe_allow_html=True,
   )
 
-  df_desp = pd.read_sql("SELECT * FROM despesas", conn)
-  df_rec = pd.read_sql("SELECT * FROM receitas", conn)
+  df_trans = pd.read_sql("SELECT * FROM transacoes", conn)
   df_inv = pd.read_sql("SELECT * FROM investimentos", conn)
 
-  total_despesas = df_desp["valor"].sum() if not df_desp.empty else 0.0
-  total_receitas = df_rec["valor"].sum() if not df_rec.empty else 0.0
+  total_receitas = (
+      df_trans[df_trans["tipo"] == "Receita"]["valor"].sum()
+      if not df_trans.empty
+      else 0.0
+  )
+  total_despesas = (
+      df_trans[df_trans["tipo"] == "Despesa"]["valor"].sum()
+      if not df_trans.empty
+      else 0.0
+  )
   saldo_caixa = total_receitas - total_despesas
 
   total_investido = (
@@ -276,7 +273,6 @@ if menu == "Dashboard":
   lucro_inv = valor_mercado - total_investido
   patrimonio_total = total_investido + saldo_caixa
 
-  # --- PRIMEIRA LINHA DE CARDS ---
   col_c1, col_c2 = st.columns(2)
   with col_c1:
     st.markdown(
@@ -327,7 +323,6 @@ if menu == "Dashboard":
         unsafe_allow_html=True,
     )
 
-  # --- SEGUNDA LINHA DE CARDS ---
   dc1, dc2, dc3, dc4 = st.columns(4)
   with dc1:
     st.markdown(
@@ -376,7 +371,6 @@ if menu == "Dashboard":
 
   st.divider()
 
-  # --- GRÁFICOS INFERIORES ---
   gc1, gc2 = st.columns(2)
   with gc1:
     st.subheader("Fluxo de Caixa Pessoal")
@@ -385,17 +379,8 @@ if menu == "Dashboard":
         " dos últimos 6 meses</p>",
         unsafe_allow_html=True,
     )
-    if not df_desp.empty or not df_rec.empty:
-      chart_data = pd.DataFrame(
-          {
-              "Receitas": df_rec["valor"].tolist()
-              if not df_rec.empty
-              else [0],
-              "Despesas": df_desp["valor"].tolist()
-              if not df_desp.empty
-              else [0],
-          }
-      )
+    if not df_trans.empty:
+      chart_data = df_trans.groupby("tipo")["valor"].sum()
       st.bar_chart(chart_data)
     else:
       st.info("Sem dados de movimentação para o gráfico.")
@@ -407,14 +392,13 @@ if menu == "Dashboard":
         " Semana atual (Dom a Sáb)</p>",
         unsafe_allow_html=True,
     )
-    if not df_desp.empty or not df_rec.empty:
-      st.line_chart(chart_data)
+    if not df_trans.empty:
+      st.line_chart(df_trans.groupby("tipo")["valor"].sum())
     else:
       st.info("Sem dados suficientes para o comparativo semanal.")
 
   st.divider()
 
-  # --- SELETOR DE PERÍODO ---
   st.markdown("### Período de Análise")
   st.markdown(
       "<p style='color: #6b7280; font-size: 12px;'>Selecione o período para"
@@ -427,7 +411,6 @@ if menu == "Dashboard":
       label_visibility="collapsed",
   )
 
-  # --- CARDS DO PERÍODO SELECIONADO ---
   pc1, pc2, pc3, pc4 = st.columns(4)
   with pc1:
     st.markdown(
@@ -474,7 +457,6 @@ if menu == "Dashboard":
         unsafe_allow_html=True,
     )
 
-  # --- SEÇÕES INFERIORES: ORIGEM/DESTINO E TRANSAÇÕES RECENTES ---
   inf1, inf2 = st.columns(2)
   with inf1:
     st.markdown(
@@ -514,35 +496,140 @@ if menu == "Dashboard":
 
 
 # ==========================================
-# OUTROS MÓDULOS (TRANSAÇÕES, CATEGORIAS, RECEITAS, DESPESAS)
+# MÓDULO: IMPORTAR EXTRATO BANCÁRIO
+# ==========================================
+elif menu == "Importar Extrato":
+  st.markdown("<h1>📂 Importar Extrato Bancário</h1>", unsafe_allow_html=True)
+  st.markdown(
+      "<p style='color: #9ca3af;'>Faça upload do arquivo de extrato do seu"
+      " banco em formato CSV para carregar as transações automaticamente para o"
+      " dashboard.</p>",
+      unsafe_allow_html=True,
+  )
+
+  uploaded_file = st.file_uploader(
+      "Escolha o arquivo CSV do extrato", type=["csv", "txt"]
+  )
+
+  if uploaded_file is not None:
+    try:
+      df_importado = pd.read_csv(uploaded_file)
+      st.success("Arquivo carregado com sucesso! Pré-visualização abaixo:")
+      st.dataframe(df_importado.head(), use_container_width=True)
+
+      st.markdown("### Configurar Colunas do Extrato")
+      cols_disp = df_importado.columns.tolist()
+
+      c1, c2, c3, c4 = st.columns(4)
+      with c1:
+        col_data = st.selectbox("Coluna de Data", cols_disp)
+      with c2:
+        col_desc = st.selectbox("Coluna de Descrição", cols_disp)
+      with c3:
+        col_valor = st.selectbox("Coluna de Valor", cols_disp)
+      with c4:
+        cat_padrao = st.selectbox(
+            "Categoria Padrão",
+            pd.read_sql("SELECT nome FROM categorias", conn)["nome"].tolist(),
+        )
+
+      if st.button(
+          "📥 Processar e Importar Transações",
+          type="primary",
+          use_container_width=True,
+      ):
+        cursor = conn.cursor()
+        count = 0
+        for _, row in df_importado.iterrows():
+          data_val = str(row[col_data])
+          desc_val = str(row[col_desc])
+          try:
+            valor_val = float(
+                str(row[col_valor])
+                .replace("R$", "")
+                .replace(".", "")
+                .replace(",", ".")
+                .strip()
+            )
+          except:
+            valor_val = 0.0
+
+          tipo_val = "Receita" if valor_val > 0 else "Despesa"
+          valor_val = abs(valor_val)
+
+          cursor.execute(
+              """
+                INSERT INTO transacoes (data, descricao, valor, tipo, categoria, observacoes)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+              (
+                  data_val,
+                  desc_val,
+                  valor_val,
+                  tipo_val,
+                  cat_padrao,
+                  "Importado via Extrato",
+              ),
+          )
+          count += 1
+
+        conn.commit()
+        st.success(
+            f"🎉 {count} transações importadas com sucesso! Verifique no"
+            " Dashboard ou Transações."
+        )
+
+    except Exception as e:
+      st.error(f"Erro ao ler o arquivo: {e}")
+
+
+# ==========================================
+# MÓDULO: TRANSAÇÕES
 # ==========================================
 elif menu == "Transações":
-  st.markdown("<h1>Transações</h1>", unsafe_allow_html=True)
-  df_r = pd.read_sql("SELECT * FROM receitas", conn)
-  if not df_r.empty:
-    df_r["Tipo"] = "Receita"
-  df_d = pd.read_sql("SELECT * FROM despesas", conn)
-  if not df_d.empty:
-    df_d["Tipo"] = "Despesa"
-  df_transacoes = pd.concat([df_r, df_d], ignore_index=True)
-  if not df_transacoes.empty:
-    df_transacoes["Ícone"] = df_transacoes["categoria"].apply(obter_icone)
+  st.markdown("<h1>🔄 Transações</h1>", unsafe_allow_html=True)
+  df_trans = pd.read_sql("SELECT * FROM transacoes", conn)
+
+  if not df_trans.empty:
+    df_trans["Ícone"] = df_trans["categoria"].apply(obter_icone)
     st.dataframe(
-        df_transacoes[[
+        df_trans[[
             "id",
             "data",
             "Ícone",
             "descricao",
             "categoria",
-            "Tipo",
+            "tipo",
             "valor",
             "observacoes",
         ]],
         use_container_width=True,
     )
-  else:
-    st.info("Nenhuma transação cadastrada.")
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("🗑️ Excluir Transação Lançada Errada"):
+      id_exc = st.number_input(
+          "Informe o ID da transação para remover",
+          min_value=1,
+          step=1,
+          format="%d",
+      )
+      if st.button("Confirmar Exclusão", type="primary"):
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM transacoes WHERE id = ?", (id_exc,))
+        conn.commit()
+        st.success("Transação excluída com sucesso!")
+        st.rerun()
+  else:
+    st.info(
+        "Nenhuma transação cadastrada. Vá em 'Importar Extrato' para enviar"
+        " seu arquivo."
+    )
+
+
+# ==========================================
+# MÓDULO: CATEGORIAS
+# ==========================================
 elif menu == "Categorias":
   c_t1, c_t2 = st.columns([3, 1])
   with c_t1:
@@ -565,7 +652,7 @@ elif menu == "Categorias":
           unsafe_allow_html=True,
       )
       with st.form("form_nova_categoria", clear_on_submit=True):
-        nome_cat = st.text_input("Nome da Categoria")
+        nome_cat = st.text_input("Nome da Categoria", placeholder="Ex: Academia")
         tipo_cat = st.selectbox("Tipo", ["Despesa", "Receita"])
         icone_cat = st.text_input("Ícone (Emoji)", value="📁")
         b1, b2 = st.columns(2)
@@ -611,122 +698,5 @@ elif menu == "Categorias":
                 """,
               unsafe_allow_html=True,
           )
-
-elif menu in ["Receitas", "Despesas"]:
-  tabela = menu.lower()
-  titulo = menu
-  categorias = (
-      CATEGORIAS_RECEITAS if menu == "Receitas" else CATEGORIAS_DESPESAS
-  )
-  cor_botao = "btn-verde" if menu == "Receitas" else "primary"
-
-  c_t1, c_t2, c_t3 = st.columns([2, 2, 1])
-  with c_t1:
-    st.markdown(
-        f"<h1 style='margin-bottom: 0;'>{titulo}</h1>", unsafe_allow_html=True
-    )
-
-  df_dados = pd.read_sql(f"SELECT * FROM {tabela}", conn)
-  total_geral = df_dados["valor"].sum() if not df_dados.empty else 0.0
-
-  with c_t2:
-    st.markdown(
-        f"<p style='color: #9ca3af; margin-top: 10px;'>Total: <b style='color:"
-        f" #f9fafb;'>R$ {total_geral:,.2f}</b></p>",
-        unsafe_allow_html=True,
-    )
-
-  with c_t3:
-    if cor_botao == "btn-verde":
-      st.markdown('<div class="btn-verde">', unsafe_allow_html=True)
-      nova_btn = st.button("＋ Nova", use_container_width=True)
-      st.markdown("</div>", unsafe_allow_html=True)
-    else:
-      nova_btn = st.button("＋ Nova", use_container_width=True, type="primary")
-
-  if nova_btn or st.session_state.get(f"abrir_modal_{tabela}", False):
-    st.session_state[f"abrir_modal_{tabela}"] = True
-    with st.container():
-      st.markdown(
-          f"""
-            <div style='background-color: #161e2e; border: 1px solid #374151; padding: 25px; border-radius: 12px; margin-bottom: 25px;'>
-                <h3 style='margin-top: 0; color: #fff;'>Nova {titulo[:-1]}</h3>
-            """,
-          unsafe_allow_html=True,
-      )
-      with st.form(f"form_novo_{tabela}", clear_on_submit=True):
-        desc = st.text_input("Descrição")
-        v1, v2 = st.columns(2)
-        with v1:
-          val = st.number_input(
-              "Valor (R$)", min_value=0.00, format="%.2f", value=0.00
-          )
-        with v2:
-          dt = st.date_input("Data", datetime.today())
-        cat = st.selectbox("Categoria", categorias)
-        obs = st.text_area("Observações")
-        rec = st.toggle("Recorrente")
-
-        b1, b2 = st.columns(2)
-        with b1:
-          salvar = st.form_submit_button(
-              "Salvar", use_container_width=True, type="primary"
-          )
-        with b2:
-          fechar = st.form_submit_button("Cancelar", use_container_width=True)
-
-        if salvar and desc and val > 0:
-          cursor = conn.cursor()
-          cursor.execute(
-              f"INSERT INTO {tabela} (descricao, valor, data, categoria,"
-              " observacoes, recorrente) VALUES (?, ?, ?, ?, ?, ?)",
-              (desc, val, str(dt), cat, obs, 1 if rec else 0),
-          )
-          conn.commit()
-          st.session_state[f"abrir_modal_{tabela}"] = False
-          st.rerun()
-        if fechar:
-          st.session_state[f"abrir_modal_{tabela}"] = False
-          st.rerun()
-      st.markdown("</div>", unsafe_allow_html=True)
-
-  if not df_dados.empty:
-    df_dados["Ícone"] = df_dados["categoria"].apply(obter_icone)
-    st.dataframe(
-        df_dados[[
-            "id",
-            "data",
-            "Ícone",
-            "descricao",
-            "categoria",
-            "valor",
-            "observacoes",
-        ]],
-        use_container_width=True,
-    )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    with st.expander(f"🗑️ Excluir / Corrigir {titulo[:-1]} Lançada Errada"):
-      id_deletar = st.number_input(
-          f"Informe o ID da {titulo[:-1].lower()} que deseja excluir",
-          min_value=1,
-          step=1,
-          format="%d",
-          key=f"del_id_{tabela}",
-      )
-      if st.button(
-          f"Confirmar Exclusão de {titulo[:-1]}",
-          type="primary",
-          key=f"btn_del_{tabela}",
-      ):
-        cursor = conn.cursor()
-        cursor.execute(f"DELETE FROM {tabela} WHERE id = ?", (id_deletar,))
-        conn.commit()
-        st.success(
-            f"{titulo[:-1]} com ID {id_deletar} foi excluída com sucesso!"
-        )
-        st.rerun()
-  else:
-    st.info(f"Nenhuma {titulo.lower()} cadastrada.")
 
 conn.close()
