@@ -225,7 +225,7 @@ menu = st.session_state["menu_ativo"]
 conn = sqlite3.connect(DB_NAME)
 
 # ==========================================
-# MÓDULO: DASHBOARD (FIEL ÀS REFERÊNCIAS)
+# MÓDULO: DASHBOARD
 # ==========================================
 if menu == "Dashboard":
   col_head1, col_head2 = st.columns([3, 1])
@@ -250,7 +250,6 @@ if menu == "Dashboard":
         unsafe_allow_html=True,
     )
 
-  # Barra de Conquistas / Troféus
   st.markdown(
       """
       <div style='background-color: #161e2e; border: 1px solid #1f2937; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; font-size: 14px;'>
@@ -422,7 +421,7 @@ if menu == "Dashboard":
       " visualizar as estatísticas</p>",
       unsafe_allow_html=True,
   )
-  periodo_sel = st.selectbox(
+  st.selectbox(
       "Período",
       ["Mês Atual", "Últimos 3 Meses", "Ano Atual", "Personalizado"],
       label_visibility="collapsed",
@@ -475,7 +474,7 @@ if menu == "Dashboard":
         unsafe_allow_html=True,
     )
 
-  # --- SEÇÕES INFERIORES: ORIGEM/DESTINO E MEMBROS ---
+  # --- SEÇÕES INFERIORES: ORIGEM/DESTINO E TRANSAÇÕES RECENTES ---
   inf1, inf2 = st.columns(2)
   with inf1:
     st.markdown(
@@ -500,53 +499,18 @@ if menu == "Dashboard":
         unsafe_allow_html=True,
     )
 
-  # Transações recentes e Membros
-  t_col1, t_col2 = st.columns([2, 1])
-  with t_col1:
-    st.markdown(
-        """
-        <div class="gm-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <b>Transações Recentes</b>
-                <span style="color: #3b82f6; font-size: 12px; cursor: pointer;">Ver todas</span>
-            </div>
-            <div style="text-align: center; padding: 60px; color: #6b7280;">Nenhuma transação recente</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-  with t_col2:
-    st.markdown(
-        f"""
-        <div class="gm-card">
-            <b>Resumo por Membro</b><br>
-            <span style="color: #6b7280; font-size: 11px;">Despesas e receitas no período</span>
-            
-            <div style="background-color: #121826; padding: 10px; border-radius: 8px; margin-top: 15px;">
-                <span style="background: #f59e0b; color: #000; padding: 2px 6px; border-radius: 50%; font-size: 10px; font-weight: bold;">VD</span>
-                <b style="font-size: 13px; margin-left: 5px;">Vinicius Da Silva Ramos</b>
-                <div style="background: #10b98122; color: #10b981; padding: 4px; border-radius: 4px; font-size: 12px; margin-top: 8px; display: flex; justify-content: space-between;">
-                    <span>Receitas:</span> <b>R$ {total_receitas:,.2f}</b>
-                </div>
-                <div style="background: #ef444422; color: #ef4444; padding: 4px; border-radius: 4px; font-size: 12px; margin-top: 5px; display: flex; justify-content: space-between;">
-                    <span>Despesas:</span> <b>R$ {total_despesas:,.2f}</b>
-                </div>
-            </div>
-
-            <div style="background-color: #121826; padding: 10px; border-radius: 8px; margin-top: 10px;">
-                <span style="background: #8b5cf6; color: #fff; padding: 2px 6px; border-radius: 50%; font-size: 10px; font-weight: bold;">VR</span>
-                <b style="font-size: 13px; margin-left: 5px;">Vanessa Rodrigues Ramos</b>
-                <div style="background: #10b98122; color: #10b981; padding: 4px; border-radius: 4px; font-size: 12px; margin-top: 8px; display: flex; justify-content: space-between;">
-                    <span>Receitas:</span> <b>R$ 0,00</b>
-                </div>
-                <div style="background: #ef444422; color: #ef4444; padding: 4px; border-radius: 4px; font-size: 12px; margin-top: 5px; display: flex; justify-content: space-between;">
-                    <span>Despesas:</span> <b>R$ 0,00</b>
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+  st.markdown(
+      """
+      <div class="gm-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+              <b>Transações Recentes</b>
+              <span style="color: #3b82f6; font-size: 12px; cursor: pointer;">Ver todas</span>
+          </div>
+          <div style="text-align: center; padding: 40px; color: #6b7280;">Nenhuma transação recente</div>
+      </div>
+      """,
+      unsafe_allow_html=True,
+  )
 
 
 # ==========================================
