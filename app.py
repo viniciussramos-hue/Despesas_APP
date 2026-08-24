@@ -132,7 +132,7 @@ def obter_icone(categoria):
 
 
 # ==========================================
-# MENU LATERAL (ESTILO NAVBAR GESTORMONEY)
+# MENU LATERAL COM BOTÕES PERSONALIZADOS
 # ==========================================
 st.sidebar.markdown(
     """
@@ -146,20 +146,43 @@ st.sidebar.markdown(
 """,
     unsafe_allow_html=True,
 )
-st.sidebar.divider()
-
-menu = st.sidebar.selectbox(
-    "Navegação Principal",
-    [
-        "Dashboard",
-        "Despesas",
-    ],
+st.sidebar.markdown(
+    "<p style='color: #9ca3af; font-size: 12px; margin-bottom: 10px;'>"
+    "Navegação Principal</p>",
+    unsafe_allow_html=True,
 )
+
+# Inicializa o estado da página ativa se não existir
+if "menu_ativo" not in st.session_state:
+  st.session_state["menu_ativo"] = "Dashboard"
+
+# Botões de Navegação Lateral
+if st.sidebar.button(
+    "📊 Dashboard",
+    use_container_width=True,
+    type="primary"
+    if st.session_state["menu_ativo"] == "Dashboard"
+    else "secondary",
+):
+  st.session_state["menu_ativo"] = "Dashboard"
+  st.rerun()
+
+if st.sidebar.button(
+    "📉 Despesas",
+    use_container_width=True,
+    type="primary"
+    if st.session_state["menu_ativo"] == "Despesas"
+    else "secondary",
+):
+  st.session_state["menu_ativo"] = "Despesas"
+  st.rerun()
+
+menu = st.session_state["menu_ativo"]
 
 conn = sqlite3.connect(DB_NAME)
 
 # ==========================================
-# MÓDULO: DASHBOARD (PADRÃO COMPLETO DA REFERÊNCIA)
+# MÓDULO: DASHBOARD
 # ==========================================
 if menu == "Dashboard":
   col_head1, col_head2 = st.columns([3, 1])
@@ -206,7 +229,6 @@ if menu == "Dashboard":
   lucro_inv = valor_mercado - total_investido
   patrimonio_total = total_investido
 
-  # --- PRIMEIRA LINHA DE CARDS ---
   col_c1, col_c2 = st.columns(2)
 
   with col_c1:
@@ -259,7 +281,6 @@ if menu == "Dashboard":
         unsafe_allow_html=True,
     )
 
-  # --- SEGUNDA LINHA DE CARDS ---
   dc1, dc2, dc3, dc4 = st.columns(4)
 
   with dc1:
@@ -309,7 +330,6 @@ if menu == "Dashboard":
 
   st.divider()
 
-  # --- GRÁFICOS INFERIORES ---
   gc1, gc2 = st.columns(2)
   with gc1:
     st.subheader("Fluxo de Caixa Pessoal")
@@ -336,7 +356,7 @@ if menu == "Dashboard":
       st.info("Sem dados suficientes para o comparativo semanal.")
 
 # ==========================================
-# MÓDULO: DESPESAS (CORRIGIDO E IDÊNTICO AO PRINT)
+# MÓDULO: DESPESAS
 # ==========================================
 elif menu == "Despesas":
   c_t1, c_t2, c_t3 = st.columns([2, 2, 1])
@@ -406,7 +426,6 @@ elif menu == "Despesas":
 
         col_v1, col_v2 = st.columns(2)
         with col_v1:
-          # CORRIGIDO: min_value ajustado para 0.00 evitando o erro do Streamlit
           val = st.number_input(
               "Valor (R$)", min_value=0.00, format="%.2f", value=0.00
           )
