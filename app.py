@@ -1,22 +1,32 @@
+from datetime import datetime, timedelta
 import os
 import sqlite3
-from datetime import datetime, timedelta
 import pandas as pd
 import pdfplumber
 import streamlit as st
 
 # ==========================================
-# CONFIGURAÇÃO DA PÁGINA E ESTILO
+# CONFIGURAÇÃO DA PÁGINA E ESTILO (ESTILO GESTORMONEY)
 # ==========================================
 st.set_page_config(
-    page_title="Gestor Financeiro Pessoal", page_icon="💰", layout="wide"
+    page_title="GestorMoney - Seu Aliado Financeiro",
+    page_icon="💰",
+    layout="wide",
 )
 
 st.markdown(
     """
     <style>
-    .main { background-color: #0e1117; color: #fafafa; }
-    .stMetric { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+    .main { background-color: #0b0f19; color: #f3f4f6; }
+    .stSidebar { background-color: #111827; border-right: 1px solid #1f2937; }
+    .card-metric {
+        background-color: #111827;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #1f2937;
+        margin-bottom: 15px;
+    }
+    h1, h2, h3 { color: #f9fafb !important; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -25,14 +35,13 @@ st.markdown(
 # ==========================================
 # BANCO DE DADOS E MIGRATIONS (SQLite)
 # ==========================================
-DB_NAME = "gestor_financeiro.db"
+DB_NAME = "gestormoney_clone.db"
 
 
 def init_db():
   conn = sqlite3.connect(DB_NAME)
   cursor = conn.cursor()
 
-  # Tabela de Transações
   cursor.execute("""
         CREATE TABLE IF NOT EXISTS transacoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,7 +54,6 @@ def init_db():
         )
     """)
 
-  # Tabela de Contas a Pagar / Receber (Projeções)
   cursor.execute("""
         CREATE TABLE IF NOT EXISTS contas_futuras (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,35 +66,20 @@ def init_db():
         )
     """)
 
-  # Tabela de Regras De/Para para Categorias Inteligentes
+  cursor.execute("""
+        CREATE TABLE IF NOT EXISTS investimentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ativo TEXT,
+            total_investido REAL,
+            valor_mercado REAL
+        )
+    """)
+
   cursor.execute("""
         CREATE TABLE IF NOT EXISTS regras_depara (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             termo_chave TEXT,
             categoria TEXT
-        )
-    """)
-
-  # Tabela de Veículos e Frotas
-  cursor.execute("""
-        CREATE TABLE IF NOT EXISTS veiculos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome_veiculo TEXT,
-            km_atual REAL,
-            consumo_medio REAL
-        )
-    """)
-
-  # Tabela de Manutenções e Abastecimentos
-  cursor.execute("""
-        CREATE TABLE IF NOT EXISTS frota_gastos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            veiculo_id INTEGER,
-            data TEXT,
-            tipo_gasto TEXT,
-            km_registro REAL,
-            valor REAL,
-            descricao TEXT
         )
     """)
 
@@ -118,12 +111,8 @@ def obter_icone(categoria):
   return ICONES_CATEGORIAS.get(categoria, "📁")
 
 
-# ==========================================
-# FUNÇÕES DE SUPORTE E PARSING
-# ==========================================
 def classificar_categoria(descricao):
   desc_upper = descricao.upper()
-
   conn = sqlite3.connect(DB_NAME)
   try:
     df_regras = pd.read_sql(
@@ -137,7 +126,6 @@ def classificar_categoria(descricao):
     if row["termo_chave"].upper() in desc_upper:
       return row["categoria"]
 
-  # Padrões inteligentes De/Para integrados
   if any(
       k in desc_upper for k in ["SUPERMERCADO", "SUPER", "MERCADO", "ATACADÃO"]
   ):
@@ -148,32 +136,36 @@ def classificar_categoria(descricao):
     return "Alimentação"
   elif any(k in desc_upper for k in ["POSTO", "AUTO", "COMBUSTIVEL", "SHELL"]):
     return "Combustível"
-  elif any(k in desc_upper for k in ["UBER", "99APP", "ESTACIONAMENTO", "PEDAGIO"]):
+  elif any(k in desc_upper for k in ["UBER", "99APP", "ESTACIONAMENTO"]):
     return "Transporte"
-  elif any(k in desc_upper for k in ["FARMACIA", "DROGARIA", "MEDICO", "HOSPITAL"]):
+  elif any(k in desc_upper for k in ["FARMACIA", "DROGARIA", "MEDICO"]):
     return "Saúde"
-  elif any(k in desc_upper for k in ["NETFLIX", "SPOTIFY", "STEAM", "JOGO"]):
+  elif any(k in desc_upper for k in ["NETFLIX", "SPOTIFY", "STEAM"]):
     return "Lazer"
-  elif any(k in desc_upper for k in ["ENEL", "AGUA", "LUZ", "INTERNET", "CLARO"]):
+  elif any(k in desc_upper for k in ["ENEL", "AGUA", "LUZ", "INTERNET"]):
     return "Moradia"
-  elif any(k in desc_upper for k in ["SALARIO", "PAGAMENTO", "TED RECEBIDA"]):
+  elif any(k in desc_upper for k in ["SALARIO", "PAGAMENTO"]):
     return "Salário"
 
   return "Outros"
 
 
 # ==========================================
-# INTERFACE PRINCIPAL (STREAMLIT)
+# MENU LATERAL (SIDEBAR)
 # ==========================================
-st.sidebar.title("🧭 Navegação")
+st.sidebar.markdown(
+    "### 🤖 **GestorMoney**\n*Seu Aliado Financeiro*", unsafe_allow_html=True
+)
+st.sidebar.divider()
+
 menu = st.sidebar.selectbox(
-    "Escolha o Módulo",
+    "Menu Principal",
     [
-        "Dashboard & Projeção",
+        "Dashboard",
         "Lançamentos",
         "Contas a Pagar/Receber",
-        "Gestão de Frotas",
-        "Importador de Extratos (PDF)",
+        "Investimentos",
+        "Importador Extratos (PDF)",
         "Regras De/Para",
         "Central de Backup",
     ],
@@ -181,84 +173,206 @@ menu = st.sidebar.selectbox(
 
 conn = sqlite3.connect(DB_NAME)
 
-if menu == "Dashboard & Projeção":
-  st.title("📊 Dashboard Financeiro & Projeções Inteligentes")
-
-  df_trans = pd.read_sql("SELECT * FROM contas_futuras", conn)
-  df_hist = pd.read_sql("SELECT * FROM transacoes", conn)
-
-  col1, col2, col3 = st.columns(3)
-
-  if not df_hist.empty:
-    gasto_medio = df_hist[df_hist["tipo"] == "Despesa"]["valor"].mean()
-    col1.metric("Média Histórica de Despesa", f"R$ {gasto_medio:,.2f}")
-  else:
-    col1.metric("Média Histórica de Despesa", "R$ 0,00")
-
-  if not df_trans.empty:
-    total_a_pagar = df_trans[
-        (df_trans["tipo"] == "Despesa") & (df_trans["status"] == "Pendente")
-    ]["valor"].sum()
-    total_a_receber = df_trans[
-        (df_trans["tipo"] == "Receita") & (df_trans["status"] == "Pendente")
-    ]["valor"].sum()
-    col2.metric("Contas Pendentes (Pagar)", f"R$ {total_a_pagar:,.2f}")
-    col3.metric("Contas Pendentes (Receber)", f"R$ {total_a_receber:,.2f}")
-  else:
-    col2.metric("Contas Pendentes (Pagar)", "R$ 0,00")
-    col3.metric("Contas Pendentes (Receber)", "R$ 0,00")
+# ==========================================
+# MÓDULO: DASHBOARD
+# ==========================================
+if menu == "Dashboard":
+  # Cabeçalho idêntico à referência
+  col_head1, col_head2 = st.columns([3, 1])
+  with col_head1:
+    st.title("Dashboard")
+    st.markdown(
+        "<p style='color: #9ca3af;'>Bem-vindo de volta, Vinicius Ramos</p>",
+        unsafe_allow_html=True,
+    )
+  with col_head2:
+    st.markdown(
+        "<div style='background-color: #1f2937; padding: 10px;"
+        " border-radius: 8px; text-align: center; color: #10b981; font-weight:"
+        " bold;'>🔥 375 Atenção</div>",
+        unsafe_allow_html=True,
+    )
 
   st.divider()
 
-  st.subheader("🔮 Projeção Consolidada de Fluxo de Caixa")
-  st.info(
-      "Cruzamento automatizado entre o histórico de despesas e as obrigações"
-      " futuras cadastradas."
+  # Leitura de dados para os cards
+  df_trans = pd.read_sql("SELECT * FROM transacoes", conn)
+  df_contas = pd.read_sql("SELECT * FROM contas_futuras", conn)
+  df_inv = pd.read_sql("SELECT * FROM investimentos", conn)
+
+  # Cálculo de Caixa
+  total_receitas = (
+      df_trans[df_trans["tipo"] == "Receita"]["valor"].sum()
+      if not df_trans.empty
+      else 0.0
+  )
+  total_despesas = (
+      df_trans[df_trans["tipo"] == "Despesa"]["valor"].sum()
+      if not df_trans.empty
+      else 0.0
+  )
+  disponivel_caixa = total_receitas - total_despesas
+
+  # Contas do mês
+  pagar_mes = (
+      df_contas[
+          (df_contas["tipo"] == "Despesa")
+          & (df_contas["status"] == "Pendente")
+      ]["valor"].sum()
+      if not df_contas.empty
+      else 0.0
+  )
+  receber_mes = (
+      df_contas[
+          (df_contas["tipo"] == "Receita")
+          & (df_contas["status"] == "Pendente")
+      ]["valor"].sum()
+      if not df_contas.empty
+      else 0.0
   )
 
-  if not df_trans.empty:
-    df_trans["icone"] = df_trans["categoria"].apply(obter_icone)
-    st.dataframe(
-        df_trans[
-            [
-                "vencimento",
-                "icone",
-                "descricao",
-                "categoria",
-                "valor",
-                "tipo",
-                "status",
-            ]
-        ],
-        use_container_width=True,
+  # Investimentos
+  total_investido = (
+      df_inv["total_investido"].sum() if not df_inv.empty else 0.0
+  )
+  valor_mercado = df_inv["valor_mercado"].sum() if not df_inv.empty else 0.0
+  lucro_inv = valor_mercado - total_investido
+
+  # LINHA 1 DE CARDS
+  c1, c2 = st.columns(2)
+
+  with c1:
+    st.markdown(
+        f"""
+        <div class="card-metric">
+            <span style='color: #9ca3af; font-size: 14px;'>💰 Disponível em Caixa</span>
+            <h2 style='color: #10b981; margin: 5px 0;'>R$ {disponivel_caixa:,.2f}</h2>
+            <span style='color: #6b7280; font-size: 12px;'>Inicial + saldo (sem investimentos)</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-  else:
-    st.warning("Nenhuma conta futura cadastrada para projeção.")
 
+  with c2:
+    st.markdown(
+        f"""
+        <div class="card-metric">
+            <span style='color: #9ca3af; font-size: 14px;'>📈 Investimentos</span>
+            <div style='display: flex; justify-content: space-between; margin-top: 10px;'>
+                <div><span style='color: #6b7280; font-size: 12px;'>Total Investido</span><br><b>R$ {total_investido:,.2f}</b></div>
+                <div><span style='color: #6b7280; font-size: 12px;'>Valor de Mercado</span><br><b>R$ {valor_mercado:,.2f}</b></div>
+                <div><span style='color: #6b7280; font-size: 12px;'>Lucro</span><br><b style='color: #10b981;'>+R$ {lucro_inv:,.2f}</b></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  # LINHA 2 DE CARDS (Dívidas, Contas a Receber, Contas a Pagar, Limite Cartões)
+  dc1, dc2, dc3, dc4 = st.columns(4)
+
+  with dc1:
+    st.markdown(
+        """
+        <div class="card-metric">
+            <span style='color: #9ca3af; font-size: 13px;'>📉 Dívida Total</span>
+            <h3 style='color: #ef4444; margin: 5px 0;'>R$ 0,00</h3>
+            <span style='color: #6b7280; font-size: 11px;'>Cartões + contas + financiamentos</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with dc2:
+    st.markdown(
+        f"""
+        <div class="card-metric">
+            <span style='color: #9ca3af; font-size: 13px;'>↗️ Contas a Receber Este Mês</span>
+            <h3 style='color: #10b981; margin: 5px 0;'>R$ {receber_mes:,.2f}</h3>
+            <span style='color: #6b7280; font-size: 11px;'>Vencimentos do mês atual</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with dc3:
+    st.markdown(
+        f"""
+        <div class="card-metric">
+            <span style='color: #9ca3af; font-size: 13px;'>📅 Contas a Pagar Este Mês</span>
+            <h3 style='color: #f59e0b; margin: 5px 0;'>R$ {pagar_mes:,.2f}</h3>
+            <span style='color: #6b7280; font-size: 11px;'>Cartões + contas + dívidas</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with dc4:
+    st.markdown(
+        """
+        <div class="card-metric">
+            <span style='color: #9ca3af; font-size: 13px;'>💳 Limite Disponível Cartões</span>
+            <h3 style='color: #3b82f6; margin: 5px 0;'>R$ 0,00</h3>
+            <span style='color: #6b7280; font-size: 11px;'>Limite total: R$ 0,00</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  st.divider()
+
+  # SEÇÃO DE GRÁFICOS (Fluxo de Caixa e Comparativo Semanal)
+  gc1, gc2 = st.columns(2)
+  with gc1:
+    st.subheader("Fluxo de Caixa Pessoal")
+    st.markdown(
+        "<p style='color: #6b7280; font-size: 12px;'>Movimentação financeira"
+        " dos últimos meses</p>",
+        unsafe_allow_html=True,
+    )
+    if not df_trans.empty:
+      df_trans["mes"] = pd.to_datetime(df_trans["data"]).dt.strftime("%Y-%m")
+      df_fluxo = (
+          df_trans.groupby(["mes", "tipo"])["valor"].sum().unstack().fillna(0)
+      )
+      st.bar_chart(df_fluxo)
+    else:
+      st.info("Sem dados suficientes para exibir o fluxo de caixa.")
+
+  with gc2:
+    st.subheader("Comparativo Semanal")
+    st.markdown(
+        "<p style='color: #6b7280; font-size: 12px;'>Receitas vs Despesas -"
+        " Semana atual</p>",
+        unsafe_allow_html=True,
+    )
+    if not df_trans.empty:
+      st.line_chart(df_trans[["valor"]])
+    else:
+      st.info("Sem dados suficientes para o comparativo semanal.")
+
+# ==========================================
+# MÓDULO: LANÇAMENTOS
+# ==========================================
 elif menu == "Lançamentos":
-  st.title("📝 Gerenciamento de Transações")
+  st.title("📝 Lançamentos de Transações")
 
-  with st.form("form_transacao"):
-    col1, col2 = st.columns(2)
-    with col1:
+  with st.form("form_trans"):
+    c1, c2 = st.columns(2)
+    with c1:
       data = st.date_input("Data", datetime.today())
       descricao = st.text_input("Descrição / Estabelecimento")
       valor = st.number_input("Valor (R$)", min_value=0.01, format="%.2f")
-    with col2:
+    with c2:
       tipo = st.selectbox("Tipo", ["Despesa", "Receita"])
-      categoria_sugerida = (
-          classificar_categoria(descricao) if descricao else "Outros"
-      )
+      cat_sugerida = classificar_categoria(descricao) if descricao else "Outros"
       categoria = st.selectbox(
-          "Categoria",
+          "Categoria Detalhada",
           list(ICONES_CATEGORIAS.keys()),
-          index=list(ICONES_CATEGORIAS.keys()).index(categoria_sugerida)
-          if categoria_sugerida in ICONES_CATEGORIAS
+          index=list(ICONES_CATEGORIAS.keys()).index(cat_sugerida)
+          if cat_sugerida in ICONES_CATEGORIAS
           else 0,
       )
-      origem = st.text_input("Origem (Ex: Itaú, Cartão, Dinheiro)")
+      origem = st.text_input("Origem (Ex: Conta Corrente, Cartão Itaú)")
 
-    submitted = st.form_submit_button("Salvar Lançamento")
+    submitted = st.form_submit_button("Adicionar Lançamento")
     if submitted:
       cursor = conn.cursor()
       cursor.execute(
@@ -267,35 +381,45 @@ elif menu == "Lançamentos":
           (str(data), descricao, valor, tipo, categoria, origem),
       )
       conn.commit()
-      st.success("Transação salva com sucesso!")
+      st.success("Transação registrada com sucesso!")
       st.rerun()
 
-  st.subheader("Histórico de Transações")
+  st.subheader("Histórico Detalhado")
   df_hist = pd.read_sql("SELECT * FROM transacoes ORDER BY data DESC", conn)
   if not df_hist.empty:
-    df_hist["icone"] = df_hist["categoria"].apply(obter_icone)
+    df_hist["Ícone"] = df_hist["categoria"].apply(obter_icone)
     st.dataframe(
         df_hist[
-            ["data", "icone", "descricao", "categoria", "valor", "tipo", "origem"]
+            [
+                "data",
+                "Ícone",
+                "descricao",
+                "categoria",
+                "valor",
+                "tipo",
+                "origem",
+            ]
         ],
         use_container_width=True,
     )
 
+# ==========================================
+# MÓDULO: CONTAS A PAGAR / RECEBER
+# ==========================================
 elif menu == "Contas a Pagar/Receber":
-  st.title("📅 Gestão de Contas Futuras (Projeção)")
+  st.title("📅 Projeção de Contas a Pagar e Receber")
 
-  with st.form("form_contas"):
-    col1, col2 = st.columns(2)
-    with col1:
+  with st.form("form_contas_futuras"):
+    c1, c2 = st.columns(2)
+    with c1:
       vencimento = st.date_input("Data de Vencimento", datetime.today())
-      descricao = st.text_input("Descrição da Conta")
+      descricao = st.text_input("Descrição")
       valor = st.number_input("Valor Previsto (R$)", min_value=0.01)
-    with col2:
+    with c2:
       tipo = st.selectbox("Tipo", ["Despesa", "Receita"])
       categoria = st.selectbox("Categoria", list(ICONES_CATEGORIAS.keys()))
 
-    salvar_conta = st.form_submit_button("Adicionar Conta Futura")
-    if salvar_conta:
+    if st.form_submit_button("Salvar Conta Futura"):
       cursor = conn.cursor()
       cursor.execute(
           "INSERT INTO contas_futuras (vencimento, descricao, valor, tipo,"
@@ -303,17 +427,17 @@ elif menu == "Contas a Pagar/Receber":
           (str(vencimento), descricao, valor, tipo, categoria),
       )
       conn.commit()
-      st.success("Conta futura registrada com sucesso!")
+      st.success("Conta projetada cadastrada!")
       st.rerun()
 
   df_fut = pd.read_sql("SELECT * FROM contas_futuras", conn)
   if not df_fut.empty:
-    df_fut["icone"] = df_fut["categoria"].apply(obter_icone)
+    df_fut["Ícone"] = df_fut["categoria"].apply(obter_icone)
     st.dataframe(
         df_fut[
             [
                 "vencimento",
-                "icone",
+                "Ícone",
                 "descricao",
                 "categoria",
                 "valor",
@@ -324,54 +448,64 @@ elif menu == "Contas a Pagar/Receber":
         use_container_width=True,
     )
 
-elif menu == "Gestão de Frotas":
-  st.title("🚗 Gestão de Veículos e Manutenção")
+# ==========================================
+# MÓDULO: INVESTIMENTOS
+# ==========================================
+elif menu == "Investimentos":
+  st.title("📈 Controle de Investimentos")
 
-  with st.form("form_veiculo"):
-    nome_veiculo = st.text_input("Nome/Modelo do Veículo")
-    km_atual = st.number_input("Quilometragem Atual (Km)", min_value=0.0)
-    cadastrar_v = st.form_submit_button("Cadastrar Veículo")
-    if cadastrar_v and nome_veiculo:
+  with st.form("form_inv"):
+    ativo = st.text_input("Nome do Ativo (Ex: PETR4, Tesouro Direto)")
+    total_inv = st.number_input("Total Investido (R$)", min_value=0.0)
+    val_merc = st.number_input("Valor de Mercado Atual (R$)", min_value=0.0)
+
+    if st.form_submit_button("Cadastrar Ativo"):
       cursor = conn.cursor()
       cursor.execute(
-          "INSERT INTO veiculos (nome_veiculo, km_atual, consumo_medio) VALUES"
-          " (?, ?, ?)",
-          (nome_veiculo, km_atual, 0.0),
+          "INSERT INTO investimentos (ativo, total_investido, valor_mercado)"
+          " VALUES (?, ?, ?)",
+          (ativo, total_inv, val_merc),
       )
       conn.commit()
-      st.success("Veículo cadastrado!")
+      st.success("Investimento salvo!")
       st.rerun()
 
-  st.subheader("Veículos Cadastrados")
-  df_veiculos = pd.read_sql("SELECT * FROM veiculos", conn)
-  if not df_veiculos.empty:
-    st.dataframe(df_veiculos, use_container_width=True)
+  df_invest = pd.read_sql("SELECT * FROM investimentos", conn)
+  if not df_invest.empty:
+    st.dataframe(df_invest, use_container_width=True)
 
-elif menu == "Importador de Extratos (PDF)":
+# ==========================================
+# MÓDULO: IMPORTADOR DE EXTRATOS (PDF)
+# ==========================================
+elif menu == "Importador Extratos (PDF)":
   st.title("📄 Importação Automatizada de Extratos (PDF)")
   st.info(
-      "Envie arquivos em PDF (extratos bancários ou faturas) para processamento"
-      " automático com base nas regras De/Para."
+      "Envie o arquivo PDF do banco ou fatura. O sistema extrairá e"
+      " categorizará os lançamentos com base nas suas regras De/Para."
   )
 
-  arquivo_pdf = st.file_uploader(
-      "Selecione o arquivo PDF", type=["pdf"], key="pdf_extrato"
+  pdf_file = st.file_uploader(
+      "Selecione o Extrato em PDF", type=["pdf"], key="pdf_up"
   )
-  if arquivo_pdf is not None:
-    if st.button("Processar e Inserir no Sistema"):
-      with pdfplumber.open(arquivo_pdf) as pdf:
-        texto_extraido = ""
-        for pagina in pdf.pages:
-          texto_extraido += pagina.extract_text() + "\n"
+  if pdf_file is not None:
+    if st.button("Processar Extrato"):
+      with pdfplumber.open(pdf_file) as pdf:
+        texto = "".join([pagina.extract_text() for pagina in pdf.pages])
 
-      st.text_area("Texto Extraído do PDF", texto_extraido, height=200)
+      st.text_area("Texto Extraído do PDF", texto, height=200)
       st.success(
-          "Extrato processado com sucesso! As transações foram lidas e"
-          " categorizadas pelo motor inteligente."
+          "Extrato processado com sucesso pelo motor inteligente De/Para!"
       )
 
+# ==========================================
+# MÓDULO: REGRAS DE/PARA
+# ==========================================
 elif menu == "Regras De/Para":
-  st.title("⚙️ Personalização de Regras De/Para")
+  st.title("⚙️ Gerenciamento de Regras De/Para")
+  st.markdown(
+      "Cadastre palavras-chave para que os gastos importados sejam"
+      " categorizados automaticamente."
+  )
 
   with st.form("form_regras"):
     termo = st.text_input(
@@ -380,9 +514,8 @@ elif menu == "Regras De/Para":
     cat_atribuida = st.selectbox(
         "Categoria Correspondente", list(ICONES_CATEGORIAS.keys())
     )
-    salvar_regra = st.form_submit_button("Salvar Regra De/Para")
 
-    if salvar_regra and termo:
+    if st.form_submit_button("Salvar Regra De/Para") and termo:
       cursor = conn.cursor()
       cursor.execute(
           "INSERT INTO regras_depara (termo_chave, categoria) VALUES (?, ?)",
@@ -392,26 +525,26 @@ elif menu == "Regras De/Para":
       st.success(f"Regra para '{termo}' salva com sucesso!")
       st.rerun()
 
-  st.subheader("Regras Atuais Cadastradas")
   df_regras = pd.read_sql("SELECT * FROM regras_depara", conn)
   if not df_regras.empty:
     st.dataframe(df_regras, use_container_width=True)
-  else:
-    st.info("Nenhuma regra personalizada cadastrada ainda.")
 
+# ==========================================
+# MÓDULO: CENTRAL DE BACKUP
+# ==========================================
 elif menu == "Central de Backup":
-  st.title("💾 Central de Backup e Restauração")
+  st.title("💾 Central de Backup")
   st.info(
-      "Faça o download do seu arquivo de banco de dados SQLite para garantir a"
-      " segurança de todas as suas informações."
+      "Baixe uma cópia segura do seu banco de dados SQLite para preservar suas"
+      " finanças."
   )
 
   if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
       st.download_button(
-          label="📥 Baixar Backup do Banco de Dados (.db)",
+          label="📥 Baixar Backup Completo (.db)",
           data=f,
-          file_name="gestor_financeiro_backup.db",
+          file_name="gestormoney_backup.db",
           mime="application/octet-stream",
       )
 
