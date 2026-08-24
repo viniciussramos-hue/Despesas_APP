@@ -18,11 +18,9 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Fundo geral e paleta de cores inspirada no GestorMoney */
     .main { background-color: #0c101d; color: #e5e7eb; }
     .stSidebar { background-color: #121826; border-right: 1px solid #1f2937; }
     
-    /* Estilização dos Cards idênticos à referência */
     .gm-card {
         background-color: #161e2e;
         padding: 20px;
@@ -49,7 +47,6 @@ st.markdown(
     }
     h1, h2, h3 { color: #f9fafb !important; }
     
-    /* Botão verde de destaque */
     .btn-verde button {
         background-color: #a3e635 !important;
         color: #000 !important;
@@ -105,14 +102,13 @@ def init_db():
         )
     """)
 
-  # Insere categorias básicas se a tabela estiver vazia
   cursor.execute("SELECT COUNT(*) FROM categorias")
   if cursor.fetchone()[0] == 0:
     categorias_iniciais = [
         ("Alimentação", "Despesa", "🍔"),
         ("Supermercado", "Despesa", "🛒"),
         ("Moradia / Aluguel", "Despesa", "🏠"),
-        ("Contas (Água/Luz/Net)", "Despesa", "💡"),
+        ("Contas e Boletos", "Despesa", "💡"),
         ("Transporte", "Despesa", "🚗"),
         ("Combustível", "Despesa", "⛽"),
         ("Saúde / Farmácia", "Despesa", "💊"),
@@ -139,6 +135,39 @@ def init_db():
 init_db()
 
 
+# ==========================================
+# RECONHECIMENTO AUTOMÁTICO DE CATEGORIA
+# ==========================================
+def categorizar_automaticamente(descricao, valor):
+  desc = descricao.upper()
+  if valor > 0:
+    if any(
+        k in desc for k in ["SALARIO", "REMUNERACAO", "PRO-LABORE", "FOLHA"]
+    ):
+      return "Salário"
+    if any(k in desc for k in ["FREELANC", "PRESTACAO", "SERVICO"]):
+      return "Freelance"
+    if any(k in desc for k in ["DIVIDENDOS", "RENDIMENTO", "JUROS SOBRE"]):
+      return "Investimentos"
+    return "Outras Receitas"
+  else:
+    if any(
+        k in desc for k in ["SUPERMERCADO", "MERCADO", "HIPER", "ATACAD"]
+    ):
+      return "Supermercado"
+    if any(k in desc for k in ["RESTAURANTE", "IFOOD", "LANCHONETE", "PADARIA"]):
+      return "Alimentação"
+    if any(k in desc for k in ["POSTO", "COMBUSTIVEL", "SHELL", "PETROBRAS"]):
+      return "Combustível"
+    if any(k in desc for k in ["UBER", "99APP", "ESTACIONAMENTO", "PEDAGIO"]):
+      return "Transporte"
+    if any(k in desc for k in ["FARMACIA", "DROGARIA", "HOSPITAL", "CLINICA"]):
+      return "Saúde / Farmácia"
+    if any(k in desc for k in ["LUZ", "AGUA", "TELEFONE", "INTERNET", "NETFLIX"]):
+      return "Contas e Boletos"
+    return "Outras Despesas"
+
+
 def obter_icone(categoria):
   conn = sqlite3.connect(DB_NAME)
   res = conn.execute(
@@ -149,7 +178,7 @@ def obter_icone(categoria):
 
 
 # ==========================================
-# MENU LATERAL COM BOTÕES PERSONALIZADOS
+# MENU LATERAL
 # ==========================================
 st.sidebar.markdown(
     """
@@ -216,7 +245,7 @@ menu = st.session_state["menu_ativo"]
 conn = sqlite3.connect(DB_NAME)
 
 # ==========================================
-# MÓDULO: DASHBOARD (TOTALMENTE INTEGRADO AOS EXTRATOS)
+# MÓDULO: DASHBOARD
 # ==========================================
 if menu == "Dashboard":
   col_head1, col_head2 = st.columns([3, 1])
@@ -372,50 +401,22 @@ if menu == "Dashboard":
 
   st.divider()
 
-  # Gráficos dinâmicos com dados das transações importadas
   gc1, gc2 = st.columns(2)
   with gc1:
     st.subheader("Fluxo de Caixa Pessoal")
-    st.markdown(
-        "<p style='color: #6b7280; font-size: 12px;'>Movimentação financeira"
-        " consolidada por tipo</p>",
-        unsafe_allow_html=True,
-    )
     if not df_trans.empty:
-      chart_df = df_trans.groupby("tipo")["valor"].sum()
-      st.bar_chart(chart_df)
+      st.bar_chart(df_trans.groupby("tipo")["valor"].sum())
     else:
-      st.info(
-          "Nenhuma transação cadastrada. Importe um extrato para visualizar o"
-          " gráfico."
-      )
+      st.info("Sem dados.")
 
   with gc2:
     st.subheader("Comparativo por Categoria")
-    st.markdown(
-        "<p style='color: #6b7280; font-size: 12px;'>Gastos e entradas por"
-        " categoria</p>",
-        unsafe_allow_html=True,
-    )
     if not df_trans.empty:
-      cat_df = df_trans.groupby("categoria")["valor"].sum()
-      st.bar_chart(cat_df)
+      st.bar_chart(df_trans.groupby("categoria")["valor"].sum())
     else:
-      st.info("Sem dados suficientes para o comparativo.")
+      st.info("Sem dados.")
 
   st.divider()
-
-  st.markdown("### Período de Análise")
-  st.markdown(
-      "<p style='color: #6b7280; font-size: 12px;'>Resumo estatístico do"
-      " período</p>",
-      unsafe_allow_html=True,
-  )
-  st.selectbox(
-      "Período",
-      ["Mês Atual", "Últimos 3 Meses", "Ano Atual", "Personalizado"],
-      label_visibility="collapsed",
-  )
 
   pc1, pc2, pc3, pc4 = st.columns(4)
   with pc1:
@@ -424,7 +425,6 @@ if menu == "Dashboard":
         <div class="gm-card">
             <div class="gm-card-title">Saldo do Período ℹ️</div>
             <div class="gm-card-value" style="color: #10b981;">R$ {saldo_caixa:,.2f}</div>
-            <div class="gm-card-footer">Receitas - Despesas</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -435,7 +435,6 @@ if menu == "Dashboard":
         <div class="gm-card">
             <div class="gm-card-title">Receitas ℹ️</div>
             <div class="gm-card-value" style="color: #10b981;">R$ {total_receitas:,.2f}</div>
-            <div class="gm-card-footer">Total de entradas</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -446,7 +445,6 @@ if menu == "Dashboard":
         <div class="gm-card">
             <div class="gm-card-title">Despesas ℹ️</div>
             <div class="gm-card-value" style="color: #ef4444;">R$ {total_despesas:,.2f}</div>
-            <div class="gm-card-footer">Total de saídas</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -457,20 +455,16 @@ if menu == "Dashboard":
         <div class="gm-card">
             <div class="gm-card-title">Saúde Financeira ℹ️</div>
             <div class="gm-card-value" style="color: #10b981;">100%</div>
-            <div class="gm-card-footer" style="color: #10b981;">❤ Excelente</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-  # Seção de Transações Recentes integrada ao banco de dados
   st.markdown("<br>", unsafe_allow_html=True)
   st.markdown(
       """
       <div class="gm-card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <b>Transações Recentes (Importadas dos Extratos)</b>
-          </div>
+          <b>Transações Recentes (Categorizadas Automaticamente)</b>
       """,
       unsafe_allow_html=True,
   )
@@ -493,23 +487,21 @@ if menu == "Dashboard":
   else:
     st.markdown(
         "<div style='text-align: center; padding: 20px; color:"
-        " #6b7280;'>Nenhuma transação recente. Vá em 'Importar Extrato' para"
-        " enviar seu arquivo.</div>",
+        " #6b7280;'>Nenhuma transação recente.</div>",
         unsafe_allow_html=True,
     )
-
   st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ==========================================
-# MÓDULO: IMPORTAR EXTRATO (CSV & PDF)
+# MÓDULO: IMPORTAR EXTRATO (COM AUTO-CATEGORIZAÇÃO)
 # ==========================================
 elif menu == "Importar Extrato":
   st.markdown("<h1>📂 Importar Extrato Bancário</h1>", unsafe_allow_html=True)
   st.markdown(
-      "<p style='color: #9ca3af;'>Faça upload do arquivo de extrato do seu"
-      " banco em formato <b>CSV</b> ou <b>PDF</b> para carregar as transações"
-      " automaticamente para o seu Dashboard.</p>",
+      "<p style='color: #9ca3af;'>Faça upload do extrato (CSV ou PDF). As"
+      " categorias serão reconhecidas <b>automaticamente</b> pela"
+      " descrição.</p>",
       unsafe_allow_html=True,
   )
 
@@ -523,25 +515,18 @@ elif menu == "Importar Extrato":
     if file_extension in ["csv", "txt"]:
       try:
         df_importado = pd.read_csv(uploaded_file)
-        st.success("Arquivo CSV carregado com sucesso! Pré-visualização:")
-        st.dataframe(df_importado.head(), use_container_width=True)
-
+        st.success("CSV carregado!")
         cols_disp = df_importado.columns.tolist()
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3 = st.columns(3)
         with c1:
           col_data = st.selectbox("Coluna de Data", cols_disp)
         with c2:
           col_desc = st.selectbox("Coluna de Descrição", cols_disp)
         with c3:
           col_valor = st.selectbox("Coluna de Valor", cols_disp)
-        with c4:
-          cat_padrao = st.selectbox(
-              "Categoria Padrão",
-              pd.read_sql("SELECT nome FROM categorias", conn)["nome"].tolist(),
-          )
 
         if st.button(
-            "📥 Processar e Importar CSV",
+            "📥 Processar e Categorizar Automaticamente",
             type="primary",
             use_container_width=True,
         ):
@@ -564,6 +549,9 @@ elif menu == "Importar Extrato":
             tipo_val = "Receita" if valor_val > 0 else "Despesa"
             valor_val = abs(valor_val)
 
+            # Auto-categoria baseada na descrição
+            cat_auto = categorizar_automaticamente(desc_val, valor_val)
+
             cursor.execute(
                 """
                         INSERT INTO transacoes (data, descricao, valor, tipo, categoria, observacoes)
@@ -574,18 +562,17 @@ elif menu == "Importar Extrato":
                     desc_val,
                     valor_val,
                     tipo_val,
-                    cat_padrao,
+                    cat_auto,
                     "Importado via CSV",
                 ),
             )
             count += 1
           conn.commit()
           st.success(
-              f"🎉 {count} transações importadas com sucesso! O Dashboard foi"
-              " atualizado."
+              f"🎉 {count} transações importadas e categorizadas automaticamente!"
           )
       except Exception as e:
-        st.error(f"Erro ao processar CSV: {e}")
+        st.error(f"Erro: {e}")
 
     elif file_extension == "pdf":
       try:
@@ -596,21 +583,10 @@ elif menu == "Importar Extrato":
             if t:
               texto_extraido += t + "\n"
 
-        st.success("📄 Arquivo PDF lido com sucesso!")
-        st.text_area(
-            "Pré-visualização do conteúdo do PDF",
-            texto_extraido[:1500],
-            height=150,
-        )
-
-        cat_padrao_pdf = st.selectbox(
-            "Categoria Padrão para os lançamentos do PDF",
-            pd.read_sql("SELECT nome FROM categorias", conn)["nome"].tolist(),
-            key="cat_pdf",
-        )
+        st.success("📄 PDF lido com sucesso!")
 
         if st.button(
-            "📥 Processar e Importar PDF",
+            "📥 Processar e Categorizar Automaticamente o PDF",
             type="primary",
             use_container_width=True,
         ):
@@ -634,6 +610,9 @@ elif menu == "Importar Extrato":
                   valor = abs(valor)
                   data_hoje = datetime.today().strftime("%Y-%m-%d")
 
+                  # Auto-categoria baseada na descrição
+                  cat_auto = categorizar_automaticamente(descricao, valor)
+
                   cursor.execute(
                       """
                                     INSERT INTO transacoes (data, descricao, valor, tipo, categoria, observacoes)
@@ -644,7 +623,7 @@ elif menu == "Importar Extrato":
                           descricao,
                           valor,
                           tipo,
-                          cat_padrao_pdf,
+                          cat_auto,
                           "Importado via PDF",
                       ),
                   )
@@ -654,8 +633,8 @@ elif menu == "Importar Extrato":
 
           conn.commit()
           st.success(
-              f"🎉 {count} transações extraídas do PDF e vinculadas ao Dashboard"
-              " com sucesso!"
+              f"🎉 {count} transações do PDF extraídas e categorizadas"
+              " automaticamente!"
           )
       except Exception as e:
         st.error(f"Erro ao ler PDF: {e}")
@@ -699,10 +678,7 @@ elif menu == "Transações":
         st.success("Transação excluída com sucesso!")
         st.rerun()
   else:
-    st.info(
-        "Nenhuma transação cadastrada. Vá em 'Importar Extrato' para enviar"
-        " seu arquivo."
-    )
+    st.info("Nenhuma transação cadastrada.")
 
 
 # ==========================================
@@ -718,41 +694,6 @@ elif menu == "Categorias":
     st.markdown('<div class="btn-verde">', unsafe_allow_html=True)
     nova_cat_btn = st.button("＋ Nova Categoria", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
-  if nova_cat_btn or st.session_state.get("abrir_modal_categoria", False):
-    st.session_state["abrir_modal_categoria"] = True
-    with st.container():
-      st.markdown(
-          """
-            <div style='background-color: #161e2e; border: 1px solid #374151; padding: 25px; border-radius: 12px; margin-bottom: 25px;'>
-                <h3 style='margin-top: 0; color: #fff;'>Nova Categoria</h3>
-            """,
-          unsafe_allow_html=True,
-      )
-      with st.form("form_nova_categoria", clear_on_submit=True):
-        nome_cat = st.text_input("Nome da Categoria", placeholder="Ex: Academia")
-        tipo_cat = st.selectbox("Tipo", ["Despesa", "Receita"])
-        icone_cat = st.text_input("Ícone (Emoji)", value="📁")
-        b1, b2 = st.columns(2)
-        with b1:
-          salvar_cat = st.form_submit_button(
-              "Salvar", use_container_width=True, type="primary"
-          )
-        with b2:
-          fechar_cat = st.form_submit_button("Cancelar", use_container_width=True)
-        if salvar_cat and nome_cat:
-          cursor = conn.cursor()
-          cursor.execute(
-              "INSERT INTO categorias (nome, tipo, icone) VALUES (?, ?, ?)",
-              (nome_cat, tipo_cat, icone_cat),
-          )
-          conn.commit()
-          st.session_state["abrir_modal_categoria"] = False
-          st.rerun()
-        if fechar_cat:
-          st.session_state["abrir_modal_categoria"] = False
-          st.rerun()
-      st.markdown("</div>", unsafe_allow_html=True)
 
   df_categorias = pd.read_sql("SELECT * FROM categorias", conn)
   if df_categorias.empty:
